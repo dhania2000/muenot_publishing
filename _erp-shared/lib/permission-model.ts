@@ -1,0 +1,1255 @@
+/**
+ * @file lib/permission-model.ts
+ * @module Authorisation (RBAC)
+ * @kind Server-side library
+ * @summary Authorisation (RBAC) domain logic (PERMISSION_SCOPES, PermissionScope, PERMISSION_ACTIONS, PermissionAction, …).
+ * @exports PERMISSION_SCOPES, PermissionScope, PERMISSION_ACTIONS, PermissionAction, ExtendedAction, GST_FILING_EXTRA_ACTIONS, ORG_HIERARCHY_EXTRA_ACTIONS, ENTITY_EXTRA_ACTIONS, … (41 total)
+ * @usedBy app/admin/notification-preferences/page.tsx, app/api/admin/roles/[id]/route.ts, app/api/hr/employees/[id]/permission-matrix/route.ts, app/api/import/[key]/route.ts, app/notifications/preferences/page.tsx (+14 more); 7 test files
+ * @see docs/CODEBASE-GUIDE.md for module ownership, conventions and where to add new code.
+ */
+// =============================================================
+// Worksuite-style permission model
+// -------------------------------------------------------------
+// Mirrors demo.worksuite.biz/account/employees/:id?tab=permissions
+//
+// Every permission "module" (a data area, e.g. Employees, Leads,
+// Attendance) has four actions — Add / View / Update / Delete — and
+// each action carries a record-level SCOPE:
+//
+//   none  -> no access
+//   all   -> every record
+//   added -> only records this user created  (created_by/added_by)
+//   owned -> only records assigned to / owned by this user (assigned_to)
+//   both  -> records the user added OR owns
+//
+// The `scope` config below tells the enforcement engine which columns
+// represent "added" and "owned" for each module's primary table, so it
+// can build the correct SQL WHERE fragment for list/detail queries.
+// =============================================================
+
+import { IT_SUBMODULES } from "@/lib/it/config"
+
+export const PERMISSION_SCOPES = ["none", "all", "added", "owned", "both"] as const
+export type PermissionScope = (typeof PERMISSION_SCOPES)[number]
+
+export const PERMISSION_ACTIONS = ["add", "view", "update", "delete"] as const
+export type PermissionAction = (typeof PERMISSION_ACTIONS)[number]
+
+/**
+ * A module-specific EXTENDED action (beyond the four CRUD verbs). Used to give
+ * high-risk workflows their own separately-grantable permission — e.g. GST
+ * Filing separates "File Return", "Record Tax Payment", "Reopen Period" and
+ * "Amend Return" from the generic Add/View/Update/Delete so that plain Update
+ * can never file, pay, reopen or amend a return.
+ *
+ * `fallback` is the base CRUD action an extended grant DERIVES from when an
+ * admin has a permission matrix configured but has not yet set this extended
+ * action explicitly. Destructive/irreversible actions fall back to `delete`
+ * (the strongest base verb) so a mere Update never implies them; preparatory
+ * actions fall back to `update`, and read-only ones to `view`. Once an admin
+ * sets the extended action explicitly, that value wins.
+ *
+ * `scoped` marks whether All/Added/Owned/Both record-scoping is meaningful for
+ * the action. GST returns are period-level, org-wide documents with no
+ * per-user owner, so their extended actions are simple Allowed/None grants.
+ */
+export type ExtendedAction = {
+  key: string
+  label: string
+  fallback: PermissionAction
+  scoped: boolean
+  description?: string
+}
+
+/**
+ * Phase 44 — GST Filing granular action permissions. These live ALONGSIDE the
+ * existing Add/View/Update/Delete for the GST Filing module; they never
+ * replace them. A filed return can only move forward through these gated
+ * actions (reopen/amend/payment), never via a generic Update/Delete.
+ */
+export const GST_FILING_EXTRA_ACTIONS: ExtendedAction[] = [
+  { key: "prepare_return", label: "Prepare Return", fallback: "update", scoped: false, description: "Materialise a draft return from the derived summary." },
+  { key: "review_return", label: "Review Return", fallback: "update", scoped: false, description: "Submit for review and mark a return reviewed." },
+  { key: "file_return", label: "File Return", fallback: "delete", scoped: false, description: "File the return (including Nil returns) with the portal ARN." },
+  { key: "record_payment", label: "Record Tax Payment", fallback: "delete", scoped: false, description: "Record tax paid and move the return through its payment lifecycle." },
+  { key: "reopen_period", label: "Reopen Period", fallback: "delete", scoped: false, description: "Reopen a pre-file return back to Draft." },
+  { key: "amend_return", label: "Amend Return", fallback: "delete", scoped: false, description: "Amend a filed return (archives the prior snapshot)." },
+  { key: "cancel_return", label: "Cancel Return", fallback: "delete", scoped: false, description: "Cancel/void a prepared return." },
+  { key: "export_return", label: "Export Return", fallback: "view", scoped: false, description: "Export the return and the CA hand-off package." },
+  { key: "reconcile_gst", label: "Reconcile GST", fallback: "update", scoped: false, description: "Run and act on output-GST / GSTR-2B reconciliation." },
+  { key: "manage_itc", label: "Manage ITC", fallback: "update", scoped: false, description: "Manage input tax credit — claim/unclaim and adjust the GST Input / ITC register." },
+  { key: "manage_reversal", label: "Manage ITC Reversal", fallback: "update", scoped: false, description: "Record and manage ITC reversals that feed GSTR-3B and net liability." },
+  { key: "manage_filing", label: "Manage Filing", fallback: "delete", scoped: false, description: "Close/lock a period and manage filing configuration." },
+  { key: "view_sensitive", label: "View Sensitive Tax Data", fallback: "view", scoped: false, description: "View sensitive tax data such as the audit trail and ARNs." },
+]
+
+/**
+ * Organization hierarchy extended actions. They live ALONGSIDE the
+ * base Add/View/Update/Delete on the Organization Hierarchy module and gate the
+ * structural operations that are riskier than a plain field edit: moving a
+ * subtree, assigning/removing users, and cascading deletes.
+ */
+export const ORG_HIERARCHY_EXTRA_ACTIONS: ExtendedAction[] = [
+  { key: "reparent_unit", label: "Move / Re-parent Unit", fallback: "update", scoped: false, description: "Move a unit (and its subtree) under a different parent in the hierarchy." },
+  { key: "manage_assignments", label: "Manage User Assignments", fallback: "update", scoped: false, description: "Assign or remove users from an organizational unit and set their primary unit." },
+  { key: "cascade_delete", label: "Cascade Delete Subtree", fallback: "delete", scoped: false, description: "Delete a unit together with every descendant unit and their assignments." },
+]
+
+/**
+ * Multi-entity extended actions. They live ALONGSIDE the base
+ * Add/View/Update/Delete on the Legal Entities module and gate the operations
+ * that reshape the group structure: promoting the default entity, managing an
+ * entity's bank identities, and recording inter-company transfers.
+ */
+export const ENTITY_EXTRA_ACTIONS: ExtendedAction[] = [
+  { key: "set_default", label: "Set Default Entity", fallback: "update", scoped: false, description: "Promote a legal entity to be the tenant's default booking entity." },
+  { key: "manage_bank_accounts", label: "Manage Bank Accounts", fallback: "update", scoped: false, description: "Add or remove the bank / cash accounts held under a legal entity." },
+  { key: "record_intercompany", label: "Record Inter-company Transactions", fallback: "update", scoped: false, description: "Create and update transfers between two of the tenant's own entities." },
+  { key: "view_consolidated", label: "View Consolidated Reporting", fallback: "view", scoped: false, description: "View entity-level and consolidated (group) financial roll-ups." },
+]
+
+/**
+ * Product & Inventory extended actions (Phase 44). They live ALONGSIDE the base
+ * Add/View/Update/Delete on the Products module and gate the sensitive or
+ * high-impact operations: moving stock, seeing cost/margin, and bulk data ops.
+ */
+export const PRODUCT_EXTRA_ACTIONS: ExtendedAction[] = [
+  { key: "adjust_stock", label: "Adjust Stock", fallback: "update", scoped: false, description: "Manually increase, decrease or set on-hand stock with a reason." },
+  { key: "view_cost", label: "View Cost Price", fallback: "view", scoped: false, description: "View purchase / cost price and inventory cost valuation." },
+  { key: "view_margin", label: "View Margin", fallback: "view", scoped: false, description: "View profit margin between cost and selling price." },
+  { key: "change_status", label: "Change Status", fallback: "delete", scoped: false, description: "Activate, deactivate or discontinue a product." },
+  { key: "manage_categories", label: "Manage Categories", fallback: "update", scoped: false, description: "Add or retire product categories and subcategories." },
+  { key: "import_export", label: "Import / Export", fallback: "delete", scoped: false, description: "Bulk import products and export the catalog." },
+  { key: "manage_settings", label: "Manage Settings", fallback: "delete", scoped: false, description: "Tune module defaults such as negative-stock policy and reorder thresholds." },
+]
+
+/**
+ * TDS Filing granular action permissions — the compliance chain that follows
+ * deduction (liability → challan → return → certificate → reconciliation).
+ * Like the GST set, these live ALONGSIDE Add/View/Update/Delete and gate the
+ * high-risk, largely irreversible statutory steps so a plain Update can never
+ * file a return, record a government deposit, or issue a certificate.
+ */
+export const TDS_FILING_EXTRA_ACTIONS: ExtendedAction[] = [
+  { key: "prepare_return", label: "Prepare TDS Return", fallback: "update", scoped: false, description: "Materialise a draft monthly filing / quarterly 24Q/26Q statement from the derived liability." },
+  { key: "review_return", label: "Review TDS Return", fallback: "update", scoped: false, description: "Submit a prepared return for review and mark it reviewed before filing." },
+  { key: "file_return", label: "File TDS Return", fallback: "delete", scoped: false, description: "File a monthly filing or a quarterly 24Q/26Q return." },
+  { key: "record_challan", label: "Record Challan", fallback: "delete", scoped: false, description: "Record a government TDS challan / deposit against a period." },
+  { key: "record_payment", label: "Record TDS Payment", fallback: "delete", scoped: false, description: "Record a TDS deposit/payment and allocate it against the period liability." },
+  { key: "issue_certificate", label: "Issue Certificate", fallback: "delete", scoped: false, description: "Generate and issue Form 16 / 16A certificates to deductees." },
+  { key: "reconcile_tds", label: "Reconcile TDS", fallback: "update", scoped: false, description: "Run the deducted / deposited / reported three-way reconciliation." },
+  { key: "amend_return", label: "Amend / Correct Return", fallback: "delete", scoped: false, description: "File a correction statement against an already-filed return (archives the prior snapshot)." },
+  { key: "reopen_period", label: "Reopen Period", fallback: "delete", scoped: false, description: "Reopen a locked / closed period back to an editable state." },
+  { key: "manage_rules", label: "Manage TDS Rules", fallback: "delete", scoped: false, description: "Add, edit or retire section rates and thresholds in the TDS rule master." },
+  { key: "export_return", label: "Export TDS Return", fallback: "view", scoped: false, description: "Export the return, challan register, certificate hand-off pack and CA review package." },
+  { key: "view_sensitive", label: "View Sensitive Tax Data", fallback: "view", scoped: false, description: "View sensitive TDS data such as full PANs, the audit trail and TRACES tokens." },
+]
+
+/**
+ * Journal & Ledger granular action — the export registers (Phase 51). Lives
+ * ALONGSIDE the module's Add/View/Update/Delete: a read-only hand-off action
+ * that falls back to `view`, so anyone who can view journals can pull the
+ * Register / Detail / Account-wise / Voucher-wise / Period-wise exports, and
+ * it can be revoked independently without touching view access.
+ */
+export const JOURNAL_EXTRA_ACTIONS: ExtendedAction[] = [
+  { key: "export", label: "Export Journals", fallback: "view", scoped: false, description: "Export the journal register, detail, account-wise, voucher-wise and period-wise datasets." },
+  { key: "lock_period", label: "Lock Accounting Period", fallback: "delete", scoped: false, description: "Lock an accounting month so journal, invoice, payment and tax transactions dated in it can no longer be posted or edited (SPEC 162)." },
+  { key: "unlock_period", label: "Unlock Accounting Period", fallback: "delete", scoped: false, description: "Re-open a locked accounting month so finance can post or edit transactions dated in it again (SPEC 162)." },
+]
+
+/**
+ * Financial Reports granular actions. Viewing a report is governed by the
+ * module's base `view` scope; these two extended grants separate the ability to
+ * take a report OUT of the system from merely reading it, so an admin can let
+ * someone view reports on-screen while revoking downloads and/or emailing.
+ * Both fall back to `view`, so a viewer keeps export + email by default until
+ * an admin explicitly sets either to "none".
+ */
+export const REPORTS_EXTRA_ACTIONS: ExtendedAction[] = [
+  { key: "export_report", label: "Export / Download Report", fallback: "view", scoped: false, description: "Download a report as PDF, Excel or CSV." },
+  { key: "email_report", label: "Email Report", fallback: "view", scoped: false, description: "Email a report snapshot to a recipient." },
+]
+
+/**
+ * Employee Assets granular actions. The base Add/View/Update/Delete scopes
+ * govern the assignment records themselves; these carve the asset lifecycle
+ * operations out of a plain Update so an admin can e.g. let someone assign and
+ * return assets but not mark them lost/damaged, or grant export independently.
+ * Assign falls back to `add`; return / reassign / repair fall back to `update`;
+ * the loss events fall back to `delete`; export falls back to `view`.
+ */
+/**
+ * Event gate security. Deliberately NOT derived from "view": an employee who
+ * can see their own events must never be able to verify someone else's pass.
+ */
+export const EVENT_SECURITY_EXTRA_ACTIONS: ExtendedAction[] = [
+  { key: "security_scan", label: "Event Security Scan", fallback: "update", scoped: false, description: "Verify employee event passes and see the attendee identity card." },
+  { key: "check_in", label: "Event Check-In / Check-Out", fallback: "update", scoped: false, description: "Record gate check-in and check-out against an employee event pass." },
+]
+
+export const EMPLOYEE_ASSET_EXTRA_ACTIONS: ExtendedAction[] = [
+  { key: "assign", label: "Assign Asset", fallback: "add", scoped: true, description: "Assign a company fixed asset to an employee." },
+  { key: "return_asset", label: "Return Asset", fallback: "update", scoped: true, description: "Record the return of an assigned asset." },
+  { key: "reassign", label: "Reassign Asset", fallback: "update", scoped: true, description: "Return the current holder and reassign the asset to another employee." },
+  { key: "mark_status", label: "Mark Lost / Damaged / Repair", fallback: "delete", scoped: true, description: "Flag an assigned asset as lost, damaged or under repair." },
+  { key: "export", label: "Export Assignments", fallback: "view", scoped: false, description: "Export the employee-asset assignment register as CSV." },
+]
+
+/**
+ * Company Subscriptions granular actions. The base Add/View/Update/Delete scopes
+ * govern the subscription records; these separate the recurring-service
+ * lifecycle (seat assign/revoke, renew, cancel/suspend) and CSV export so they
+ * can be granted independently of a plain Update.
+ */
+export const COMPANY_SUBSCRIPTION_EXTRA_ACTIONS: ExtendedAction[] = [
+  { key: "assign_seat", label: "Assign Seat", fallback: "add", scoped: true, description: "Allocate a subscription seat/license to an employee." },
+  { key: "revoke_seat", label: "Revoke Seat", fallback: "update", scoped: true, description: "Revoke a subscription seat from an employee." },
+  { key: "renew", label: "Renew Subscription", fallback: "update", scoped: true, description: "Renew a subscription for another billing cycle." },
+  { key: "cancel", label: "Cancel / Suspend", fallback: "delete", scoped: true, description: "Cancel, suspend or reactivate a subscription." },
+  { key: "manage_documents", label: "Manage Documents", fallback: "update", scoped: true, description: "Attach or remove subscription documents." },
+  { key: "export", label: "Export Register", fallback: "view", scoped: false, description: "Export the company subscription register as CSV." },
+]
+
+/**
+ * Phase 53 — Interviews & Assessments granular action permissions. These live
+ * ALONGSIDE the module's Add/View/Update/Delete and carve the scheduling
+ * lifecycle out of the generic verbs, so a plain Update can neither reschedule
+ * nor cancel an interview and a plain Add cannot silently push calendar invites.
+ * They are `scoped` because interviews carry a real per-user owner (created_by),
+ * so an admin can e.g. let a coordinator reschedule only interviews they own.
+ * Destructive/irreversible steps fall back to `delete`; preparatory ones to the
+ * base verb they extend (`add`/`update`).
+ */
+/**
+ * Screen Activity Monitoring extended actions. Base View/Add/Update/Delete
+ * scopes already encode "View Own / Team / All" (via none/owned/added/all). The
+ * privileged operations below are separable so an HR viewer can be granted read
+ * access without export, retention-purge or settings rights.
+ */
+export const SCREEN_MONITORING_EXTRA_ACTIONS: ExtendedAction[] = [
+  { key: "export", label: "Export Monitoring Data", fallback: "view", scoped: false, description: "Export monitoring session metadata (employee, attendance, session, duration, status)." },
+  { key: "download_screenshot", label: "Download Screenshot", fallback: "view", scoped: false, description: "Download individual captured screenshots (audited)." },
+  { key: "manage_retention", label: "Retention Management", fallback: "delete", scoped: false, description: "Delete screenshots and manage retention purges." },
+  { key: "manage_settings", label: "Monitoring Settings", fallback: "delete", scoped: false, description: "Configure capture interval, image quality and retention window." },
+]
+
+export const BIOMETRIC_EXTRA_ACTIONS: ExtendedAction[] = [
+  { key: "manage", label: "Manage Biometric Integration", fallback: "delete", scoped: false, description: "Add devices and gateways, rotate credentials, map device users, resolve exceptions and change settings." },
+]
+
+export const INTERVIEW_EXTRA_ACTIONS: ExtendedAction[] = [
+  { key: "schedule_interview", label: "Schedule Interview", fallback: "add", scoped: true, description: "Schedule an interview and issue the calendar invite / notifications." },
+  { key: "reschedule_interview", label: "Reschedule Interview", fallback: "update", scoped: true, description: "Move a scheduled interview to a new date/time and re-issue invites." },
+  { key: "cancel_interview", label: "Cancel Interview", fallback: "delete", scoped: true, description: "Cancel a scheduled interview and withdraw its calendar invite." },
+  { key: "record_outcome", label: "Record Interview Outcome", fallback: "update", scoped: true, description: "Record a pass/fail outcome that advances or rejects the candidate." },
+]
+
+/**
+ * Phase 53 — Selection & Offers granular action permissions. Sending, revoking
+ * and (irreversibly) converting an accepted offer into an employee are gated
+ * separately from a plain Update/Delete. `convert_offer` creates HR + onboarding
+ * data, so it falls back to `delete`; `send_offer` falls back to `update`.
+ */
+export const OFFER_EXTRA_ACTIONS: ExtendedAction[] = [
+  { key: "send_offer", label: "Send Offer", fallback: "update", scoped: true, description: "Issue / release an offer to a candidate." },
+  { key: "revoke_offer", label: "Revoke Offer", fallback: "delete", scoped: true, description: "Withdraw or rescind a live offer." },
+  { key: "convert_offer", label: "Convert Offer to Employee", fallback: "delete", scoped: true, description: "Convert an accepted offer into an employee record (creates HR + onboarding data)." },
+]
+
+export type ModulePermission = {
+  add: PermissionScope
+  view: PermissionScope
+  update: PermissionScope
+  delete: PermissionScope
+  /**
+   * Module-specific extended-action grants, keyed by `ExtendedAction.key`.
+   * Only present for modules that declare `extraActions`.
+   */
+  extra?: Record<string, PermissionScope>
+}
+export type PermissionMatrix = Record<string, ModulePermission>
+
+/** Ownership columns for a module's primary table, used for record-level scoping. */
+export type ScopeConfig = {
+  /** Primary table the module reads from. */
+  table: string
+  /** Column holding the creator's user id ("added" scope). */
+  addedBy?: string
+  /** Column holding the assignee/owner user id ("owned" scope). */
+  ownedBy?: string
+}
+
+export type PermissionModule = {
+  key: string
+  label: string
+  /** Top-level app module (matches `modules.slug`) — used for sidebar gating. */
+  group: string
+  /** Keywords used to map legacy feature slugs onto this module. */
+  aliases: string[]
+  scope: ScopeConfig
+  /** Module-specific extended actions beyond Add/View/Update/Delete. */
+  extraActions?: ExtendedAction[]
+}
+
+const ENTITY_360_GROUP = "entity360"
+
+export const ENTITY_360_VIEWS = ["client", "customer", "vendor", "employee", "candidate", "project", "contract", "asset"] as const
+export type Entity360View = (typeof ENTITY_360_VIEWS)[number]
+
+/** Permission-matrix key gating each 360 page. */
+export function entity360PermissionKey(view: Entity360View): string {
+  return `${ENTITY_360_GROUP}.${view}`
+}
+
+const DASHBOARD_GROUP = "dashboard"
+
+export const DASHBOARD_VIEWS = ["private", "executive"] as const
+export type DashboardView = (typeof DASHBOARD_VIEWS)[number]
+
+/** Permission-matrix key gating each Dashboard page. */
+export function dashboardPermissionKey(view: DashboardView): string {
+  return `${DASHBOARD_GROUP}.${view}`
+}
+
+/** Permission-matrix key gating one IT Management workspace page. */
+export function itPagePermissionKey(pageKey: string): string {
+  return `it.${pageKey.replace(/-/g, "_")}`
+}
+
+/**
+ * One matrix row per IT Management page, generated from the IT workspace
+ * config so new pages appear in the role editor automatically. Action-only
+ * pages (navHidden) are gated through their parent page.
+ */
+const IT_MANAGEMENT_MODULES: PermissionModule[] = IT_SUBMODULES.flatMap((submodule) =>
+  submodule.pages
+    .filter((page) => !page.navHidden)
+    .map((page) => ({
+      key: itPagePermissionKey(page.key),
+      label: `${submodule.label} · ${page.label}`,
+      group: "it",
+      aliases: [page.key.replace(/-/g, "_")],
+      scope: { table: "it_assets" },
+    })),
+)
+
+const IT_ADMIN_GROUP = "it-admin"
+
+/** Sections of the IT Admin sidebar consoles, mirroring each console's in-page tabs. */
+const IT_ADMIN_SECTIONS: { console: string; pages: [key: string, label: string][] }[] = [
+  {
+    console: "Automation",
+    pages: [
+      ["automation_overview", "Overview"],
+      ["automation_studio", "Studio"],
+      ["automation_workflows", "Workflows"],
+      ["automation_events", "Events"],
+      ["automation_notifications", "Notifications"],
+      ["automation_email", "Email"],
+      ["automation_email_engine", "Email Engine"],
+    ],
+  },
+  {
+    console: "Security & Access",
+    pages: [
+      ["security_overview", "Overview"],
+      ["security_sso", "SSO"],
+      ["security_mfa", "MFA"],
+      ["security_password", "Passwords"],
+      ["security_passkeys", "Passkeys"],
+      ["security_access_policies", "Access Policies"],
+      ["security_ip_allowlist", "IP Allowlist"],
+      ["security_geo_policy", "Country Policy"],
+      ["security_managed_devices", "Managed Devices"],
+      ["security_temporary_access", "Temporary Access"],
+      ["security_emergency_access", "Emergency Access"],
+      ["security_support_access", "Support Access"],
+      ["security_sessions", "Sessions"],
+      ["security_api_webhooks", "API & Webhooks"],
+      ["security_api_usage", "API Usage"],
+      ["security_rate_limits", "Rate Limits"],
+      ["security_api_versions", "API Versions"],
+      ["security_alerts", "Alerts"],
+      ["security_anomalies", "Risk Queue"],
+      ["security_access_reviews", "Access Reviews"],
+      ["security_audit_log", "Audit Log"],
+      ["security_audit_retention", "Audit Retention"],
+      ["security_audit_streams", "Audit Streams"],
+      ["security_encryption", "Encryption Keys"],
+    ],
+  },
+  {
+    console: "Data Governance",
+    pages: [
+      ["governance_audit_log", "Audit Log"],
+      ["governance_master_data", "Master Data"],
+      ["governance_classification", "Classification"],
+      ["governance_field_security", "Field Security"],
+      ["governance_retention", "Retention"],
+      ["governance_legal_holds", "Legal Holds"],
+      ["governance_privacy", "Privacy"],
+      ["governance_import_center", "Import Center"],
+      ["governance_export_center", "Export Center"],
+    ],
+  },
+  {
+    console: "AI Governance",
+    pages: [
+      ["ai_governance_overview", "Overview"],
+      ["ai_governance_communication", "Communication"],
+      ["ai_governance_credits", "Credits"],
+    ],
+  },
+  {
+    console: "Storage",
+    pages: [
+      ["storage_files", "Files"],
+      ["storage_media", "Media"],
+      ["storage_security", "Security"],
+      ["storage_usage", "Usage & Quotas"],
+      ["storage_versions", "Versions"],
+      ["storage_retention", "Retention"],
+      ["storage_connections", "Connections"],
+      ["storage_health", "Health"],
+    ],
+  },
+]
+
+const IT_ADMIN_MODULES: PermissionModule[] = IT_ADMIN_SECTIONS.flatMap(({ console, pages }) =>
+  pages.map(([key, label]) => ({
+    key: `${IT_ADMIN_GROUP}.${key}`,
+    label: `${console} · ${label}`,
+    group: IT_ADMIN_GROUP,
+    aliases: [key],
+    scope: { table: "users" },
+  })),
+)
+
+/** Publishing → Alt Text granular actions, alongside Add/View/Update/Delete. */
+const ALT_TEXT_EXTRA_ACTIONS: ExtendedAction[] = [
+  { key: "upload", label: "Upload", fallback: "add", scoped: false, description: "Upload images and documents" },
+  { key: "generate", label: "Generate", fallback: "add", scoped: false, description: "Run AI alt text generation (uses AI credits)" },
+  { key: "review", label: "Review", fallback: "update", scoped: true, description: "Edit AI drafts in the review queue" },
+  { key: "approve", label: "Approve", fallback: "update", scoped: false, description: "Approve or reject alt text" },
+  { key: "export", label: "Export", fallback: "view", scoped: false, description: "Download CSV / XLSX / JSON exports" },
+  { key: "manage_settings", label: "Manage settings", fallback: "update", scoped: false, description: "Change Alt Text settings" },
+]
+
+export type PermissionGroup = {
+  slug: string
+  label: string
+  /** Top-level module slugs bundled under this display group (when they differ from `slug`). */
+  memberGroups?: string[]
+  modules: PermissionModule[]
+}
+
+/**
+ * The full permission catalog, grouped by app module — this drives the
+ * matrix rendered on every employee profile's Permissions tab.
+ */
+export const PERMISSION_GROUPS: PermissionGroup[] = [
+  {
+    slug: "hr",
+    label: "HR",
+    modules: [
+      // Dashboard rows carry no record-level ownership — only "view" is meaningful.
+      { key: "hr.dashboard", label: "HR Dashboard", group: "hr", aliases: ["dashboard"], scope: { table: "hr_employees" } },
+      // SPEC 134 — "view" opens the module (own reviews/feedback/plans are
+      // always record-scoped); "manage" = HR: configure scales, run cycles, calibrate.
+      { key: "hr.performance", label: "Performance Management", group: "hr", aliases: ["performance"], scope: { table: "perf_reviews", ownedBy: "employee_user_id" } },
+      // Pages that previously shared the single "hr.master" row (or had no row
+      // at all). Declared before "Employee Documents" so "document_type" wins
+      // over the broader "document" alias. Until a role/user explicitly sets
+      // them they inherit from LEGACY_PERMISSION_PARENTS.
+      { key: "hr.training", label: "Training Management", group: "hr", aliases: ["training"], scope: { table: "hr_training_courses" } },
+      { key: "hr.policies", label: "Policies", group: "hr", aliases: ["polic"], scope: { table: "hr_policies" } },
+      { key: "hr.promotions", label: "Promotions", group: "hr", aliases: ["promotion"], scope: { table: "hr_promotions", addedBy: "created_by" } },
+      { key: "hr.awards", label: "Awards & Recognition", group: "hr", aliases: ["award", "appreciation"], scope: { table: "hr_awards", addedBy: "created_by" } },
+      { key: "hr.passport_visa", label: "Passport & Visa", group: "hr", aliases: ["passport", "visa"], scope: { table: "hr_passport_visa", addedBy: "created_by" } },
+      { key: "hr.departments", label: "Departments", group: "hr", aliases: ["department"], scope: { table: "hr_departments", addedBy: "created_by" } },
+      { key: "hr.designations", label: "Designations", group: "hr", aliases: ["designation"], scope: { table: "hr_designations", addedBy: "created_by" } },
+      { key: "hr.document_types", label: "Document Types", group: "hr", aliases: ["document_type"], scope: { table: "hr_document_types" } },
+      { key: "hr.holidays", label: "Holiday Calendar", group: "hr", aliases: ["holiday"], scope: { table: "hr_holidays", addedBy: "created_by" } },
+      // Shift & rotation sub-modules are declared BEFORE "Employees" so the
+      // feature-slug resolver matches "hr.view_rotation_employees" here rather
+      // than being shadowed by the Employees module's broad "employee" alias.
+      { key: "hr.shift_change_requests", label: "Shift Change Requests", group: "hr", aliases: ["shift_change"], scope: { table: "hr_shift_change_requests" } },
+      { key: "hr.shift_assignments", label: "Shift Assignments", group: "hr", aliases: ["shift_assignment"], scope: { table: "hr_shift_assignments" } },
+      { key: "hr.shift_rotations", label: "Shift Rotations", group: "hr", aliases: ["shift_rotation"], scope: { table: "hr_shift_rotations", addedBy: "created_by" } },
+      { key: "hr.rotation_sequences", label: "Rotation Sequences", group: "hr", aliases: ["rotation_sequence"], scope: { table: "hr_shift_rotation_sequences" } },
+      { key: "hr.rotation_employees", label: "Rotation Employees", group: "hr", aliases: ["rotation_employee"], scope: { table: "hr_shift_rotation_employees" } },
+      { key: "hr.employees", label: "Employees", group: "hr", aliases: ["employee"], scope: { table: "hr_employees", addedBy: "created_by" } },
+      { key: "hr.documents", label: "Employee Documents", group: "hr", aliases: ["document"], scope: { table: "hr_employee_documents" } },
+      { key: "hr.biometric", label: "Biometric Attendance", group: "hr", aliases: ["biometric"], scope: { table: "biometric_devices" }, extraActions: BIOMETRIC_EXTRA_ACTIONS },
+      { key: "hr.attendance", label: "Attendance", group: "hr", aliases: ["attendance"], scope: { table: "hr_attendance", addedBy: "user_id", ownedBy: "user_id" } },
+      { key: "hr.attendance_regularisation", label: "Attendance Regularisation", group: "hr", aliases: ["regularisation"], scope: { table: "hr_attendance_regularisation" } },
+      { key: "hr.screen_monitoring", label: "Screen Activity Monitoring", group: "hr", aliases: ["screen_monitoring", "screen", "monitoring"], scope: { table: "screen_monitoring_sessions", addedBy: "user_id", ownedBy: "user_id" }, extraActions: SCREEN_MONITORING_EXTRA_ACTIONS },
+      // Leave sub-modules precede the generic "Leave Requests" (alias "leave")
+      // so their more specific slugs resolve to their own permission rows.
+      { key: "hr.leave_balances", label: "Leave Balances", group: "hr", aliases: ["leave_balance"], scope: { table: "hr_leave_balances" } },
+      { key: "hr.leave_quota_history", label: "Leave Quota History", group: "hr", aliases: ["leave_quota"], scope: { table: "hr_leave_quota_history", addedBy: "created_by" } },
+      { key: "hr.leave_types", label: "Leave Types", group: "hr", aliases: ["leave_type"], scope: { table: "hr_leave_types" } },
+      { key: "hr.leaves", label: "Leave Requests", group: "hr", aliases: ["leave"], scope: { table: "hr_leave_requests", addedBy: "created_by", ownedBy: "employee_id" } },
+      { key: "hr.shifts", label: "Shifts", group: "hr", aliases: ["shift"], scope: { table: "hr_shifts", addedBy: "created_by" } },
+      { key: "hr.support", label: "HR Support", group: "hr", aliases: ["support"], scope: { table: "hr_support_tickets", addedBy: "created_by", ownedBy: "assigned_to" } },
+      { key: "hr.offboarding", label: "Offboarding", group: "hr", aliases: ["offboarding", "exit"], scope: { table: "hr_offboarding", addedBy: "created_by" } },
+      { key: "hr.master", label: "HR Master Data (all setup pages)", group: "hr", aliases: ["master"], scope: { table: "hr_master_records", addedBy: "created_by" } },
+      // NOTE: keep "*_templates" modules BEFORE their plain counterparts so the
+      // feature-slug resolver matches the more specific alias first.
+      { key: "hr.email_templates", label: "HR Email Templates", group: "hr", aliases: ["email_template"], scope: { table: "hr_email_templates" } },
+      { key: "hr.emails", label: "HR Emails", group: "hr", aliases: ["email"], scope: { table: "hr_emails" } },
+      { key: "hr.letter_templates", label: "Letter Templates", group: "hr", aliases: ["letter_template"], scope: { table: "hr_letter_templates", addedBy: "created_by" } },
+      { key: "hr.letters", label: "Letters", group: "hr", aliases: ["letter"], scope: { table: "hr_letters", addedBy: "created_by" } },
+      // Payroll, expense claims and goals/KPIs were previously ungated sidebar
+      // pages. They now have their own permission rows so the Employee
+      // Permissions matrix can grant/revoke each one. Appended at the end with
+      // distinct aliases that no earlier HR module shadows.
+      { key: "hr.payroll", label: "Payroll", group: "hr", aliases: ["payroll"], scope: { table: "hr_payroll", addedBy: "created_by", ownedBy: "employee_id" } },
+      { key: "hr.expense_claims", label: "Expense Claims", group: "hr", aliases: ["expense_claims", "expense_claim", "expense", "claim"], scope: { table: "hr_expense_claims", addedBy: "created_by", ownedBy: "employee_id" } },
+      { key: "hr.goals", label: "Goals & KPIs", group: "hr", aliases: ["goals_kpi", "goal", "kpi"], scope: { table: "hr_goals", addedBy: "created_by", ownedBy: "employee_user_id" } },
+    ],
+  },
+  {
+    slug: "sales",
+    label: "Sales",
+    modules: [
+      { key: "sales.dashboard", label: "Sales Dashboard", group: "sales", aliases: ["dashboard"], scope: { table: "sales_leads" } },
+      { key: "sales.leads", label: "Leads", group: "sales", aliases: ["lead"], scope: { table: "sales_leads", addedBy: "created_by", ownedBy: "assigned_to" } },
+    { key: "sales.deals", label: "Deals", group: "sales", aliases: ["deal"], scope: { table: "sales_deals", addedBy: "created_by", ownedBy: "owner_id" } },
+      { key: "sales.companies", label: "Companies", group: "sales", aliases: ["compan", "account"], scope: { table: "sales_companies", addedBy: "created_by", ownedBy: "assigned_to" } },
+      { key: "sales.meetings", label: "Meetings", group: "sales", aliases: ["meeting"], scope: { table: "sales_meetings", addedBy: "added_by" } },
+      { key: "sales.quotations", label: "Quotations", group: "sales", aliases: ["quotation", "quote"], scope: { table: "sales_quotations", addedBy: "added_by" } },
+      { key: "sales.contracts", label: "Contracts", group: "sales", aliases: ["contract"], scope: { table: "sales_contracts", addedBy: "added_by" } },
+      { key: "sales.onboarding", label: "Client Onboarding", group: "sales", aliases: ["onboarding"], scope: { table: "sales_onboarding", addedBy: "added_by" } },
+      { key: "sales.email_templates", label: "Sales Email Templates", group: "sales", aliases: ["email_template"], scope: { table: "sales_email_templates", addedBy: "created_by" } },
+      { key: "sales.emails", label: "Sales Emails", group: "sales", aliases: ["email", "call"], scope: { table: "sales_emails" } },
+      // Pages that previously shared another row's gate (Forecast → Dashboard,
+      // Follow-ups → Leads, Contacts → Companies, Sales Orders → Quotations).
+      // Appended last so no existing sales slug resolves onto them.
+      { key: "sales.forecast", label: "Forecast", group: "sales", aliases: ["forecast"], scope: { table: "sales_deals", addedBy: "created_by", ownedBy: "owner_id" } },
+      { key: "sales.followups", label: "Follow-ups", group: "sales", aliases: ["followup"], scope: { table: "sales_leads", addedBy: "created_by", ownedBy: "assigned_to" } },
+      { key: "sales.contacts", label: "Contacts", group: "sales", aliases: ["contact"], scope: { table: "sales_companies", addedBy: "created_by", ownedBy: "assigned_to" } },
+      { key: "sales.sales_orders", label: "Sales Orders", group: "sales", aliases: ["sales_order"], scope: { table: "sales_quotations", addedBy: "added_by" } },
+    ],
+  },
+  {
+    slug: "finance",
+    label: "Finance",
+    modules: [
+      { key: "finance.dashboard", label: "Finance Dashboard", group: "finance", aliases: ["dashboard"], scope: { table: "finance_records" } },
+      // --- Procurement suite. Previously ungated sidebar pages; each now has its
+      // own permission row so the Employee Permissions matrix covers them.
+      // Declared here (BEFORE purchase_bills / customers_vendors) and ordered
+      // specific-before-generic so resolveFeatureSlug() maps every
+      // finance.view_* slug to the intended module instead of being shadowed by
+      // the broader "purchase"/"vendor"/"procurement" aliases below.
+      { key: "finance.procurement_approvals", label: "Procurement Approvals", group: "finance", aliases: ["procurement_approvals", "procurement_approval"], scope: { table: "procurement_approvals", addedBy: "created_by" } },
+      { key: "finance.purchase_requisition", label: "Purchase Requisition", group: "finance", aliases: ["purchase_requisition", "requisition"], scope: { table: "purchase_requisitions", addedBy: "created_by" } },
+      { key: "finance.purchase_orders", label: "Purchase Orders", group: "finance", aliases: ["purchase_orders", "purchase_order"], scope: { table: "purchase_orders", addedBy: "created_by" } },
+      { key: "finance.rfq", label: "RFQ Management", group: "finance", aliases: ["rfq"], scope: { table: "rfqs", addedBy: "created_by" } },
+      { key: "finance.three_way_match", label: "Three-Way Match", group: "finance", aliases: ["three_way_match", "three_way"], scope: { table: "three_way_match_results" } },
+      { key: "finance.budgets", label: "Budget Management", group: "finance", aliases: ["budgets", "budget"], scope: { table: "finance_budgets", addedBy: "created_by" } },
+      { key: "finance.period_lock", label: "Period Lock", group: "finance", aliases: ["period_lock"], scope: { table: "finance_period_locks" } },
+      { key: "finance.core_integration", label: "Core Integration", group: "finance", aliases: ["core_integration"], scope: { table: "finance_records" } },
+      { key: "finance.vendor_portal", label: "Vendor Portal", group: "finance", aliases: ["vendor_portal"], scope: { table: "vendor_portal_vendors", addedBy: "created_by" } },
+      { key: "finance.procurement", label: "Procurement", group: "finance", aliases: ["procurement"], scope: { table: "procurement_orders", addedBy: "created_by" } },
+      // "Sales Invoices" is a Finance sub-module (page lives at /modules/finance/sales-invoices).
+      { key: "finance.sales_invoices", label: "Sales Invoices", group: "finance", aliases: ["sales_invoice"], scope: { table: "sales_invoices", addedBy: "created_by" } },
+      { key: "finance.purchase_bills", label: "Purchase Bills", group: "finance", aliases: ["purchase", "bill"], scope: { table: "purchase_bills", addedBy: "created_by" } },
+      { key: "finance.expenses", label: "Expenses", group: "finance", aliases: ["expense"], scope: { table: "expenses", addedBy: "created_by", ownedBy: "user_id" } },
+      { key: "finance.fte_invoices", label: "FTE Invoices", group: "finance", aliases: ["fte"], scope: { table: "fte_invoices", addedBy: "created_by" } },
+      { key: "finance.freelance_invoices", label: "Freelance Invoices", group: "finance", aliases: ["freelance"], scope: { table: "freelance_invoices", addedBy: "created_by" } },
+      { key: "finance.bank_transactions", label: "Bank Transactions", group: "finance", aliases: ["bank_transaction", "transaction"], scope: { table: "bank_transactions", addedBy: "created_by" } },
+      { key: "finance.bank_cash", label: "Bank & Cash", group: "finance", aliases: ["bank_cash"], scope: { table: "finance_accounts", addedBy: "created_by" } },
+      { key: "finance.chart_of_accounts", label: "Chart of Accounts", group: "finance", aliases: ["chart"], scope: { table: "chart_of_accounts", addedBy: "created_by" } },
+      // Balance-sheet registers (declared with specific aliases that do not
+      // clash with any other Finance feature slug).
+      { key: "finance.fixed_assets", label: "Fixed Assets", group: "finance", aliases: ["fixed_asset"], scope: { table: "fixed_assets", addedBy: "created_by" } },
+      { key: "finance.loans_advances", label: "Loans & Advances", group: "finance", aliases: ["loans_advance", "loan"], scope: { table: "loans_advances", addedBy: "created_by" } },
+      { key: "finance.investments", label: "Investments", group: "finance", aliases: ["investment"], scope: { table: "investments", addedBy: "created_by" } },
+      { key: "finance.provisions_accruals", label: "Provisions & Accruals", group: "finance", aliases: ["provisions_accrual", "provision", "accrual"], scope: { table: "provisions_accruals", addedBy: "created_by" } },
+      { key: "finance.capital_equity", label: "Capital & Equity", group: "finance", aliases: ["capital_equity", "capital", "equity"], scope: { table: "capital_equity", addedBy: "created_by" } },
+      { key: "finance.related_parties", label: "Related Parties", group: "finance", aliases: ["related_parties", "related_part", "related"], scope: { table: "related_parties", addedBy: "created_by" } },
+      { key: "finance.customers_vendors", label: "Vendors", group: "finance", aliases: ["customer", "vendor"], scope: { table: "customers_vendors", addedBy: "created_by" } },
+      { key: "finance.gst_filing", label: "GST Filing", group: "finance", aliases: ["gst"], scope: { table: "gst_filings" }, extraActions: GST_FILING_EXTRA_ACTIONS },
+      { key: "finance.tds_filing", label: "TDS Filing", group: "finance", aliases: ["tds"], scope: { table: "tds_filings" }, extraActions: TDS_FILING_EXTRA_ACTIONS },
+      { key: "finance.journal", label: "Journal & Ledger", group: "finance", aliases: ["journal", "ledger"], scope: { table: "finance_records", addedBy: "created_by" }, extraActions: JOURNAL_EXTRA_ACTIONS },
+      { key: "finance.reports", label: "Financial Reports", group: "finance", aliases: ["financial_report", "report"], scope: { table: "finance_records" }, extraActions: REPORTS_EXTRA_ACTIONS },
+  { key: "finance.entities", label: "Legal Entities", group: "finance", aliases: ["entities", "entity", "legal_entity", "multi_entity"], scope: { table: "legal_entities", addedBy: "created_by" }, extraActions: ENTITY_EXTRA_ACTIONS },
+      { key: "finance.email_templates", label: "Finance Email Templates", group: "finance", aliases: ["email_template"], scope: { table: "finance_email_templates" } },
+      { key: "finance.emails", label: "Finance Emails", group: "finance", aliases: ["email"], scope: { table: "finance_emails", addedBy: "created_by" } },
+    ],
+  },
+  {
+    slug: "recruitment",
+    label: "Recruitment",
+    modules: [
+      { key: "recruitment.dashboard", label: "Recruitment Dashboard", group: "recruitment", aliases: ["dashboard"], scope: { table: "recruit_jobs" } },
+      // "Jobs" and "Job Applications" precede Requisitions so their dedicated
+      // slugs (recruitment.view_jobs / recruitment.view_applications) resolve to
+      // their own rows instead of collapsing onto Requisitions.
+      { key: "recruitment.jobs", label: "Jobs", group: "recruitment", aliases: ["job"], scope: { table: "recruit_jobs" } },
+      { key: "recruitment.applications", label: "Job Applications", group: "recruitment", aliases: ["application"], scope: { table: "recruit_applications" } },
+      { key: "recruitment.requisitions", label: "Job Requisitions", group: "recruitment", aliases: ["requisition"], scope: { table: "recruitment_requisitions", addedBy: "created_by" } },
+      { key: "recruitment.candidates", label: "Candidates", group: "recruitment", aliases: ["candidate", "screening", "source", "call"], scope: { table: "recruitment_candidates", addedBy: "created_by", ownedBy: "assigned_to" } },
+      { key: "recruitment.interviews", label: "Interviews & Assessments", group: "recruitment", aliases: ["interview", "assessment"], scope: { table: "recruitment_interviews", addedBy: "created_by" }, extraActions: INTERVIEW_EXTRA_ACTIONS },
+      { key: "recruitment.offers", label: "Selection & Offers", group: "recruitment", aliases: ["offer", "selection"], scope: { table: "recruitment_offers", addedBy: "created_by" }, extraActions: OFFER_EXTRA_ACTIONS },
+      { key: "recruitment.skills", label: "Job Skills", group: "recruitment", aliases: ["skill"], scope: { table: "recruit_job_skills", addedBy: "created_by" } },
+      { key: "recruitment.reports", label: "Recruitment Reports", group: "recruitment", aliases: ["report"], scope: { table: "recruit_jobs" } },
+      { key: "recruitment.email_templates", label: "Recruitment Email Templates", group: "recruitment", aliases: ["email_template"], scope: { table: "recruit_email_templates", addedBy: "created_by" } },
+      { key: "recruitment.emails", label: "Recruitment Emails", group: "recruitment", aliases: ["email"], scope: { table: "recruit_emails", addedBy: "created_by" } },
+      { key: "recruitment.settings", label: "Recruitment Settings", group: "recruitment", aliases: ["setting"], scope: { table: "recruit_jobs" } },
+      // One row per Recruitment page. Empty aliases so existing slugs keep
+      // resolving to the rows above; these are addressed by exact key and
+      // inherit from LEGACY_PERMISSION_PARENTS until explicitly set.
+      { key: "recruitment.requisition_hiring", label: "Requisition Hiring", group: "recruitment", aliases: [], scope: { table: "recruitment_requisitions", addedBy: "created_by" } },
+      { key: "recruitment.sources", label: "Recruitment Sources", group: "recruitment", aliases: [], scope: { table: "recruitment_candidates", addedBy: "created_by" } },
+      { key: "recruitment.campaigns", label: "Recruitment Campaigns", group: "recruitment", aliases: [], scope: { table: "recruitment_requisitions", addedBy: "created_by" } },
+      { key: "recruitment.screening", label: "Screening", group: "recruitment", aliases: [], scope: { table: "recruitment_candidates", addedBy: "created_by", ownedBy: "assigned_to" } },
+      { key: "recruitment.talent_pool", label: "Talent Pool", group: "recruitment", aliases: [], scope: { table: "recruitment_candidates", addedBy: "created_by", ownedBy: "assigned_to" } },
+      { key: "recruitment.candidate_activities", label: "Candidate Activities", group: "recruitment", aliases: [], scope: { table: "recruitment_candidates", addedBy: "created_by", ownedBy: "assigned_to" } },
+      { key: "recruitment.candidate_documents", label: "Candidate Documents", group: "recruitment", aliases: [], scope: { table: "recruitment_candidates", addedBy: "created_by", ownedBy: "assigned_to" } },
+      { key: "recruitment.referrals", label: "Employee Referrals", group: "recruitment", aliases: [], scope: { table: "recruitment_candidates", addedBy: "created_by" } },
+      { key: "recruitment.interview_schedule", label: "Interview Schedule", group: "recruitment", aliases: [], scope: { table: "recruitment_interviews", addedBy: "created_by" } },
+      { key: "recruitment.interview_feedback", label: "Interview Feedback", group: "recruitment", aliases: [], scope: { table: "recruitment_interviews", addedBy: "created_by" } },
+      { key: "recruitment.assessments", label: "Assessment Tracker", group: "recruitment", aliases: [], scope: { table: "recruitment_interviews", addedBy: "created_by" } },
+      { key: "recruitment.offer_letters", label: "Job Offer Letter", group: "recruitment", aliases: [], scope: { table: "recruitment_offers", addedBy: "created_by" } },
+      { key: "recruitment.background_verification", label: "Background Verification", group: "recruitment", aliases: [], scope: { table: "recruitment_candidates", addedBy: "created_by" } },
+      { key: "recruitment.reference_check", label: "Reference Check", group: "recruitment", aliases: [], scope: { table: "recruitment_candidates", addedBy: "created_by" } },
+      { key: "recruitment.pre_joining", label: "Pre-Joining", group: "recruitment", aliases: [], scope: { table: "recruitment_offers", addedBy: "created_by" } },
+      { key: "recruitment.onboarding", label: "Onboarding", group: "recruitment", aliases: [], scope: { table: "recruitment_offers", addedBy: "created_by" } },
+      { key: "recruitment.tasks", label: "Recruitment Tasks", group: "recruitment", aliases: [], scope: { table: "recruitment_candidates", addedBy: "created_by", ownedBy: "assigned_to" } },
+      { key: "recruitment.followups", label: "Recruitment Follow-ups", group: "recruitment", aliases: [], scope: { table: "recruitment_candidates", addedBy: "created_by", ownedBy: "assigned_to" } },
+      { key: "recruitment.vendors", label: "Recruitment Vendors", group: "recruitment", aliases: [], scope: { table: "recruitment_requisitions", addedBy: "created_by" } },
+      { key: "recruitment.costs", label: "Recruitment Costs", group: "recruitment", aliases: [], scope: { table: "recruitment_requisitions", addedBy: "created_by" } },
+      { key: "recruitment.career_site", label: "Career Site", group: "recruitment", aliases: [], scope: { table: "recruit_jobs" } },
+    ],
+  },
+  {
+    slug: "operations",
+    label: "Operations",
+    modules: [
+      { key: "operations.dashboard", label: "Operations Dashboard", group: "operations", aliases: ["dashboard"], scope: { table: "operations_projects" } },
+      // --- Expanded Operations sub-modules. Ordered specific-before-generic so
+      // resolveFeatureSlug() maps each `operations.view_*` slug to the intended
+      // module (e.g. client_deliverables wins over deliverables, sla_monitoring
+      // over quality's "sla" alias). Do not reorder without re-checking aliases.
+      { key: "operations.task_board", label: "Task Board", group: "operations", aliases: ["task_board"], scope: { table: "operations_tasks", addedBy: "created_by", ownedBy: "assigned_to" } },
+  { key: "operations.resource_conflict", label: "Resource Conflict", group: "operations", aliases: ["resource_conflict"], scope: { table: "operations_allocations", addedBy: "created_by" } },
+  { key: "operations.time_tracking", label: "Time Tracking", group: "operations", aliases: ["time_tracking"], scope: { table: "operations_timesheets", addedBy: "created_by" } },
+  { key: "operations.project_profitability", label: "Project Profitability", group: "operations", aliases: ["profitability"], scope: { table: "operations_budget_vs_actual", addedBy: "created_by" } },
+  { key: "operations.milestones", label: "Project Milestones", group: "operations", aliases: ["milestone"], scope: { table: "operations_milestones", addedBy: "created_by" } },
+      { key: "operations.client_deliverables", label: "Client Deliverables", group: "operations", aliases: ["client_deliverable"], scope: { table: "operations_client_deliverables", addedBy: "created_by" } },
+      { key: "operations.deliverables", label: "Project Deliverables", group: "operations", aliases: ["deliverable"], scope: { table: "operations_deliverables", addedBy: "created_by" } },
+      { key: "operations.project_documents", label: "Project Documents", group: "operations", aliases: ["project_document"], scope: { table: "operations_project_documents", addedBy: "created_by" } },
+      { key: "operations.tasks", label: "Tasks", group: "operations", aliases: ["task"], scope: { table: "operations_tasks", addedBy: "created_by", ownedBy: "assigned_to" } },
+      { key: "operations.work_orders", label: "Work Orders", group: "operations", aliases: ["work_order"], scope: { table: "operations_work_orders", addedBy: "created_by", ownedBy: "assigned_to" } },
+      { key: "operations.resource_requests", label: "Resource Requests", group: "operations", aliases: ["resource_request"], scope: { table: "operations_resource_requests", addedBy: "created_by" } },
+      { key: "operations.skill_matrix", label: "Skill Matrix", group: "operations", aliases: ["skill"], scope: { table: "operations_skill_matrix", addedBy: "created_by" } },
+      { key: "operations.capacity_planning", label: "Capacity Planning", group: "operations", aliases: ["capacity"], scope: { table: "operations_capacity_planning", addedBy: "created_by" } },
+      { key: "operations.utilization", label: "Utilization", group: "operations", aliases: ["utilization"], scope: { table: "operations_utilization", addedBy: "created_by" } },
+      { key: "operations.timesheets", label: "Timesheets", group: "operations", aliases: ["timesheet"], scope: { table: "operations_timesheets", addedBy: "created_by" } },
+      { key: "operations.productivity", label: "Productivity", group: "operations", aliases: ["productivity"], scope: { table: "operations_productivity", addedBy: "created_by" } },
+      // Scorecard Criteria precedes Quality Scorecards so its slug is not
+      // shadowed by the Scorecards module's broader "scorecard" alias.
+      { key: "operations.scorecard_criteria", label: "Scorecard Criteria", group: "operations", aliases: ["scorecard_criteria"], scope: { table: "operations_scorecard_criteria", addedBy: "created_by" } },
+      { key: "operations.scorecards", label: "Quality Scorecards", group: "operations", aliases: ["scorecard"], scope: { table: "operations_scorecards", addedBy: "created_by" } },
+      { key: "operations.qa_audits", label: "QA Audits", group: "operations", aliases: ["audit"], scope: { table: "operations_qa_audits", addedBy: "created_by" } },
+      { key: "operations.sla_monitoring", label: "SLA Monitoring", group: "operations", aliases: ["sla_monitoring"], scope: { table: "operations_sla_monitoring", addedBy: "created_by" } },
+      { key: "operations.corrective_actions", label: "Corrective Actions", group: "operations", aliases: ["corrective"], scope: { table: "operations_corrective_actions", addedBy: "created_by" } },
+      { key: "operations.escalations", label: "Escalations", group: "operations", aliases: ["escalation"], scope: { table: "operations_escalations", addedBy: "created_by", ownedBy: "assigned_to" } },
+      { key: "operations.root_cause_capa", label: "Root Cause / CAPA", group: "operations", aliases: ["capa"], scope: { table: "operations_root_cause_capa", addedBy: "created_by" } },
+      { key: "operations.sops", label: "SOPs", group: "operations", aliases: ["sop"], scope: { table: "operations_sops", addedBy: "created_by" } },
+      { key: "operations.checklists", label: "Checklists", group: "operations", aliases: ["checklist"], scope: { table: "operations_checklists", addedBy: "created_by" } },
+      { key: "operations.client_approvals", label: "Client Approvals", group: "operations", aliases: ["client_approval"], scope: { table: "operations_client_approvals", addedBy: "created_by" } },
+      { key: "operations.approvals", label: "Approvals", group: "operations", aliases: ["approval"], scope: { table: "operations_approvals", addedBy: "created_by" } },
+      { key: "operations.client_requirements", label: "Client Requirements", group: "operations", aliases: ["client_requirement", "requirement"], scope: { table: "operations_client_requirements", addedBy: "created_by" } },
+      { key: "operations.project_cost", label: "Project Cost", group: "operations", aliases: ["project_cost"], scope: { table: "operations_project_cost", addedBy: "created_by" } },
+      // Project Teams, Project Revenue and Risk Register previously fell through
+      // to the Dashboard/Projects rows. Declared before "projects" so its broad
+      // "project" alias does not shadow "operations.view_project_revenue".
+      { key: "operations.teams", label: "Project Teams", group: "operations", aliases: ["team"], scope: { table: "operations_teams", addedBy: "created_by" } },
+      { key: "operations.project_revenue", label: "Project Revenue", group: "operations", aliases: ["project_revenue", "revenue"], scope: { table: "operations_projects" } },
+      { key: "operations.risks", label: "Risk Register", group: "operations", aliases: ["risk"], scope: { table: "operations_risks", addedBy: "created_by" } },
+      { key: "operations.resource_cost", label: "Resource Cost", group: "operations", aliases: ["resource_cost"], scope: { table: "operations_resource_cost", addedBy: "created_by" } },
+      { key: "operations.vendor_cost", label: "Vendor Cost", group: "operations", aliases: ["vendor_cost"], scope: { table: "operations_vendor_cost", addedBy: "created_by" } },
+      { key: "operations.budget_vs_actual", label: "Budget vs Actual", group: "operations", aliases: ["budget"], scope: { table: "operations_budget_vs_actual", addedBy: "created_by" } },
+      { key: "operations.resources", label: "Resources", group: "operations", aliases: ["resource"], scope: { table: "operations_resources", addedBy: "created_by" } },
+      { key: "operations.projects", label: "Projects", group: "operations", aliases: ["project"], scope: { table: "operations_projects", addedBy: "created_by", ownedBy: "assigned_to" } },
+      { key: "operations.allocations", label: "Allocations", group: "operations", aliases: ["allocation"], scope: { table: "operations_allocations", addedBy: "created_by" } },
+      { key: "operations.quality", label: "Quality & SLA Reviews", group: "operations", aliases: ["quality", "sla", "review"], scope: { table: "operations_quality_reviews", addedBy: "created_by" } },
+      { key: "operations.issues", label: "Issues", group: "operations", aliases: ["issue"], scope: { table: "operations_issues", addedBy: "created_by", ownedBy: "assigned_to" } },
+      { key: "operations.email_templates", label: "Operations Email Templates", group: "operations", aliases: ["email_template"], scope: { table: "operations_email_templates" } },
+      { key: "operations.emails", label: "Operations Emails", group: "operations", aliases: ["email"], scope: { table: "operations_emails", addedBy: "created_by" } },
+      { key: "operations.meetings", label: "Operations Meetings", group: "operations", aliases: ["meeting"], scope: { table: "operations_meetings", addedBy: "created_by" } },
+      { key: "operations.analytics", label: "Operations Analytics", group: "operations", aliases: ["analytics"], scope: { table: "operations_projects" } },
+      // Documents (management/approval/expiry/sharing) and Calendar were
+      // ungated. Declared AFTER project_documents so its "document" alias does
+      // not shadow "operations.view_project_documents".
+      { key: "operations.documents", label: "Documents", group: "operations", aliases: ["documents", "document"], scope: { table: "operations_documents", addedBy: "created_by" } },
+      { key: "operations.calendar", label: "Operations Calendar", group: "operations", aliases: ["calendar"], scope: { table: "operations_calendar" } },
+    ],
+  },
+  {
+    slug: "clients",
+    label: "Clients",
+    modules: [
+      { key: "clients.dashboard", label: "Clients Dashboard", group: "clients", aliases: ["dashboard"], scope: { table: "clients" } },
+      { key: "clients.clients", label: "Clients", group: "clients", aliases: ["client"], scope: { table: "clients", addedBy: "created_by", ownedBy: "account_manager_id" } },
+      // Contacts previously fell through to the Clients Dashboard row.
+      { key: "clients.contacts", label: "Contacts", group: "clients", aliases: ["contact"], scope: { table: "contacts" } },
+    ],
+  },
+  {
+    slug: "tickets",
+    label: "Tickets",
+    modules: [
+      { key: "tickets.dashboard", label: "Tickets Dashboard", group: "tickets", aliases: ["dashboard"], scope: { table: "tickets" } },
+      { key: "tickets.tickets", label: "Tickets", group: "tickets", aliases: ["ticket"], scope: { table: "tickets", addedBy: "created_by", ownedBy: "assigned_to" } },
+      // SLA Management and Knowledge Base were ungated sidebar pages.
+      { key: "tickets.sla", label: "SLA Management", group: "tickets", aliases: ["sla"], scope: { table: "tickets_sla_policies" } },
+      { key: "tickets.knowledge_base", label: "Knowledge Base", group: "tickets", aliases: ["knowledge_base", "knowledge", "kb"], scope: { table: "knowledge_base_articles", addedBy: "created_by" } },
+    ],
+  },
+  {
+    slug: "products",
+    label: "Products",
+    modules: [
+      { key: "products.dashboard", label: "Products Dashboard", group: "products", aliases: ["dashboard"], scope: { table: "products" } },
+      { key: "products.products", label: "Products", group: "products", aliases: ["product", "catalog", "inventory"], scope: { table: "products", addedBy: "created_by" }, extraActions: PRODUCT_EXTRA_ACTIONS },
+    ],
+  },
+  {
+    slug: "orders",
+    label: "Orders",
+    modules: [
+      { key: "orders.dashboard", label: "Orders Dashboard", group: "orders", aliases: ["dashboard"], scope: { table: "orders" } },
+      { key: "orders.orders", label: "Orders", group: "orders", aliases: ["order"], scope: { table: "orders", addedBy: "created_by", ownedBy: "assigned_to" } },
+    ],
+  },
+  {
+    slug: "legal",
+    label: "Legal",
+    modules: [
+      { key: "legal.dashboard", label: "Legal Dashboard", group: "legal", aliases: ["dashboard"], scope: { table: "legal_contracts" } },
+      // Contract Templates precedes Contracts so "legal.view_contract_templates"
+      // resolves here instead of onto Contracts' broader "contract" alias.
+      { key: "legal.templates", label: "Contract Templates", group: "legal", aliases: ["contract_template", "template"], scope: { table: "legal_contract_templates" } },
+      { key: "legal.contracts", label: "Contracts", group: "legal", aliases: ["contract"], scope: { table: "legal_contracts", addedBy: "created_by" } },
+      { key: "legal.esign", label: "Esign", group: "legal", aliases: ["esign", "sign", "signature"], scope: { table: "legal_esign_requests", addedBy: "created_by" } },
+    ],
+  },
+  {
+    slug: "marketing",
+    label: "Marketing",
+    modules: [
+      { key: "marketing.dashboard", label: "Marketing Dashboard", group: "marketing", aliases: ["dashboard"], scope: { table: "social_posts" } },
+      { key: "marketing.contacts", label: "Contacts", group: "marketing", aliases: ["contact"], scope: { table: "marketing_contacts" } },
+      { key: "marketing.lead_generation", label: "Lead Generation", group: "marketing", aliases: ["lead_generation", "generation", "lead"], scope: { table: "marketing_leads" } },
+      { key: "marketing.journeys", label: "Journeys", group: "marketing", aliases: ["journey"], scope: { table: "marketing_journeys" } },
+      { key: "marketing.planner", label: "Marketing Planner", group: "marketing", aliases: ["planner", "plan"], scope: { table: "marketing_planner" } },
+      // Listed before the generic Campaigns row: the resolver takes the first alias substring match.
+      { key: "marketing.email_campaigns", label: "Email Campaigns", group: "marketing", aliases: ["email_campaigns", "email_campaign"], scope: { table: "social_posts", addedBy: "created_by" } },
+      { key: "marketing.social_campaigns", label: "Social Campaigns", group: "marketing", aliases: ["social_campaigns", "social_campaign"], scope: { table: "social_posts", addedBy: "created_by" } },
+      // "social"/"email"/"whatsapp" aliases keep the legacy marketing.social.* feature slugs mapped here.
+      { key: "marketing.campaigns", label: "Campaigns", group: "marketing", aliases: ["campaign", "social", "whatsapp"], scope: { table: "social_posts", addedBy: "created_by" } },
+  { key: "marketing.website_analytics", label: "Website Analytics", group: "marketing", aliases: ["website_analytics", "analytics", "website"], scope: { table: "marketing_website_analytics" } },
+      { key: "marketing.library", label: "Library", group: "marketing", aliases: ["library"], scope: { table: "marketing_library" } },
+    ],
+  },
+  {
+    slug: "calendar",
+    label: "My Calendar",
+    modules: [
+      // The calendar reads each employee's own Google Calendar per-user, so
+      // record-level scoping doesn't apply — only view access is meaningful.
+      { key: "calendar.calendar", label: "My Calendar", group: "calendar", aliases: ["calendar"], scope: { table: "calendar_events" } },
+    ],
+  },
+  {
+    // Mirrors the "Company Hub" sidebar entry. Each module keeps its own
+    // `group` (events / notice-board / knowledge-base) because that is the
+    // top-level app module slug used for sidebar gating and feature-slug resolution.
+    slug: "company-hub",
+    label: "Company Hub",
+    memberGroups: ["events", "notice-board", "knowledge-base"],
+    modules: [
+      // Drives the Events module RBAC. "events.view" grants read access to the
+      // Events pages/APIs; any write level grants "events.manage" (create/edit,
+      // participant management, QR generate/revoke). The public gate-scan page
+      // needs no session and is intentionally not gated by this matrix.
+      { key: "events.events", label: "Events", group: "events", aliases: ["event"], scope: { table: "hr_events", addedBy: "created_by" }, extraActions: EVENT_SECURITY_EXTRA_ACTIONS },
+      { key: "notice-board.notices", label: "Notice Board", group: "notice-board", aliases: ["notice", "view"], scope: { table: "notices" } },
+      { key: "knowledge-base.articles", label: "Knowledge Base", group: "knowledge-base", aliases: ["article", "view"], scope: { table: "kb_articles" } },
+    ],
+  },
+  // Workspace modules seeded in the `modules` table with `<slug>.view` features
+  // but previously absent from the matrix, so matrix-managed employees could
+  // never be granted them.
+  {
+    // Mirrors the "Communication" sidebar entry. Each module keeps its own
+    // `group` (messages / whatsapp / voice) because that is the top-level app
+    // module slug used for sidebar gating and feature-slug resolution.
+    slug: "communication",
+    label: "Communication",
+    memberGroups: ["messages", "whatsapp", "voice"],
+    modules: [
+      { key: "messages.messages", label: "Messages", group: "messages", aliases: ["message", "view"], scope: { table: "messages" } },
+      { key: "whatsapp.inbox", label: "WhatsApp · Inbox", group: "whatsapp", aliases: ["inbox", "conversation", "view"], scope: { table: "users" } },
+      { key: "whatsapp.contacts", label: "WhatsApp · Contacts", group: "whatsapp", aliases: ["contact"], scope: { table: "users" } },
+      { key: "whatsapp.templates", label: "WhatsApp · Templates", group: "whatsapp", aliases: ["template"], scope: { table: "users" } },
+      { key: "whatsapp.campaigns", label: "WhatsApp · Campaigns", group: "whatsapp", aliases: ["campaign", "broadcast"], scope: { table: "users" } },
+      { key: "whatsapp.automations", label: "WhatsApp · Automations", group: "whatsapp", aliases: ["automation"], scope: { table: "users" } },
+      { key: "whatsapp.analytics", label: "WhatsApp · Analytics", group: "whatsapp", aliases: ["analytic", "report"], scope: { table: "users" } },
+      { key: "voice.overview", label: "Muenot Voice · Overview", group: "voice", aliases: ["overview", "view"], scope: { table: "users" } },
+      { key: "voice.dialer", label: "Muenot Voice · Dialer", group: "voice", aliases: ["dialer", "call"], scope: { table: "users" } },
+      { key: "voice.call_logs", label: "Muenot Voice · Call Logs", group: "voice", aliases: ["call_log", "calls"], scope: { table: "users" } },
+      { key: "voice.voicemail", label: "Muenot Voice · Voicemail", group: "voice", aliases: ["voicemail"], scope: { table: "users" } },
+      { key: "voice.contacts", label: "Muenot Voice · Contacts", group: "voice", aliases: ["contact"], scope: { table: "users" } },
+      { key: "voice.numbers", label: "Muenot Voice · Phone Numbers", group: "voice", aliases: ["number"], scope: { table: "voice_tenant_resources" } },
+      { key: "voice.routing", label: "Muenot Voice · Routing (IVR, Flows, Queues, Hours)", group: "voice", aliases: ["routing", "ivr", "flow", "queue", "extension", "hour"], scope: { table: "users" } },
+      { key: "voice.agents", label: "Muenot Voice · Agents", group: "voice", aliases: ["agent"], scope: { table: "users" } },
+      { key: "voice.recordings", label: "Muenot Voice · Recordings", group: "voice", aliases: ["recording"], scope: { table: "users" } },
+      { key: "voice.analytics", label: "Muenot Voice · Analytics", group: "voice", aliases: ["analytic"], scope: { table: "users" } },
+      { key: "voice.compliance", label: "Muenot Voice · Compliance", group: "voice", aliases: ["compliance"], scope: { table: "users" } },
+      { key: "voice.billing", label: "Muenot Voice · Billing & Usage", group: "voice", aliases: ["billing", "usage", "wallet"], scope: { table: "voice_wallets" } },
+      { key: "voice.settings", label: "Muenot Voice · Settings & API", group: "voice", aliases: ["setting", "api"], scope: { table: "users" } },
+    ],
+  },
+  {
+    // Admin-only platform consoles grouped under the "IT Admin" sidebar entry.
+    // Absent matrix entries stay "none", so no existing role gains access.
+    slug: IT_ADMIN_GROUP,
+    label: "IT Admin",
+    modules: IT_ADMIN_MODULES,
+  },
+  {
+    // IT hardware inventory (it_assets) surfaced through Asset 360. Only the
+    // ERP-level view gate lives here; IT workspace actions keep their own model
+    // in lib/it/access. Absent matrix entries stay "none", so nobody gains access.
+    slug: "it",
+    label: "IT Management",
+    modules: [
+      { key: "it.assets", label: "IT Assets", group: "it", aliases: ["assets", "asset"], scope: { table: "it_assets" } },
+      ...IT_MANAGEMENT_MODULES,
+    ],
+  },
+  {
+    slug: "assets",
+    label: "Assets & Subscriptions",
+    modules: [
+      // Software Licenses and Warranty & Maintenance (asset lifecycle) were
+      // ungated sidebar pages. Declared BEFORE Employee Assets so the broad
+      // "asset"/"license" aliases below do not shadow their view slugs.
+      { key: "assets.software_licenses", label: "Software Licenses", group: "assets", aliases: ["software_licenses", "software_license", "software"], scope: { table: "software_licenses", addedBy: "created_by" } },
+      { key: "assets.asset_lifecycle", label: "Warranty & Maintenance", group: "assets", aliases: ["asset_lifecycle", "warranty", "maintenance", "lifecycle"], scope: { table: "asset_lifecycle", addedBy: "created_by" } },
+      // Employee Assets is an ASSIGNMENT layer over Finance → Fixed Assets (the
+      // asset master / source of truth). The base Add/View/Update/Delete scopes
+      // govern the assignment records; the extended actions separate the asset
+      // lifecycle operations (assign/return/reassign/mark lost or damaged) and
+      // export from a plain Update, so they can be granted / revoked on their own.
+      {
+        key: "assets.employee_assets",
+        label: "Employee Assets",
+        group: "assets",
+        aliases: ["employee_asset", "employee_assets", "asset", "assignment"],
+        scope: { table: "employee_asset_assignments", addedBy: "created_by" },
+        extraActions: EMPLOYEE_ASSET_EXTRA_ACTIONS,
+      },
+      // Company Subscriptions — the SaaS / license / recurring-service register.
+      // Vendors come from Finance �� Customers/Vendors; seats reference HR
+      // employees. Base scopes govern the subscription records; extended actions
+      // separate seat allocation, renewals, cancel/suspend, documents and export.
+      {
+        key: "assets.company_subscriptions",
+        label: "Company Subscriptions",
+        group: "assets",
+        aliases: ["subscription", "subscriptions", "company_subscription", "company_subscriptions", "saas", "license"],
+        scope: { table: "company_subscriptions", addedBy: "created_by" },
+        extraActions: COMPANY_SUBSCRIPTION_EXTRA_ACTIONS,
+      },
+    ],
+  },
+  {
+    // Organization hierarchy. A single module governs the org tree
+    // (units + user assignments); base Add/View/Update/Delete gate structural
+    // changes, while the extended actions separate the higher-risk operations
+    // (re-parenting a subtree, assigning users, cascading deletes).
+    slug: "organization",
+    label: "Organization",
+    modules: [
+      {
+        key: "organization.hierarchy",
+        label: "Organization Hierarchy",
+        group: "organization",
+        aliases: ["organization", "org", "hierarchy", "org_unit", "org_units", "structure"],
+        scope: { table: "org_units", addedBy: "created_by" },
+        extraActions: ORG_HIERARCHY_EXTRA_ACTIONS,
+      },
+    ],
+  },
+  {
+    // The top-level "Dashboard" sidebar module. Private Dashboard defaults to
+    // visible (LEGACY_PERMISSION_DEFAULTS); Executive Dashboard defaults to
+    // hidden for non-admins and opens /dashboard/executive once granted.
+    slug: DASHBOARD_GROUP,
+    label: "Dashboard",
+    modules: [
+      { key: "dashboard.private", label: "Private Dashboard", group: DASHBOARD_GROUP, aliases: [], scope: { table: "users" } },
+      { key: "dashboard.executive", label: "Executive Dashboard", group: DASHBOARD_GROUP, aliases: [], scope: { table: "users" } },
+    ],
+  },
+  {
+    // The top-level "360 View" sidebar module. Each row gates whether the 360
+    // page is visible at all; the data inside still honours the underlying
+    // module permissions (Clients, Sales, Finance, …). Until a role sets a row
+    // explicitly it inherits from LEGACY_PERMISSION_PARENTS /
+    // LEGACY_PERMISSION_DEFAULTS, so existing roles keep today's access.
+    slug: ENTITY_360_GROUP,
+    label: "360 View",
+    modules: [
+      { key: "entity360.client", label: "Client 360", group: ENTITY_360_GROUP, aliases: [], scope: { table: "clients" } },
+      { key: "entity360.customer", label: "Customer 360", group: ENTITY_360_GROUP, aliases: [], scope: { table: "sales_companies" } },
+      { key: "entity360.vendor", label: "Vendor 360", group: ENTITY_360_GROUP, aliases: [], scope: { table: "customers_vendors" } },
+      { key: "entity360.employee", label: "Employee 360", group: ENTITY_360_GROUP, aliases: [], scope: { table: "hr_employees" } },
+      { key: "entity360.candidate", label: "Candidate 360", group: ENTITY_360_GROUP, aliases: [], scope: { table: "recruitment_candidates" } },
+      { key: "entity360.project", label: "Project 360", group: ENTITY_360_GROUP, aliases: [], scope: { table: "operations_projects" } },
+      { key: "entity360.contract", label: "Contract 360", group: ENTITY_360_GROUP, aliases: [], scope: { table: "sales_contracts" } },
+      { key: "entity360.asset", label: "Asset 360", group: ENTITY_360_GROUP, aliases: [], scope: { table: "it_assets" } },
+    ],
+  },
+  {
+    slug: "publishing",
+    label: "Publishing",
+    modules: [
+      { key: "publishing.alt_text", label: "Alt Text", group: "publishing", aliases: ["alt_text", "alt"], scope: { table: "alt_text_assets", addedBy: "created_by" }, extraActions: ALT_TEXT_EXTRA_ACTIONS },
+    ],
+  },
+  {
+    slug: "edtech",
+    label: "EdTech",
+    modules: [{ key: "edtech.overview", label: "EdTech", group: "edtech", aliases: ["overview", "edtech"], scope: { table: "users" } }],
+  },
+  {
+    slug: "bpo",
+    label: "BPO",
+    modules: [{ key: "bpo.overview", label: "BPO", group: "bpo", aliases: ["overview", "bpo"], scope: { table: "users" } }],
+  },
+  {
+    slug: "technology",
+    label: "Technology",
+    modules: [{ key: "technology.overview", label: "Technology", group: "technology", aliases: ["overview", "technology"], scope: { table: "users" } }],
+  },
+]
+
+export const PERMISSION_MODULES: PermissionModule[] = PERMISSION_GROUPS.flatMap((g) => g.modules)
+
+const MODULE_BY_KEY = new Map(PERMISSION_MODULES.map((m) => [m.key, m]))
+
+export function getPermissionModule(key: string): PermissionModule | undefined {
+  return MODULE_BY_KEY.get(key)
+}
+
+/** The extended actions declared for a module (empty when none). */
+export function getModuleExtraActions(key: string): ExtendedAction[] {
+  return MODULE_BY_KEY.get(key)?.extraActions ?? []
+}
+
+/** Look up a single extended action definition on a module. */
+export function getExtendedAction(moduleKey: string, actionKey: string): ExtendedAction | undefined {
+  return MODULE_BY_KEY.get(moduleKey)?.extraActions?.find((a) => a.key === actionKey)
+}
+
+/** An empty permission (everything set to "none"). */
+export function emptyModulePermission(): ModulePermission {
+  return { add: "none", view: "none", update: "none", delete: "none" }
+}
+
+/** A full permission (everything set to "all") — used for "select all". */
+export function fullModulePermission(): ModulePermission {
+  return { add: "all", view: "all", update: "all", delete: "all" }
+}
+
+/** Build a complete matrix with a default value for every module. */
+export function defaultMatrix(scope: PermissionScope = "none"): PermissionMatrix {
+  const value: ModulePermission = { add: scope, view: scope, update: scope, delete: scope }
+  const matrix: PermissionMatrix = {}
+  for (const m of PERMISSION_MODULES) matrix[m.key] = { ...value }
+  return matrix
+}
+
+/**
+ * Resolve a legacy feature slug (e.g. "hr.view_employees",
+ * "sales.manage_leads") onto a permission module + action so the existing
+ * sidebar/page gating can be driven from the new matrix.
+ */
+// =============================================================
+// Normalized action taxonomy
+// -------------------------------------------------------------
+// Every extended action declared on a module (File Return, Export Journals,
+// Import/Export, Email Report, Manage Settings, …) is ad-hoc by design so each
+// module can name its own high-risk verbs. For enterprise RBAC we still need a
+// SINGLE, normalized vocabulary of *capability categories* so custom roles and
+// the permission UI can group and reason about capabilities consistently
+// across modules. The four base CRUD verbs plus the categories below cover the
+// action set: view / create / edit / delete, approve / reject, export,
+// import, download, email, configuration and administrative actions.
+// =============================================================
+
+export const ACTION_CATEGORIES = [
+  "view",
+  "create",
+  "edit",
+  "delete",
+  "approve",
+  "reject",
+  "export",
+  "import",
+  "download",
+  "email",
+  "configuration",
+  "administrative",
+] as const
+export type ActionCategory = (typeof ACTION_CATEGORIES)[number]
+
+export const ACTION_CATEGORY_LABEL: Record<ActionCategory, string> = {
+  view: "View",
+  create: "Create",
+  edit: "Edit",
+  delete: "Delete",
+  approve: "Approve",
+  reject: "Reject",
+  export: "Export",
+  import: "Import",
+  download: "Download",
+  email: "Email",
+  configuration: "Configuration",
+  administrative: "Administrative",
+}
+
+/** The normalized category for one of the four base CRUD actions. */
+export function baseActionCategory(action: PermissionAction): ActionCategory {
+  switch (action) {
+    case "add":
+      return "create"
+    case "update":
+      return "edit"
+    case "view":
+      return "view"
+    case "delete":
+      return "delete"
+  }
+}
+
+/**
+ * Classify a module's extended action into the normalized taxonomy above,
+ * purely from its key/label keywords. This lets the RBAC layer present every
+ * module's bespoke actions under a consistent set of capability categories
+ * (Approve/Reject, Export, Import, Download, Email, Configuration,
+ * Administrative) without changing how each action is enforced.
+ */
+export function classifyExtendedAction(action: Pick<ExtendedAction, "key" | "label">): ActionCategory {
+  const hay = `${action.key} ${action.label}`.toLowerCase()
+  const has = (...needles: string[]) => needles.some((n) => hay.includes(n))
+
+  if (has("approve", "approval")) return "approve"
+  if (has("reject", "decline", "revoke", "cancel", "reopen")) return "reject"
+  if (has("import")) return "import"
+  if (has("download")) return "download"
+  if (has("email", "mail")) return "email"
+  if (has("export")) return "export"
+  if (has("setting", "config", "retention", "rule", "manage_categories", "policy")) return "configuration"
+  return "administrative"
+}
+
+// =============================================================
+// Pure permission-matrix merge (role composition)
+// -------------------------------------------------------------
+// Custom roles compose ADDITIVELY: a user's effective permission for a cell is
+// the most-permissive grant across every role they hold plus any per-user
+// override. Kept pure (no DB) so the resolution is deterministic and unit
+// testable, and so lib/permission-store.ts can reuse it for the effective
+// matrix that enforcement reads.
+// =============================================================
+
+const SCOPE_RANK: Record<PermissionScope, number> = { none: 0, added: 1, owned: 1, both: 2, all: 3 }
+
+/**
+ * The most-permissive combination of two scopes. `all` dominates; `none` is
+ * the identity; two different partial scopes (added + owned) combine to `both`.
+ */
+export function mergeScope(a: PermissionScope, b: PermissionScope): PermissionScope {
+  if (a === "all" || b === "all") return "all"
+  if (a === "none") return b
+  if (b === "none") return a
+  if (a === b) return a
+  // Both partial and different (added/owned/both in any mix) → union is "both".
+  return "both"
+}
+
+/** Merge two module permissions cell-by-cell, including extended actions. */
+export function mergeModulePermission(a: ModulePermission, b: ModulePermission): ModulePermission {
+  const out: ModulePermission = {
+    add: mergeScope(a.add, b.add),
+    view: mergeScope(a.view, b.view),
+    update: mergeScope(a.update, b.update),
+    delete: mergeScope(a.delete, b.delete),
+  }
+  if (a.extra || b.extra) {
+    const extra: Record<string, PermissionScope> = { ...(a.extra ?? {}) }
+    for (const [k, v] of Object.entries(b.extra ?? {})) {
+      extra[k] = mergeScope(extra[k] ?? "none", v)
+    }
+    out.extra = extra
+  }
+  return out
+}
+
+/**
+ * Merge any number of matrices into one effective matrix (most-permissive
+ * wins). Returns null when there is nothing to merge, so callers can preserve
+ * the legacy "no matrix at all → full access" fallback.
+ */
+export function mergeMatrices(matrices: Array<PermissionMatrix | null | undefined>): PermissionMatrix | null {
+  const present = matrices.filter((m): m is PermissionMatrix => Boolean(m))
+  if (present.length === 0) return null
+  const out: PermissionMatrix = {}
+  for (const matrix of present) {
+    for (const [moduleKey, perm] of Object.entries(matrix)) {
+      out[moduleKey] = out[moduleKey] ? mergeModulePermission(out[moduleKey], perm) : { ...perm, extra: perm.extra ? { ...perm.extra } : undefined }
+    }
+  }
+  return out
+}
+
+/**
+ * Modules split out of a broader row. When a stored matrix has no entry for
+ * the child yet, it inherits the parent's grant so existing roles keep the
+ * access they had before the split. Once saved explicitly, the child wins.
+ */
+export const LEGACY_PERMISSION_PARENTS: Record<string, string> = {
+  "hr.promotions": "hr.master",
+  "hr.awards": "hr.master",
+  "hr.passport_visa": "hr.master",
+  "hr.departments": "hr.master",
+  "hr.designations": "hr.master",
+  "hr.document_types": "hr.master",
+  "hr.holidays": "hr.master",
+  "hr.training": "hr.dashboard",
+  "hr.policies": "hr.dashboard",
+  "operations.task_board": "operations.tasks",
+  "operations.resource_conflict": "operations.allocations",
+  "operations.time_tracking": "operations.timesheets",
+  "operations.project_profitability": "operations.budget_vs_actual",
+  "marketing.email_campaigns": "marketing.campaigns",
+  "marketing.social_campaigns": "marketing.campaigns",
+  "sales.forecast": "sales.dashboard",
+  "sales.followups": "sales.leads",
+  "sales.contacts": "sales.companies",
+  "sales.sales_orders": "sales.quotations",
+  "recruitment.settings": "recruitment.dashboard",
+  "recruitment.requisition_hiring": "recruitment.requisitions",
+  "recruitment.campaigns": "recruitment.requisitions",
+  "recruitment.vendors": "recruitment.requisitions",
+  "recruitment.costs": "recruitment.requisitions",
+  "recruitment.sources": "recruitment.candidates",
+  "recruitment.screening": "recruitment.candidates",
+  "recruitment.talent_pool": "recruitment.candidates",
+  "recruitment.candidate_activities": "recruitment.candidates",
+  "recruitment.candidate_documents": "recruitment.candidates",
+  "recruitment.candidate_360": "recruitment.candidates",
+  "recruitment.referrals": "recruitment.candidates",
+  "recruitment.background_verification": "recruitment.candidates",
+  "recruitment.reference_check": "recruitment.candidates",
+  "recruitment.tasks": "recruitment.candidates",
+  "recruitment.followups": "recruitment.candidates",
+  "recruitment.interview_schedule": "recruitment.interviews",
+  "recruitment.interview_feedback": "recruitment.interviews",
+  "recruitment.assessments": "recruitment.interviews",
+  "recruitment.offer_letters": "recruitment.offers",
+  "recruitment.pre_joining": "recruitment.offers",
+  "recruitment.onboarding": "recruitment.offers",
+  "recruitment.career_site": "recruitment.jobs",
+  // 360 View rows. Declared after "recruitment.candidate_360" so the candidate
+  // row resolves through it (and through it, from "recruitment.candidates").
+  "entity360.client": "clients.clients",
+  "entity360.customer": "sales.companies",
+  "entity360.vendor": "finance.customers_vendors",
+  "entity360.candidate": "recruitment.candidate_360",
+  "entity360.project": "operations.projects",
+  "entity360.contract": "sales.contracts",
+  "entity360.asset": "it.assets",
+}
+
+/**
+ * Rows with no parent that must not default to "none". Employee 360 was open
+ * to every user (self-scoped by its API), so it stays visible until an admin
+ * turns it off.
+ */
+export const LEGACY_PERMISSION_DEFAULTS: Record<string, ModulePermission> = {
+  "entity360.employee": { add: "none", view: "all", update: "none", delete: "none" },
+  "dashboard.private": { add: "none", view: "all", update: "none", delete: "none" },
+  // IT Management pages were open to every member before they had matrix rows;
+  // keep them visible for existing roles until an admin restricts them.
+  ...Object.fromEntries(
+    IT_MANAGEMENT_MODULES.map((m): [string, ModulePermission] => [m.key, { add: "all", view: "all", update: "all", delete: "all" }]),
+  ),
+}
+
+export function applyLegacyPermissionParents(matrix: PermissionMatrix | null): PermissionMatrix | null {
+  if (!matrix) return matrix
+  for (const [child, parent] of Object.entries(LEGACY_PERMISSION_PARENTS)) {
+    if (!matrix[child] && matrix[parent]) {
+      const { extra: _extra, ...base } = matrix[parent]
+      matrix[child] = { ...base }
+    }
+  }
+  for (const [key, value] of Object.entries(LEGACY_PERMISSION_DEFAULTS)) {
+    if (!matrix[key]) matrix[key] = { ...value }
+  }
+  return matrix
+}
+
+export function resolveFeatureSlug(slug: string): { moduleKey: string; action: PermissionAction } | null {
+  const [group, rest] = slug.split(".")
+  if (!group || !rest) return null
+  if (MODULE_BY_KEY.has(slug)) return { moduleKey: slug, action: "view" }
+
+  // Decide whether the slug is a WRITE action or a plain view/navigation slug.
+  // Only an explicit set of write verbs counts as "update"; everything else
+  // (including noun-first read pages like `gst_filing`, `tds_filing`,
+  // `journal_entries`, `general_ledger`, `financial_reports`) is treated as
+  // "view". Defaulting unknown verbs to "update" was the bug: it demanded a
+  // write scope to even see those pages, so granting an employee "View" access
+  // left the page hidden or behaving wrong.
+  const writeVerbs = [
+    "manage",
+    "create",
+    "add",
+    "edit",
+    "update",
+    "delete",
+    "remove",
+    "send",
+    "schedule",
+    "assign",
+    "approve",
+    "reject",
+    "import",
+    "upload",
+    "revoke",
+  ]
+  const verb = rest.split("_")[0]
+  const action: PermissionAction = writeVerbs.includes(verb) ? "update" : "view"
+
+  const groupModules = PERMISSION_MODULES.filter((m) => m.group === group)
+  if (groupModules.length === 0) return null
+
+  const haystack = rest.replace(/^[a-z]+_/, "")
+  const match =
+    groupModules.find((m) => m.aliases.some((a) => haystack.includes(a) || rest.includes(a))) ??
+    groupModules[0]
+
+  return { moduleKey: match.key, action }
+}

@@ -1,0 +1,210 @@
+import { beforeEach, describe, expect, it, vi } from "vitest"
+import { AiError } from "@/lib/ai/governance-core"
+
+const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 1, 2, 3, 4])
+const OUTPUT = {
+  classification: "scientific_diagram",
+  shortAlt: "Labelled diagram of H₂O bonding at 104.5°",
+  longDescription: "Two hydrogen atoms bonded to one oxygen atom.",
+  extractedText: "H₂O",
+  warnings: ["Small labels"],
+  treatment: "Informative",
+}
+const CREDITS = {
+  requestId: "alttext:x",
+  modelId: "openai/gpt-4o",
+  provider: "openai",
+  creditsReserved: 12,
+  creditsCharged: 7,
+  inputTokens: 900,
+  outputTokens: 120,
+  totalTokens: 1020,
+  cachedInputTokens: 0,
+  status: "settled",
+  needsReconciliation: false,
+}
+
+const s = vi.hoisted(() => ({
+  asset: null as any,
+  claim: 1 as number | null,
+  prior: null as any,
+  saveResult: true as boolean | Error,
+  image: null as any,
+  calls: { claim: 0, save: [] as any[], failed: [] as any[], open: [] as any[] },
+}))
+
+vi.mock("@/lib/ai/assistant-store", () => ({ getTenantAiSettings: vi.fn(async () => ({ enabled: true, allowVision: true })) }))
+vi.mock("@/lib/ai/model-catalog", () => ({
+  resolveTenantModels: vi.fn(async () => ({ usable: [{ id: "openai/gpt-4o" }], defaultModel: { id: "openai/gpt-4o" }, fallbackModel: null })),
+}))
+vi.mock("@/lib/alt-text/vision-service", () => ({
+  selectVisionModel: vi.fn(({ usable, tenantSettings }: any) => {
+    if (!tenantSettings.allowVision) throw new AiError("feature_disabled", "Image analysis is disabled.")
+    if (!usable.length) throw new AiError("no_model_available", "No vision model.")
+    return { id: usable[0].id, provider: "openai" }
+  }),
+}))
+vi.mock("@/lib/alt-text/preview", () => ({
+  openAltTextImage: vi.fn(async (id: number, actor: any) => {
+    s.calls.open.push({ id, actor })
+    return s.image
+  }),
+}))
+vi.mock("@/lib/alt-text/store", () => ({
+  getSettings: vi.fn(async () => ({ defaultLanguage: "en", defaultAudience: "business_document", preferredModelId: null, shortMaxChars: 125, requireReview: true, maxFileMb: 10, maxBatchSize: 20 })),
+  getAsset: vi.fn(async () => s.asset),
+  claimForGeneration: vi.fn(async () => (s.calls.claim++, s.claim)),
+  saveGeneration: vi.fn(async (...args: any[]) => {
+    s.calls.save.push(args)
+    if (s.saveResult instanceof Error) throw s.saveResult
+    if (s.saveResult) Object.assign(s.asset, { status: "in_review", currentVersion: s.asset.currentVersion + 1, ...OUTPUT })
+    return s.saveResult
+  }),
+  markFailed: vi.fn(async (...args: any[]) => void s.calls.failed.push(args)),
+}))
+vi.mock("@/lib/alt-text/credit-service", () => ({
+  altTextRequestId: (op?: string | null) => `alttext:${op ?? "random-uuid"}`,
+  getAltTextCreditUsage: vi.fn(async () => s.prior),
+  runMeteredAltTextGeneration: vi.fn(),
+}))
+
+import { generateAltTextForAsset, parseGenerateRequest } from "@/lib/alt-text/generate"
+import { getAltTextCreditUsage } from "@/lib/alt-text/credit-service"
+import { getTenantAiSettings } from "@/lib/ai/assistant-store"
+
+const actor = { userId: 5, tenantId: 9, role: "employee" as const, viewScope: "added" as const, updateScope: "added" as const }
+const settings = parseGenerateRequest({ assetId: 3, requestId: "req-abcdef12", settings: { outputLanguage: "hi", imageType: "scientific_diagram" } })
+if (!settings.ok) throw new Error("fixture")
+const req = settings.value
+const run = vi.fn()
+
+beforeEach(() => {
+  s.asset = { id: 3, status: "uploaded", currentVersion: 0, classification: null, shortAlt: null, longDescription: null, extractedText: null, warnings: [], treatment: null, storageKey: "tenants/9/secret", createdBy: 5, reviewerId: null }
+  s.claim = 1
+  s.prior = null
+  s.saveResult = true
+  s.image = { ok: true, body: PNG, contentType: "image/png", size: PNG.length, filename: "x.png" }
+  s.calls = { claim: 0, save: [], failed: [], open: [] }
+  run.mockReset().mockResolvedValue({ status: "generated", output: OUTPUT, vision: { modelId: "openai/gpt-4o" }, credits: CREDITS })
+})
+
+describe("parseGenerateRequest", () => {
+  it("normalizes settings and rejects client-supplied storage/tenant/url fields", () => {
+    expect(req.settings.outputLanguage).toBe("hi")
+    for (const bad of [{ assetId: 3, tenantId: 1 }, { assetId: 3, storageKey: "k" }, { assetId: 3, imageUrl: "http://x" }, { assetId: 3, apiKey: "sk" }]) {
+      expect(parseGenerateRequest(bad)).toMatchObject({ ok: false, status: 400 })
+    }
+    expect(parseGenerateRequest({ assetId: -1 })).toMatchObject({ ok: false, code: "INVALID_ID" })
+    expect(parseGenerateRequest({ assetId: 3, requestId: "x" })).toMatchObject({ ok: false, code: "INVALID_REQUEST_ID" })
+  })
+})
+
+describe("generateAltTextForAsset", () => {
+  it("generates from real bytes, saves a version and returns metered usage", async () => {
+    const r = await generateAltTextForAsset(req, actor, { run })
+    expect(run).toHaveBeenCalledOnce()
+    const input = run.mock.calls[0][0]
+    expect(input).toMatchObject({ tenantId: 9, userId: 5, operationId: "a3_req-abcdef12" })
+    expect(input.vision.image).toEqual({ bytes: PNG, mediaType: "image/png" })
+    expect(input.vision.generation.outputLanguage).toBe("hi")
+    expect(s.calls.save[0]).toEqual([3, OUTPUT, "openai/gpt-4o", 7, 5, true, 1])
+    expect(r).toMatchObject({ ok: true, body: { success: true, status: "in_review", version: 1, replayed: false, result: { shortAlt: OUTPUT.shortAlt, extractedText: "H₂O" }, usage: { model: "openai/gpt-4o", creditsCharged: 7, requestId: "req-abcdef12" } } })
+    expect(JSON.stringify(r)).not.toMatch(/tenants\/9|secret|storageKey|bytes/)
+    expect(s.calls.failed).toEqual([])
+  })
+
+  it("passes server tenant/user + view scope to the scoped image loader and stops on denial", async () => {
+    s.image = { ok: false, status: 404, code: "NOT_FOUND", error: "Image not found." }
+    const r = await generateAltTextForAsset(req, actor, { run })
+    expect(s.calls.open[0]).toEqual({ id: 3, actor: { userId: 5, tenantId: 9, scope: "added" } })
+    expect(r).toMatchObject({ ok: false, status: 404 })
+    expect(run).not.toHaveBeenCalled()
+    expect(s.calls.claim).toBe(0)
+  })
+
+  it("refuses to overwrite a visible asset outside the caller's update scope (no claim, no charge)", async () => {
+    s.asset.createdBy = 77
+    const viewAll = { ...actor, viewScope: "all" as const, updateScope: "added" as const }
+    expect(await generateAltTextForAsset(req, viewAll, { run })).toMatchObject({ ok: false, status: 403, code: "FORBIDDEN" })
+    expect(run).not.toHaveBeenCalled()
+    expect(s.calls.claim).toBe(0)
+    expect(await generateAltTextForAsset(req, { ...viewAll, updateScope: "all" }, { run })).toMatchObject({ ok: true })
+  })
+
+  it("treats an asset missing from the tenant-scoped store as not found", async () => {
+    s.asset = null
+    expect(await generateAltTextForAsset(req, actor, { run })).toMatchObject({ ok: false, status: 404 })
+    expect(run).not.toHaveBeenCalled()
+  })
+
+  it("rejects pending-scan images before any claim or charge", async () => {
+    s.image = { ok: false, status: 409, code: "SCAN_PENDING", error: "Awaiting scan." }
+    expect(await generateAltTextForAsset(req, actor, { run })).toMatchObject({ ok: false, code: "SCAN_PENDING" })
+    expect(run).not.toHaveBeenCalled()
+  })
+
+  it("rejects when AI governance disables vision", async () => {
+    vi.mocked(getTenantAiSettings).mockResolvedValueOnce({ enabled: true, allowVision: false } as any)
+    expect(await generateAltTextForAsset(req, actor, { run })).toMatchObject({ ok: false, code: "FEATURE_DISABLED" })
+    expect(s.calls.open).toEqual([])
+  })
+
+  it("maps insufficient credits and releases the claim", async () => {
+    run.mockRejectedValueOnce(new AiError("tenant_budget_exceeded", "Not enough AI credits.", { creditCode: "insufficient_credits" }))
+    const r = await generateAltTextForAsset(req, actor, { run })
+    expect(r).toMatchObject({ ok: false, status: 402, code: "INSUFFICIENT_CREDITS" })
+    expect(s.calls.failed[0]).toEqual([3, "Not enough AI credits.", 1, "INSUFFICIENT_CREDITS"])
+  })
+
+  it("provider failure / invalid output marks the attempt failed (previous result kept by markFailed)", async () => {
+    run.mockRejectedValueOnce(new AiError("provider_error", "Timed out.", { reason: "timeout" }))
+    expect(await generateAltTextForAsset(req, actor, { run })).toMatchObject({ ok: false, status: 502, code: "PROVIDER_TIMEOUT" })
+    run.mockRejectedValueOnce(new AiError("provider_error", "Invalid response.", { reason: "invalid_output" }))
+    expect(await generateAltTextForAsset(req, actor, { run })).toMatchObject({ code: "INVALID_AI_RESPONSE" })
+    run.mockRejectedValueOnce(new Error("db password=hunter2"))
+    const r = await generateAltTextForAsset(req, actor, { run })
+    expect(r).toMatchObject({ status: 500, code: "GENERATION_FAILED" })
+    expect(JSON.stringify(r)).not.toContain("hunter2")
+    expect(s.calls.failed).toHaveLength(3)
+    expect(s.calls.save).toEqual([])
+  })
+
+  it("replays a settled duplicate requestId without claiming or charging again", async () => {
+    s.prior = CREDITS
+    Object.assign(s.asset, { status: "in_review", currentVersion: 2, ...OUTPUT })
+    const r = await generateAltTextForAsset(req, actor, { run })
+    expect(vi.mocked(getAltTextCreditUsage)).toHaveBeenCalledWith(9, 5, "alttext:a3_req-abcdef12")
+    expect(r).toMatchObject({ ok: true, body: { replayed: true, usage: { creditsCharged: 7 } } })
+    expect(run).not.toHaveBeenCalled()
+    expect(s.calls.claim).toBe(0)
+  })
+
+  it("refuses an in-flight duplicate and a concurrent claim", async () => {
+    s.prior = { ...CREDITS, creditsCharged: null, status: "reserved" }
+    expect(await generateAltTextForAsset(req, actor, { run })).toMatchObject({ status: 409, code: "GENERATION_IN_PROGRESS" })
+    s.prior = null
+    s.claim = null
+    expect(await generateAltTextForAsset(req, actor, { run })).toMatchObject({ status: 409, code: "GENERATION_CONFLICT" })
+    expect(run).not.toHaveBeenCalled()
+  })
+
+  it("save failure after provider usage keeps the charge, unlocks the asset and reports usage", async () => {
+    s.saveResult = new Error("deadlock")
+    const r = await generateAltTextForAsset(req, actor, { run })
+    expect(r).toMatchObject({ ok: false, status: 500, code: "SAVE_FAILED", details: { usage: { creditsCharged: 7 } } })
+    expect(s.calls.failed[0]).toEqual([3, "The generated alt text could not be saved.", 1, "SAVE_FAILED"])
+  })
+
+  it("a superseded attempt never overwrites newer edits", async () => {
+    s.saveResult = false
+    expect(await generateAltTextForAsset(req, actor, { run })).toMatchObject({ status: 409, code: "GENERATION_SUPERSEDED" })
+    expect(s.calls.failed).toEqual([])
+  })
+
+  it("rejects oversized streamed images before claiming", async () => {
+    const big = new Uint8Array(6 * 1024 * 1024)
+    s.image = { ...s.image, body: new ReadableStream({ start: (c) => (c.enqueue(big), c.enqueue(big), c.close()) }) }
+    expect(await generateAltTextForAsset(req, actor, { run })).toMatchObject({ status: 413 })
+    expect(s.calls.claim).toBe(0)
+  })
+})

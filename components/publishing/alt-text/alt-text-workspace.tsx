@@ -1,0 +1,378 @@
+"use client"
+
+/**
+ * @file components/publishing/alt-text/alt-text-workspace.tsx
+ * @module Publishing
+ * @kind React client component
+ * @summary AI Alt Text Writer workspace: Generate / History tabs and the 40/60
+ *   image-settings / results layout. History (Task 18) can open a saved asset
+ *   back into the Generate editor, where it is saved, regenerated and exported
+ *   through the existing Alt Text APIs.
+ */
+import { useEffect, useRef, useState } from "react"
+import { useSWRConfig } from "swr"
+import { FileText, History, ImagePlus, Layers, Sparkles } from "lucide-react"
+import { BulkProcessingWorkspace } from "./bulk-processing-workspace"
+import { DocumentProcessingWorkspace } from "./document-processing-workspace"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { ImageInputPanel, type SelectedImage } from "./image-input-panel"
+import {
+  DEFAULT_GENERATION_SETTINGS,
+  GENERATION_IMAGE_TYPES,
+  IMAGE_CLASSIFICATIONS,
+  LANGUAGES,
+  type GenerationImageType,
+  type GenerationSettings,
+  type ImageClassification,
+  type LanguageCode,
+} from "@/lib/alt-text/core"
+import type { ExportFormat } from "@/lib/alt-text/export"
+import type { AltTextAssetView } from "@/lib/alt-text/history"
+import {
+  fetchAltTextExport,
+  generateAltText,
+  getAltTextAsset,
+  isAltTextAssetKey,
+  isScanPending,
+  isVersionConflict,
+  newRequestId,
+  saveAltTextEdit,
+  triggerDownload,
+  uploadAltTextImage,
+} from "@/lib/alt-text/client"
+
+const SCAN_RETRY_DELAYS_MS = [1500, 2500, 4000, 6000, 8000]
+const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
+import { GenerationSettingsPanel } from "./generation-settings-panel"
+import {
+  AltTextResultsPanel,
+  type GeneratedOutput,
+  type GenerationStatus,
+  type GenerationUsage,
+  type SavedContent,
+} from "./alt-text-results-panel"
+import { AltTextHistory, AssetImage, StatusBadge } from "./alt-text-history"
+
+type Drafts = { shortAlt?: string; longDescription?: string }
+
+function settingsForAsset(asset: AltTextAssetView, base: GenerationSettings): GenerationSettings {
+  const imageType = asset.classification && asset.classification in GENERATION_IMAGE_TYPES ? (asset.classification as GenerationImageType) : "auto"
+  return {
+    ...base,
+    imageType,
+    imagePurpose: asset.classification === "decorative" ? "decorative" : base.imagePurpose === "decorative" ? "informative" : base.imagePurpose,
+    outputLanguage: asset.language in LANGUAGES ? (asset.language as LanguageCode) : base.outputLanguage,
+  }
+}
+
+function outputForAsset(asset: AltTextAssetView, settings: GenerationSettings): GeneratedOutput | null {
+  if (asset.shortAlt === null && asset.longDescription === null && asset.extractedText === null) return null
+  const classification = (IMAGE_CLASSIFICATIONS as readonly string[]).includes(asset.classification ?? "")
+    ? (asset.classification as ImageClassification)
+    : "other"
+  return {
+    result: {
+      classification,
+      shortAlt: asset.shortAlt ?? "",
+      longDescription: asset.longDescription ?? "",
+      extractedText: asset.extractedText ?? "",
+      warnings: asset.warnings,
+      treatment: asset.treatment ?? "",
+    },
+    language: settings.outputLanguage,
+    purpose: settings.imagePurpose,
+  }
+}
+
+export function AltTextWorkspace() {
+  const { mutate } = useSWRConfig()
+  const [tab, setTab] = useState("generate")
+  const [settings, setSettings] = useState<GenerationSettings>(DEFAULT_GENERATION_SETTINGS)
+  const [image, setImage] = useState<SelectedImage | null>(null)
+  const [savedAsset, setSavedAsset] = useState<AltTextAssetView | null>(null)
+  const [status, setStatus] = useState<GenerationStatus>("idle")
+  const [error, setError] = useState<string | null>(null)
+  const [output, setOutput] = useState<GeneratedOutput | null>(null)
+  const [saved, setSaved] = useState<SavedContent | null>(null)
+  const [usage, setUsage] = useState<GenerationUsage | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const [saveError, setSaveError] = useState<{ title: string; message: string } | null>(null)
+  const [dirtyFields, setDirtyFields] = useState({ shortAlt: false, longDescription: false })
+  const [pendingOpen, setPendingOpen] = useState<AltTextAssetView | "new" | null>(null)
+  const [editorKey, setEditorKey] = useState(0)
+  const drafts = useRef<Drafts>({})
+  const dirty = dirtyFields.shortAlt || dirtyFields.longDescription
+
+  const previewUrl = image?.previewUrl
+  useEffect(() => {
+    if (!previewUrl) return
+    return () => URL.revokeObjectURL(previewUrl)
+  }, [previewUrl])
+
+  const resetEditor = () => {
+    setStatus("idle")
+    setError(null)
+    setOutput(null)
+    setSaved(null)
+    setUsage(null)
+    setSaveError(null)
+    setDirtyFields({ shortAlt: false, longDescription: false })
+    drafts.current = {}
+    setEditorKey((k) => k + 1)
+  }
+
+  const handleImageChange = (next: SelectedImage | null) => {
+    setImage(next)
+    resetEditor()
+  }
+
+  const loadAsset = (asset: AltTextAssetView) => {
+    const nextSettings = settingsForAsset(asset, settings)
+    resetEditor()
+    setImage(null)
+    setSavedAsset(asset)
+    setSettings(nextSettings)
+    setOutput(outputForAsset(asset, nextSettings))
+    setSaved({ shortAlt: asset.shortAlt, longDescription: asset.longDescription, version: asset.currentVersion })
+    setTab("generate")
+  }
+
+  const startNew = () => {
+    setSavedAsset(null)
+    setImage(null)
+    resetEditor()
+  }
+
+  const requestOpen = (target: AltTextAssetView | "new") => {
+    if (dirty) return setPendingOpen(target)
+    if (target === "new") startNew()
+    else loadAsset(target)
+  }
+
+  const refreshHistory = () => void mutate(isAltTextAssetKey)
+
+  const handleSave = async () => {
+    if (!savedAsset || !saved) return
+    setSaving(true)
+    setSaveError(null)
+    const r = await saveAltTextEdit(savedAsset.id, { expectedVersion: saved.version, ...drafts.current })
+    setSaving(false)
+    if (!r.ok) {
+      setSaveError(
+        isVersionConflict(r.error)
+          ? { title: "Newer version on the server", message: `${r.error.message} Reopen this asset from History to load the latest version.` }
+          : { title: "Could not save", message: r.error.message },
+      )
+      return
+    }
+    const a = r.data.asset
+    setSavedAsset(a)
+    setSaved({ shortAlt: a.shortAlt, longDescription: a.longDescription, version: a.currentVersion })
+    drafts.current = {}
+    refreshHistory()
+  }
+
+  const uploadSelectedImage = async (selected: SelectedImage): Promise<AltTextAssetView | null> => {
+    const up = await uploadAltTextImage(selected.file)
+    if (!up.ok) {
+      setError(up.error.message)
+      return null
+    }
+    const fetched = await getAltTextAsset(up.data.id)
+    if (!fetched.ok) {
+      setError(fetched.error.message)
+      return null
+    }
+    setSavedAsset(fetched.data.asset)
+    setImage(null)
+    refreshHistory()
+    return fetched.data.asset
+  }
+
+  /** Scan rejection happens before any credit claim, so retrying with the same request id cannot double-bill. */
+  const generateWhenScanned = async (assetId: number) => {
+    const requestId = newRequestId()
+    let r = await generateAltText(assetId, settings, requestId)
+    for (const delay of SCAN_RETRY_DELAYS_MS) {
+      if (r.ok || !isScanPending(r.error)) break
+      await wait(delay)
+      r = await generateAltText(assetId, settings, requestId)
+    }
+    return r
+  }
+
+  const handleRegenerate = async () => {
+    if (!savedAsset && !image) return
+    setStatus("generating")
+    setError(null)
+    setSaveError(null)
+    const asset = savedAsset ?? (image ? await uploadSelectedImage(image) : null)
+    if (!asset) {
+      setStatus("idle")
+      return
+    }
+    const r = await generateWhenScanned(asset.id)
+    setStatus("idle")
+    if (!r.ok) {
+      setError(
+        isScanPending(r.error)
+          ? "The image was uploaded and saved, but its security scan is still running. Try generating again in a moment."
+          : r.error.message,
+      )
+      return
+    }
+    const { result, version, usage: u } = r.data
+    setOutput({ result, language: settings.outputLanguage, purpose: settings.imagePurpose })
+    setSaved({ shortAlt: result.shortAlt, longDescription: result.longDescription, version })
+    setUsage({ model: u.model, creditsCharged: u.creditsCharged, creditsReserved: u.creditsReserved })
+    setSavedAsset((prev) => (prev ? { ...prev, ...result, currentVersion: version } : prev))
+    drafts.current = {}
+    refreshHistory()
+  }
+
+  const handleExport = async (format: ExportFormat) => {
+    if (!savedAsset) return
+    setExporting(true)
+    const r = await fetchAltTextExport(savedAsset.id, format)
+    setExporting(false)
+    if (!r.ok) return setSaveError({ title: "Export failed", message: r.error.message })
+    triggerDownload(r.data.blob, r.data.filename)
+  }
+
+  const generateBlockedReason: string | null = null
+
+  return (
+    <>
+      <Tabs value={tab} onValueChange={setTab} className="flex flex-col gap-4">
+        <TabsList className="w-full sm:w-fit">
+          <TabsTrigger value="generate" className="flex-1 gap-2 sm:flex-none">
+            <Sparkles className="size-4" aria-hidden="true" />
+            Generate
+          </TabsTrigger>
+          <TabsTrigger value="bulk" className="flex-1 gap-2 sm:flex-none">
+            <Layers className="size-4" aria-hidden="true" />
+            Bulk Processing
+          </TabsTrigger>
+          <TabsTrigger value="documents" className="flex-1 gap-2 sm:flex-none">
+            <FileText className="size-4" aria-hidden="true" />
+            Document Processing
+          </TabsTrigger>
+          <TabsTrigger value="history" className="flex-1 gap-2 sm:flex-none">
+            <History className="size-4" aria-hidden="true" />
+            History
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="generate" className="mt-0">
+          <div className="grid min-w-0 gap-6 lg:grid-cols-5">
+            <div className="flex min-w-0 flex-col gap-6 lg:col-span-2">
+              {savedAsset ? (
+                <Card>
+                  <CardHeader className="flex flex-row items-start justify-between gap-3">
+                    <div className="flex min-w-0 flex-col gap-1.5">
+                      <CardTitle className="truncate text-base" title={savedAsset.fileName}>
+                        {savedAsset.fileName}
+                      </CardTitle>
+                      <CardDescription>
+                        Saved asset <span className="font-mono tabular-nums">#{savedAsset.id}</span> opened from History
+                      </CardDescription>
+                    </div>
+                    <StatusBadge status={savedAsset.status} />
+                  </CardHeader>
+                  <CardContent className="flex flex-col gap-4">
+                    <div className="overflow-hidden rounded-lg border bg-muted/30">
+                      <AssetImage id={savedAsset.id} alt={savedAsset.shortAlt ?? `Preview of ${savedAsset.fileName}`} className="max-h-72 w-full !object-contain" />
+                    </div>
+                    <Button variant="outline" size="sm" onClick={() => requestOpen("new")} disabled={saving || status === "generating"}>
+                      <ImagePlus aria-hidden="true" /> Start with a new image
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                <ImageInputPanel image={image} onImageChange={handleImageChange} />
+              )}
+              <GenerationSettingsPanel settings={settings} onChange={setSettings} />
+            </div>
+            <div className="min-w-0 lg:col-span-3">
+              <AltTextResultsPanel
+                key={`${savedAsset?.id ?? "local"}-${editorKey}`}
+                imageSelected={image !== null || savedAsset !== null}
+                status={status}
+                error={error}
+                output={output}
+                actions={{
+                  generateBlockedReason,
+                  onGenerate: () => void handleRegenerate(),
+                  onRegenerate: () => void handleRegenerate(),
+                  onSave: () => void handleSave(),
+                  onExport: (f) => void handleExport(f),
+                  onDraftChange: (field, draft, isDirty) => {
+                    drafts.current[field] = draft
+                    setDirtyFields((d) => (d[field] === isDirty ? d : { ...d, [field]: isDirty }))
+                  },
+                  saving,
+                  exporting,
+                  dirty,
+                  saveError,
+                  usage,
+                  saved,
+                  canSave: savedAsset !== null && saved !== null,
+                  canExport: savedAsset !== null,
+                }}
+              />
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="bulk" className="mt-0">
+          <BulkProcessingWorkspace onOpenInEditor={requestOpen} />
+        </TabsContent>
+
+        <TabsContent value="documents" className="mt-0">
+          <DocumentProcessingWorkspace />
+        </TabsContent>
+
+        <TabsContent value="history" className="mt-0">
+          <AltTextHistory onOpenInEditor={requestOpen} />
+        </TabsContent>
+      </Tabs>
+
+      <AlertDialog open={pendingOpen !== null} onOpenChange={(o) => !o && setPendingOpen(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discard unsaved edits?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The Generate editor has unsaved changes. {pendingOpen === "new" ? "Starting over" : "Opening another asset"} will discard them.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep editing</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                const target = pendingOpen
+                setPendingOpen(null)
+                if (target === "new") startNew()
+                else if (target) loadAsset(target)
+              }}
+            >
+              Discard and continue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  )
+}
