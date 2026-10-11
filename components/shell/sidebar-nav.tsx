@@ -2,12 +2,13 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { ImageIcon, Users, type LucideIcon } from "lucide-react"
+import { FileType, ImageIcon, Users, type LucideIcon } from "lucide-react"
 import { NAV_GROUPS, type NavIcon } from "@/lib/navigation"
 import { cn } from "@/lib/utils"
 
 const ICONS: Record<NavIcon, LucideIcon> = {
   "alt-text": ImageIcon,
+  "conversion-name": FileType,
   users: Users,
 }
 

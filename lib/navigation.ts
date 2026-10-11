@@ -1,4 +1,4 @@
-export type NavIcon = "alt-text" | "users"
+export type NavIcon = "alt-text" | "conversion-name" | "users"
 
 export type NavItem = {
   href: string
@@ -15,7 +15,10 @@ export type NavGroup = {
 export const NAV_GROUPS: NavGroup[] = [
   {
     label: "Publishing",
-    items: [{ href: "/modules/publishing/alt-text", label: "Alt Text", icon: "alt-text" }],
+    items: [
+      { href: "/modules/publishing/alt-text", label: "Alt Text", icon: "alt-text" },
+      { href: "/modules/publishing/conversion-name", label: "Conversion Name", icon: "conversion-name" },
+    ],
   },
   {
     label: "Admin",
