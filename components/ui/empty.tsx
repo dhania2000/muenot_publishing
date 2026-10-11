@@ -8,7 +8,7 @@
  * @see docs/CODEBASE-GUIDE.md for module ownership, conventions and where to add new code.
  */
 import { cva, type VariantProps } from "class-variance-authority"
-import { cn } from "cn"
+import { cn } from "@/lib/utils"
 
 function Empty({ className, ...props }: React.ComponentProps<"div">) {
   return (

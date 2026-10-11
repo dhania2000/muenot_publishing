@@ -5,8 +5,9 @@
  * @summary POST /api/alt-text/batches/[id]/submit — validate and queue a draft batch for Task 8 processing. Runs no AI.
  * @security Session + publishing module toggle/plan + publishing.view_alt_text + publishing.alt_text:generate grant + view/update record scope.
  */
-import { NextResponse, type NextRequest } from "next/server"
+import { after, NextResponse, type NextRequest } from "next/server"
 import { requireFeatureInModule } from "@/lib/api-auth"
+import { runDueBackgroundJobs } from "@/lib/background-jobs"
 import { getScope, hasActionGrant } from "@/lib/permission-store"
 import { checkRateLimit } from "@/lib/rate-limit"
 import { currentTenantIdOrNull } from "@/lib/tenant-scope"
@@ -46,6 +47,7 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
 
     const result = await submitBatchForProcessing(id, { userId: session.userId, tenantId, role: session.role === "admin" ? "admin" : "employee", updateScope })
     if (!result.ok) return error(result.status, result.code, result.error, result.details)
+    after(() => runDueBackgroundJobs({ maxJobs: 1 }).catch((e) => console.error("[jobs] post-submit run failed", e instanceof Error ? e.message : e)))
     return NextResponse.json(result.body, { status: 202, headers: NO_STORE })
   } catch (err) {
     return unexpected("batches/submit", err)
