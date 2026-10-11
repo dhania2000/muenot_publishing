@@ -107,11 +107,30 @@ function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
 
 function SignUpForm({ onSwitch }: { onSwitch: () => void }) {
   const [state, action, pending] = useActionState(signUpAction, undefined)
+  if (state?.pending) {
+    return (
+      <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-semibold tracking-tight text-balance">Account created</h1>
+          <p className="text-sm text-muted-foreground">One more step before you can sign in.</p>
+        </div>
+        <Alert>
+          <CheckCircle2 aria-hidden="true" />
+          <AlertDescription>
+            {`Your account for ${state.email} is awaiting administrator approval. You'll be able to sign in once it's approved.`}
+          </AlertDescription>
+        </Alert>
+        <Button type="button" variant="outline" onClick={onSwitch} className="w-full">
+          Back to sign in
+        </Button>
+      </div>
+    )
+  }
   return (
     <form action={action} className="flex flex-col gap-5" noValidate>
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-semibold tracking-tight text-balance">Create an account</h1>
-        <p className="text-sm text-muted-foreground">The first account becomes the workspace administrator.</p>
+        <p className="text-sm text-muted-foreground">New accounts need administrator approval before signing in.</p>
       </div>
       <FormError error={state?.error} />
       <div className="flex flex-col gap-2">

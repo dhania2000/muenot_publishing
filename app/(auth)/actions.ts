@@ -9,7 +9,7 @@ import { ensurePlatformSchema } from "@/lib/platform-schema"
 import { checkRateLimit } from "@/lib/rate-limit"
 import { DEFAULT_TENANT_ID } from "@/lib/tenant-scope"
 
-export type AuthState = { error?: string; email?: string; name?: string } | undefined
+export type AuthState = { error?: string; email?: string; name?: string; pending?: boolean } | undefined
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const HOME = "/modules/publishing/alt-text"
@@ -34,7 +34,9 @@ export async function signInAction(_prev: AuthState, formData: FormData): Promis
     const rows = await query<any[]>("SELECT id, password_hash, status FROM users WHERE email = ? LIMIT 1", [email])
     const user = rows[0]
     const valid = user ? await verifyPassword(password, user.password_hash) : await hashPassword(password).then(() => false)
-    if (!user || !valid || user.status !== "active") return { error: "Invalid email or password.", email }
+    if (!user || !valid) return { error: "Invalid email or password.", email }
+    if (user.status === "pending") return { error: "Your account is awaiting administrator approval.", email }
+    if (user.status !== "active") return { error: "This account has been disabled. Contact an administrator.", email }
     await createSession(Number(user.id))
   } catch (error) {
     console.error("[auth] sign-in failed", error instanceof Error ? error.message : error)
@@ -56,21 +58,50 @@ export async function signUpAction(_prev: AuthState, formData: FormData): Promis
     await ensurePlatformSchema()
     const [{ count }] = await query<any[]>("SELECT COUNT(*) AS count FROM users")
     const isFirstUser = Number(count) === 0
-    if (!isFirstUser && process.env.ALLOW_SIGNUP !== "true") {
-      return { error: "Sign-up is closed. Ask an administrator for an account.", email, name }
-    }
     const existing = await query<any[]>("SELECT id FROM users WHERE email = ? LIMIT 1", [email])
     if (existing.length) return { error: "An account with this email already exists.", email, name }
     const result = await query<any>(
-      "INSERT INTO users (tenant_id, email, name, password_hash, role) VALUES (?, ?, ?, ?, ?)",
-      [DEFAULT_TENANT_ID, email, name, await hashPassword(password), isFirstUser ? "admin" : "employee"],
+      "INSERT INTO users (tenant_id, email, name, password_hash, role, status, approved_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      [
+        DEFAULT_TENANT_ID,
+        email,
+        name,
+        await hashPassword(password),
+        isFirstUser ? "admin" : "employee",
+        isFirstUser ? "active" : "pending",
+        isFirstUser ? new Date() : null,
+      ],
     )
+    if (!isFirstUser) {
+      await notifyAdminsOfSignup(name, email).catch((error) =>
+        console.error("[auth] admin notification failed", error instanceof Error ? error.message : error),
+      )
+      return { pending: true, email }
+    }
     await createSession(Number(result.insertId))
   } catch (error) {
     console.error("[auth] sign-up failed", error instanceof Error ? error.message : error)
     return { error: "Sign-up is temporarily unavailable. Check the database connection.", email, name }
   }
   redirect(HOME)
+}
+
+async function notifyAdminsOfSignup(name: string, email: string) {
+  const admins = await query<any[]>(
+    "SELECT email FROM users WHERE tenant_id = ? AND role = 'admin' AND status = 'active'",
+    [DEFAULT_TENANT_ID],
+  )
+  const link = `${await appOrigin()}/admin/users`
+  await Promise.all(
+    admins.map((admin) =>
+      sendMail({
+        to: admin.email,
+        subject: "New account awaiting approval",
+        text: `${name} (${email}) created an account on Muenot Publishing and is waiting for approval.\n\nReview it here: ${link}`,
+        html: `<p>${escapeHtml(name)} (${escapeHtml(email)}) created an account on Muenot Publishing and is waiting for approval.</p><p><a href="${link}">Review pending accounts</a></p>`,
+      }),
+    ),
+  )
 }
 
 export type ResetRequestState = { error?: string; sent?: boolean; email?: string } | undefined

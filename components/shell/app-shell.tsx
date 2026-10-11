@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { BookOpen, ImageIcon, LogOut } from "lucide-react"
+import { BookOpen, ImageIcon, LogOut, Users } from "lucide-react"
 import { signOutAction } from "@/app/(auth)/actions"
 import { Button } from "@/components/ui/button"
 import type { Session } from "@/lib/auth"
@@ -10,7 +10,15 @@ function initials(name: string) {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join("") || "?"
 }
 
-export function AppShell({ session, children }: { session: Session; children: React.ReactNode }) {
+export function AppShell({
+  session,
+  pendingCount = 0,
+  children,
+}: {
+  session: Session
+  pendingCount?: number
+  children: React.ReactNode
+}) {
   return (
     <div className="flex min-h-dvh flex-col md:flex-row">
       <aside className="flex shrink-0 flex-col border-b border-sidebar-border bg-sidebar text-sidebar-foreground md:sticky md:top-0 md:h-dvh md:w-60 md:border-b-0 md:border-r">
@@ -30,6 +38,24 @@ export function AppShell({ session, children }: { session: Session; children: Re
               {label}
             </Link>
           ))}
+          {session.role === "admin" ? (
+            <>
+              <p className="hidden px-2 pb-1 pt-3 text-xs font-medium uppercase tracking-wide text-muted-foreground md:block">Admin</p>
+              <Link
+                href="/admin/users"
+                className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <Users className="size-4" aria-hidden="true" />
+                Users
+                {pendingCount > 0 ? (
+                  <span className="ml-auto rounded-full bg-primary px-1.5 text-xs font-medium text-primary-foreground">
+                    {pendingCount}
+                    <span className="sr-only"> pending approval</span>
+                  </span>
+                ) : null}
+              </Link>
+            </>
+          ) : null}
         </nav>
         <div className="hidden items-center gap-3 border-t border-sidebar-border p-3 md:flex">
           <span aria-hidden="true" className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
