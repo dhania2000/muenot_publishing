@@ -1,10 +1,9 @@
 import Link from "next/link"
-import { BookOpen, ImageIcon, LogOut, Users } from "lucide-react"
+import { BookOpen, LogOut } from "lucide-react"
 import { signOutAction } from "@/app/(auth)/actions"
+import { SidebarNav } from "@/components/shell/sidebar-nav"
 import { Button } from "@/components/ui/button"
 import type { Session } from "@/lib/auth"
-
-const NAV = [{ href: "/modules/publishing/alt-text", label: "Alt Text Writer", Icon: ImageIcon }]
 
 function initials(name: string) {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join("") || "?"
@@ -26,37 +25,7 @@ export function AppShell({
           <BookOpen className="size-5 text-primary" aria-hidden="true" />
           <span className="text-sm font-semibold">Muenot Publishing</span>
         </div>
-        <nav aria-label="Primary" className="flex gap-1 overflow-x-auto px-2 pb-2 md:flex-1 md:flex-col md:pb-0">
-          <p className="hidden px-2 pb-1 pt-3 text-xs font-medium uppercase tracking-wide text-muted-foreground md:block">Publishing</p>
-          {NAV.map(({ href, label, Icon }) => (
-            <Link
-              key={href}
-              href={href}
-              className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <Icon className="size-4" aria-hidden="true" />
-              {label}
-            </Link>
-          ))}
-          {session.role === "admin" ? (
-            <>
-              <p className="hidden px-2 pb-1 pt-3 text-xs font-medium uppercase tracking-wide text-muted-foreground md:block">Admin</p>
-              <Link
-                href="/admin/users"
-                className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <Users className="size-4" aria-hidden="true" />
-                Users
-                {pendingCount > 0 ? (
-                  <span className="ml-auto rounded-full bg-primary px-1.5 text-xs font-medium text-primary-foreground">
-                    {pendingCount}
-                    <span className="sr-only"> pending approval</span>
-                  </span>
-                ) : null}
-              </Link>
-            </>
-          ) : null}
-        </nav>
+        <SidebarNav isAdmin={session.role === "admin"} pendingCount={pendingCount} />
         <div className="hidden items-center gap-3 border-t border-sidebar-border p-3 md:flex">
           <span aria-hidden="true" className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
             {initials(session.name)}
