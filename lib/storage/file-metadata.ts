@@ -3,7 +3,12 @@ import { query } from "@/lib/db"
 import { currentTenantId } from "@/lib/tenant-scope"
 
 export type FileClassification = "public" | "internal" | "confidential" | "restricted"
-export type FileUploadStatus = "pending" | "uploaded" | "deleted"
+/** ERP vocabulary. The standalone `app_files.upload_status` column stores `uploaded` for `completed`. */
+export type FileUploadStatus = "pending" | "uploading" | "completed" | "failed" | "deleted"
+
+const fromDbStatus = (value: string): FileUploadStatus =>
+  value === "uploaded" ? "completed" : value === "pending" || value === "deleted" ? value : "failed"
+const toDbStatus = (status: FileUploadStatus) => (status === "completed" ? "uploaded" : status)
 export type FileEncryptionState = "none" | "provider_managed"
 
 export type FileObject = {
@@ -65,7 +70,7 @@ function toFile(r: any): FileObject {
     size: Number(r.size_bytes),
     checksum: r.checksum ?? null,
     encryptionState: "provider_managed",
-    uploadStatus: r.upload_status,
+    uploadStatus: fromDbStatus(String(r.upload_status)),
     version: 1,
     isCurrent: true,
     classification: r.classification,
@@ -96,7 +101,7 @@ export async function listFileMetadata(filter: ListFilesFilter = {}): Promise<Fi
   if (filter.module) (where.push("module = ?"), params.push(filter.module))
   if (filter.entityType) (where.push("entity_type = ?"), params.push(filter.entityType))
   if (filter.entityId != null) (where.push("entity_id = ?"), params.push(String(filter.entityId)))
-  if (filter.status) (where.push("upload_status = ?"), params.push(filter.status))
+  if (filter.status) (where.push("upload_status = ?"), params.push(toDbStatus(filter.status)))
   else if (!filter.includeDeleted) where.push("upload_status <> 'deleted'")
   const limit = Math.min(Math.max(filter.limit ?? 100, 1), 1000)
   const rows = await query<any[]>(`SELECT ${COLUMNS} FROM app_files WHERE ${where.join(" AND ")} ORDER BY id DESC LIMIT ${limit}`, params)

@@ -263,7 +263,7 @@ export function BulkProcessingWorkspace({ onOpenInEditor }: { onOpenInEditor?: (
       </TabsList>
 
       {/* Kept mounted so unsaved batch settings, uploads and the open dashboard survive view switches. */}
-      <TabsContent value="current" forceMount hidden={view !== "current"} className="mt-0 flex min-w-0 flex-col gap-6">
+      <TabsContent value="current" keepMounted hidden={view !== "current"} className="mt-0 flex min-w-0 flex-col gap-6">
       <div className="grid min-w-0 gap-6 lg:grid-cols-5">
         <div className="flex min-w-0 flex-col gap-6 lg:col-span-2">
           <Card>

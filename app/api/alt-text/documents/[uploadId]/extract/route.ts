@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic"
 export const maxDuration = 300
 
 const DOCUMENT_ID = /^[1-9]\d{0,9}$/
-const RATE_LIMIT = { limit: 10, windowSeconds: 60 }
+const RATE_LIMIT = { max: 10, windowMs: 60_000 }
 
 export async function POST(_req: Request, ctx: { params: Promise<{ uploadId: string }> }) {
   const gate = await gateAltTextHistory({ upload: true })

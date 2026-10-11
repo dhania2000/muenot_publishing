@@ -983,7 +983,8 @@ export async function requeueAsset(id: number, batchId: string, reason: string):
 export type RetryCandidate = { id: number; status: string; currentVersion: number; errorCode: string | null; attempts: number; storageKey: string | null }
 
 export type RetryFailedResult =
-  | { state: "not_found" | "job_unavailable" }
+  | { state: "not_found" }
+  | { state: "job_unavailable" }
   | { state: "not_eligible"; status: BatchStatus }
   | { state: "done"; status: BatchStatus; accepted: number[]; skipped: { id: number; reason: string }[] }
 
@@ -1121,7 +1122,8 @@ export async function requestBatchControl(batchId: string, action: BatchControlA
 }
 
 export type BatchResumeResult =
-  | { state: "not_found" | "job_unavailable" }
+  | { state: "not_found" }
+  | { state: "job_unavailable" }
   | { state: "changed" | "unchanged" | "not_eligible"; status: BatchStatus }
 
 /**

@@ -10,12 +10,23 @@ const STATEMENTS = [
     name VARCHAR(160) NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     role ENUM('admin','employee') NOT NULL DEFAULT 'employee',
-    status ENUM('active','disabled') NOT NULL DEFAULT 'active',
+    status ENUM('pending','active','disabled') NOT NULL DEFAULT 'pending',
+    approved_by BIGINT UNSIGNED NULL,
+    approved_at DATETIME NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     UNIQUE KEY uniq_users_email (email),
     KEY idx_users_tenant (tenant_id, status)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+  `CREATE TABLE IF NOT EXISTS password_resets (
+    token_hash CHAR(64) NOT NULL,
+    user_id BIGINT UNSIGNED NOT NULL,
+    expires_at DATETIME NOT NULL,
+    used_at DATETIME NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (token_hash),
+    KEY idx_password_resets_user (user_id, created_at)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
   `CREATE TABLE IF NOT EXISTS app_sessions (
     token_hash CHAR(64) NOT NULL,
@@ -89,11 +100,26 @@ const STATEMENTS = [
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 ]
 
+/** Tables created before the approval flow lack the 'pending' status and approval columns. */
+async function upgradeUsersForApproval() {
+  const columns = await query<any[]>(
+    `SELECT COLUMN_NAME AS name, COLUMN_TYPE AS type FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME IN ('status','approved_by','approved_at')`,
+  )
+  const byName = new Map(columns.map((c) => [String(c.name), String(c.type)]))
+  if (!byName.get("status")?.includes("'pending'")) {
+    await query("ALTER TABLE users MODIFY status ENUM('pending','active','disabled') NOT NULL DEFAULT 'pending'")
+  }
+  if (!byName.has("approved_by")) await query("ALTER TABLE users ADD COLUMN approved_by BIGINT UNSIGNED NULL AFTER status")
+  if (!byName.has("approved_at")) await query("ALTER TABLE users ADD COLUMN approved_at DATETIME NULL AFTER approved_by")
+}
+
 let ensured: Promise<void> | null = null
 
 export function ensurePlatformSchema(): Promise<void> {
   ensured ??= (async () => {
     for (const sql of STATEMENTS) await query(sql)
+    await upgradeUsersForApproval()
   })().catch((error) => {
     ensured = null
     throw error

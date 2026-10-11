@@ -33,6 +33,8 @@ const PROCESSING: Record<DocumentRecord["processingStatus"], { label: string; to
   pending: { label: "Pending", tone: "neutral" },
   extracting: { label: "Extracting", tone: "info" },
   extracted: { label: "Extracted", tone: "success" },
+  partially_extracted: { label: "Partially Extracted", tone: "info" },
+  unsupported: { label: "Unsupported", tone: "neutral" },
   failed: { label: "Failed", tone: "danger" },
 }
 
