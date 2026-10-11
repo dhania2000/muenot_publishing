@@ -11,7 +11,7 @@
 import "server-only"
 import type { FileObject } from "@/lib/storage/file-metadata"
 import { getScanForFile } from "@/lib/storage/file-scanning"
-import type { PermissionScope } from "@/lib/permission-store"
+import type { PermissionScope } from "@/lib/permission-model"
 import { getExtension } from "./document-queue"
 import { deriveDocumentSecurity, type DocumentSecurityStatus } from "./document-upload-contract"
 import {

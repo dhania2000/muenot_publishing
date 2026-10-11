@@ -30,7 +30,7 @@ export type ControlDeps = { resolveModel?: (actor: BatchActor) => Promise<unknow
 export async function controlBatch(batchId: string, action: ControlAction, actor: BatchActor, deps: ControlDeps = {}): Promise<ControlSuccess | ControlFailure> {
   const batch = await getBatch(batchId)
   if (!batch) return fail(404, "NOT_FOUND", "Batch not found.")
-  if (actor.updateScope === "own" && batch.createdBy !== actor.userId && batch.submittedBy !== actor.userId) return fail(404, "NOT_FOUND", "Batch not found.")
+  if (actor.updateScope !== "all" && batch.createdBy !== actor.userId && batch.submittedBy !== actor.userId) return fail(404, "NOT_FOUND", "Batch not found.")
 
   if (action === "resume") {
     if (batch.status === "cancelled" || batch.status === "cancel_requested") return fail(409, "BATCH_CANCELLED", "A cancelled batch cannot be resumed.", { status: batch.status })

@@ -129,7 +129,7 @@ function UploadStatus({ upload, onRetry }: { upload: UploadState; onRetry?: () =
           </span>
           {upload.progress !== null && <span className="tabular-nums text-muted-foreground">{upload.progress}%</span>}
         </div>
-        <Progress value={upload.progress ?? undefined} aria-label="Upload progress" />
+        <Progress value={upload.progress ?? null} aria-label="Upload progress" />
       </div>
     )
   if (upload.phase === "failed")
