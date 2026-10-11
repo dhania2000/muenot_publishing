@@ -1,5 +1,8 @@
 "use server"
+import { createHash, randomBytes } from "node:crypto"
+import { headers } from "next/headers"
 import { redirect } from "next/navigation"
+import { sendMail } from "@/lib/mailer"
 import { createSession, destroySession, hashPassword, verifyPassword } from "@/lib/auth"
 import { query } from "@/lib/db"
 import { ensurePlatformSchema } from "@/lib/platform-schema"
@@ -68,6 +71,84 @@ export async function signUpAction(_prev: AuthState, formData: FormData): Promis
     return { error: "Sign-up is temporarily unavailable. Check the database connection.", email, name }
   }
   redirect(HOME)
+}
+
+export type ResetRequestState = { error?: string; sent?: boolean; email?: string } | undefined
+
+const RESET_MINUTES = 30
+const hashToken = (token: string) => createHash("sha256").update(token).digest("hex")
+
+async function appOrigin() {
+  const configured = process.env.APP_URL?.replace(/\/+$/, "")
+  if (configured) return configured
+  const h = await headers()
+  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000"
+  const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https")
+  return `${proto}://${host}`
+}
+
+export async function requestPasswordResetAction(_prev: ResetRequestState, formData: FormData): Promise<ResetRequestState> {
+  const email = readEmail(formData)
+  if (!EMAIL_RE.test(email)) return { error: "Enter a valid email address.", email }
+  if (await limited(`reset-request:${email}`)) return { error: "Too many attempts. Try again in a minute.", email }
+
+  try {
+    await ensurePlatformSchema()
+    const rows = await query<any[]>("SELECT id, name FROM users WHERE email = ? AND status = 'active' LIMIT 1", [email])
+    const user = rows[0]
+    if (user) {
+      const token = randomBytes(32).toString("base64url")
+      const expires = new Date(Date.now() + RESET_MINUTES * 60_000)
+      await query("DELETE FROM password_resets WHERE user_id = ?", [user.id])
+      await query("INSERT INTO password_resets (token_hash, user_id, expires_at) VALUES (?, ?, ?)", [hashToken(token), user.id, expires])
+      const link = `${await appOrigin()}/reset-password?token=${encodeURIComponent(token)}`
+      await sendMail({
+        to: email,
+        subject: "Reset your Muenot Publishing password",
+        text: `Hi ${user.name},\n\nUse this link to set a new password. It expires in ${RESET_MINUTES} minutes and can be used once:\n${link}\n\nIf you didn't request this, you can ignore this email.`,
+        html: `<p>Hi ${escapeHtml(user.name)},</p><p>Use the link below to set a new password. It expires in ${RESET_MINUTES} minutes and can be used once.</p><p><a href="${link}">Reset password</a></p><p>If you didn't request this, you can ignore this email.</p>`,
+      })
+    }
+  } catch (error) {
+    console.error("[auth] reset request failed", error instanceof Error ? error.message : error)
+    return { error: "Password reset is temporarily unavailable. Try again later.", email }
+  }
+  return { sent: true, email }
+}
+
+export type ResetPasswordState = { error?: string } | undefined
+
+export async function resetPasswordAction(_prev: ResetPasswordState, formData: FormData): Promise<ResetPasswordState> {
+  const token = String(formData.get("token") ?? "")
+  const password = String(formData.get("password") ?? "")
+  const confirm = String(formData.get("confirm") ?? "")
+  if (!token) return { error: "This reset link is invalid. Request a new one." }
+  if (password.length < 8 || password.length > 200) return { error: "Password must be at least 8 characters." }
+  if (password !== confirm) return { error: "Passwords do not match." }
+  if (await limited(`reset:${hashToken(token)}`)) return { error: "Too many attempts. Try again in a minute." }
+
+  try {
+    await ensurePlatformSchema()
+    const tokenHash = hashToken(token)
+    const claimed = await query<any>(
+      "UPDATE password_resets SET used_at = UTC_TIMESTAMP() WHERE token_hash = ? AND used_at IS NULL AND expires_at > UTC_TIMESTAMP()",
+      [tokenHash],
+    )
+    if (!claimed.affectedRows) return { error: "This reset link has expired or was already used. Request a new one." }
+    const [row] = await query<any[]>("SELECT user_id FROM password_resets WHERE token_hash = ? LIMIT 1", [tokenHash])
+    const userId = Number(row.user_id)
+    await query("UPDATE users SET password_hash = ? WHERE id = ? AND status = 'active'", [await hashPassword(password), userId])
+    await query("DELETE FROM app_sessions WHERE user_id = ?", [userId])
+    await query("DELETE FROM password_resets WHERE user_id = ? AND token_hash <> ?", [userId, tokenHash])
+  } catch (error) {
+    console.error("[auth] reset failed", error instanceof Error ? error.message : error)
+    return { error: "Password reset is temporarily unavailable. Try again later." }
+  }
+  redirect("/login?reset=1")
+}
+
+function escapeHtml(value: string) {
+  return value.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!)
 }
 
 export async function signOutAction() {

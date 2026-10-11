@@ -6,10 +6,11 @@ import { getSession } from "@/lib/auth"
 
 export const metadata: Metadata = { title: "Sign in" }
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ mode?: string }> }) {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ mode?: string; reset?: string }> }) {
   const session = await getSession().catch(() => null)
   if (session) redirect("/modules/publishing/alt-text")
-  const { mode } = await searchParams
+  const { mode, reset } = await searchParams
+  const initialMode = mode === "signup" ? "signup" : mode === "forgot" ? "forgot" : "signin"
 
   return (
     <main className="flex min-h-dvh">
@@ -32,7 +33,10 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             <BookOpen className="size-5 text-primary" aria-hidden="true" />
             Muenot Publishing
           </div>
-          <AuthForm initialMode={mode === "signup" ? "signup" : "signin"} />
+          <AuthForm
+            initialMode={initialMode}
+            notice={reset === "1" ? "Your password was updated. Sign in with your new password." : undefined}
+          />
         </div>
       </section>
     </main>

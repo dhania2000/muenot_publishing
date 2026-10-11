@@ -1,35 +1,45 @@
 "use client"
 import { useActionState, useState } from "react"
-import { AlertCircle } from "lucide-react"
-import { signInAction, signUpAction, type AuthState } from "@/app/(auth)/actions"
+import { AlertCircle, ArrowLeft, CheckCircle2 } from "lucide-react"
+import { requestPasswordResetAction, signInAction, signUpAction } from "@/app/(auth)/actions"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Spinner } from "@/components/ui/spinner"
 
-type Mode = "signin" | "signup"
+type Mode = "signin" | "signup" | "forgot"
 
-export function AuthForm({ initialMode }: { initialMode: Mode }) {
+export function AuthForm({ initialMode, notice }: { initialMode: Mode; notice?: string }) {
   const [mode, setMode] = useState<Mode>(initialMode)
-  return mode === "signin" ? (
-    <SignInForm key="signin" onSwitch={() => setMode("signup")} />
-  ) : (
-    <SignUpForm key="signup" onSwitch={() => setMode("signin")} />
-  )
+  if (mode === "signup") return <SignUpForm key="signup" onSwitch={() => setMode("signin")} />
+  if (mode === "forgot") return <ForgotPasswordForm key="forgot" onBack={() => setMode("signin")} />
+  return <SignInForm key="signin" notice={notice} onSwitch={() => setMode("signup")} onForgot={() => setMode("forgot")} />
 }
 
-function FormError({ state }: { state: AuthState }) {
-  if (!state?.error) return null
+export function FormError({ error }: { error?: string }) {
+  if (!error) return null
   return (
     <Alert variant="destructive" role="alert">
       <AlertCircle aria-hidden="true" />
-      <AlertDescription>{state.error}</AlertDescription>
+      <AlertDescription>{error}</AlertDescription>
     </Alert>
   )
 }
 
-function SignInForm({ onSwitch }: { onSwitch: () => void }) {
+function FormNotice({ message }: { message?: string }) {
+  if (!message) return null
+  return (
+    <Alert role="status">
+      <CheckCircle2 aria-hidden="true" />
+      <AlertDescription>{message}</AlertDescription>
+    </Alert>
+  )
+}
+
+const linkButton = "font-medium text-foreground underline-offset-4 hover:underline"
+
+function SignInForm({ notice, onSwitch, onForgot }: { notice?: string; onSwitch: () => void; onForgot: () => void }) {
   const [state, action, pending] = useActionState(signInAction, undefined)
   return (
     <form action={action} className="flex flex-col gap-5" noValidate>
@@ -37,13 +47,18 @@ function SignInForm({ onSwitch }: { onSwitch: () => void }) {
         <h1 className="text-2xl font-semibold tracking-tight text-balance">Sign in</h1>
         <p className="text-sm text-muted-foreground">Welcome back. Enter your credentials to continue.</p>
       </div>
-      <FormError state={state} />
+      {state?.error ? <FormError error={state.error} /> : <FormNotice message={notice} />}
       <div className="flex flex-col gap-2">
         <Label htmlFor="email">Email</Label>
         <Input id="email" name="email" type="email" autoComplete="email" required defaultValue={state?.email} />
       </div>
       <div className="flex flex-col gap-2">
-        <Label htmlFor="password">Password</Label>
+        <div className="flex items-center justify-between">
+          <Label htmlFor="password">Password</Label>
+          <button type="button" onClick={onForgot} className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+            Forgot password?
+          </button>
+        </div>
         <Input id="password" name="password" type="password" autoComplete="current-password" required />
       </div>
       <Button type="submit" disabled={pending} className="w-full">
@@ -52,10 +67,40 @@ function SignInForm({ onSwitch }: { onSwitch: () => void }) {
       </Button>
       <p className="text-center text-sm text-muted-foreground">
         {"New here? "}
-        <button type="button" onClick={onSwitch} className="font-medium text-foreground underline-offset-4 hover:underline">
+        <button type="button" onClick={onSwitch} className={linkButton}>
           Create an account
         </button>
       </p>
+    </form>
+  )
+}
+
+function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
+  const [state, action, pending] = useActionState(requestPasswordResetAction, undefined)
+  return (
+    <form action={action} className="flex flex-col gap-5" noValidate>
+      <div className="flex flex-col gap-1">
+        <h1 className="text-2xl font-semibold tracking-tight text-balance">Reset your password</h1>
+        <p className="text-sm text-muted-foreground text-pretty">
+          Enter your account email and we&apos;ll send you a link to set a new password.
+        </p>
+      </div>
+      <FormError error={state?.error} />
+      {state?.sent ? (
+        <FormNotice message={`If an account exists for ${state.email}, a reset link is on its way. It expires in 30 minutes.`} />
+      ) : null}
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="email">Email</Label>
+        <Input id="email" name="email" type="email" autoComplete="email" required defaultValue={state?.email} />
+      </div>
+      <Button type="submit" disabled={pending} className="w-full">
+        {pending ? <Spinner /> : null}
+        {pending ? "Sending link" : state?.sent ? "Send again" : "Send reset link"}
+      </Button>
+      <button type="button" onClick={onBack} className="flex items-center justify-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+        <ArrowLeft className="size-4" aria-hidden="true" />
+        Back to sign in
+      </button>
     </form>
   )
 }
@@ -68,7 +113,7 @@ function SignUpForm({ onSwitch }: { onSwitch: () => void }) {
         <h1 className="text-2xl font-semibold tracking-tight text-balance">Create an account</h1>
         <p className="text-sm text-muted-foreground">The first account becomes the workspace administrator.</p>
       </div>
-      <FormError state={state} />
+      <FormError error={state?.error} />
       <div className="flex flex-col gap-2">
         <Label htmlFor="name">Full name</Label>
         <Input id="name" name="name" autoComplete="name" required defaultValue={state?.name} />
@@ -88,7 +133,7 @@ function SignUpForm({ onSwitch }: { onSwitch: () => void }) {
       </Button>
       <p className="text-center text-sm text-muted-foreground">
         {"Already have an account? "}
-        <button type="button" onClick={onSwitch} className="font-medium text-foreground underline-offset-4 hover:underline">
+        <button type="button" onClick={onSwitch} className={linkButton}>
           Sign in
         </button>
       </p>

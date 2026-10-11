@@ -17,6 +17,15 @@ const STATEMENTS = [
     UNIQUE KEY uniq_users_email (email),
     KEY idx_users_tenant (tenant_id, status)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+  `CREATE TABLE IF NOT EXISTS password_resets (
+    token_hash CHAR(64) NOT NULL,
+    user_id BIGINT UNSIGNED NOT NULL,
+    expires_at DATETIME NOT NULL,
+    used_at DATETIME NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (token_hash),
+    KEY idx_password_resets_user (user_id, created_at)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
   `CREATE TABLE IF NOT EXISTS app_sessions (
     token_hash CHAR(64) NOT NULL,
     user_id BIGINT UNSIGNED NOT NULL,
