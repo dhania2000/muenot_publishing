@@ -1423,42 +1423,42 @@
       "sha256": "63d87b67b40753a6ffcd3ca864af1ec82ea9f742135f20f75ac3dc473c6d4463"
     },
     {
-      "path": "_config-reference/package.json",
+      "path": "_config-reference/package.json.reference",
       "sourcePath": "package.json",
       "classification": "config_reference",
       "bytes": 3275,
       "sha256": "0de7d791ac61d2d8ca4362517d6632654753a3a71299f99eb4067a94cc6b41b1"
     },
     {
-      "path": "_config-reference/tsconfig.json",
+      "path": "_config-reference/tsconfig.json.reference",
       "sourcePath": "tsconfig.json",
       "classification": "config_reference",
       "bytes": 650,
       "sha256": "6a3ff55b2a90f0f7a44494ee53c2aa8ad6c083ffe7a4a7f7262a8737d9ba0470"
     },
     {
-      "path": "_config-reference/vitest.config.mts",
+      "path": "_config-reference/vitest.config.mts.reference",
       "sourcePath": "vitest.config.mts",
       "classification": "config_reference",
       "bytes": 804,
       "sha256": "5e21491fa9d15522e91510c7cfec88c79dd9652a9cb01c6ae4eca3fa0314d7d5"
     },
     {
-      "path": "_config-reference/components.json",
+      "path": "_config-reference/components.json.reference",
       "sourcePath": "components.json",
       "classification": "config_reference",
       "bytes": 428,
       "sha256": "1301860ec7b710eaa7455957545ee4e756e361215cb29cc4cce2192eb47e45fb"
     },
     {
-      "path": "_config-reference/next.config.mjs",
+      "path": "_config-reference/next.config.mjs.reference",
       "sourcePath": "next.config.mjs",
       "classification": "config_reference",
       "bytes": 2385,
       "sha256": "183dfe4886c85522dc25cd1bd064f8d53c83c9b65aab71db2fdcbd01ba5814a5"
     },
     {
-      "path": "_config-reference/pnpm-workspace.yaml",
+      "path": "_config-reference/pnpm-workspace.yaml.reference",
       "sourcePath": "pnpm-workspace.yaml",
       "classification": "config_reference",
       "bytes": 1207,
