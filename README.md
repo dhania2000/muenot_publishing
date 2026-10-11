@@ -22,7 +22,7 @@ Publishing website can run on its own.
 | `test/alt-text/`, `test/publishing/` | Publishing unit/route tests | 34 |
 | `database/migrations/` | Publishing schema migrations (copies; still retained in ERP) | 5 |
 | `_erp-shared/` | Reference copies of shared ERP dependencies (pre-removal versions) | 58 |
-| `_config-reference/` | ERP configuration references (package.json, tsconfig, vitest, …) | 6 |
+| `_config-reference/` | ERP configuration references (package.json, tsconfig, vitest, …), suffixed `.reference` so build hosts don't detect them as an app root — strip the suffix when copying back | 6 |
 
 Repository-relative paths are preserved: copying the Publishing-only folders
 back into an ERP checkout at the same paths restores them exactly.
