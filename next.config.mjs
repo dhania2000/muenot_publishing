@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Hostinger runs Next.js from .next/standalone/server.js.
+  output: 'standalone',
   images: { unoptimized: true },
   experimental: {
     // Uploads allow up to MAX_UPLOAD_MB (default 50 MB).
