@@ -145,6 +145,40 @@ export type DocumentImageSourceMetadata = {
   groupPath?: string[]
   /** Slide relationship id from `p:sldIdLst` (presentation.xml). */
   slideRelationshipId?: string | null
+  /** Phase 3 Task 7: PDF-specific source context (page, object, forms, encoding, tagging). */
+  pdf?: PdfSourceMetadata
+}
+
+export type PdfSourceMetadata = {
+  pageIndex: number
+  pageLabel: string | null
+  /** Indirect object reference of the Image XObject, e.g. `12 0 R` (null for inline images). */
+  objectRef: string | null
+  resourceName: string | null
+  kind: "xobject" | "inline"
+  ordinalOnPage: number
+  parentForms: { name: string; ref: string | null }[]
+  classification: "embedded_image" | "likely_scanned_page" | "mask"
+  pageCoverage: number
+  /** Drawn inside an /Artifact marked-content sequence (author flagged as non-content). */
+  artifact: boolean
+  encoding: {
+    filters: string[]
+    colorSpace: string | null
+    bitsPerComponent: number | null
+    pixelWidth: number
+    pixelHeight: number
+    softMask: boolean
+    mask: "explicit" | "color_key" | null
+    imageMask: boolean
+  } | null
+  structure: {
+    association: "resolved" | "ambiguous" | "unresolved" | "no_figure" | "untagged"
+    mcid: number | null
+    structRef: string | null
+    actualText: string | null
+    markedContentAlt: string | null
+  }
 }
 
 export const SOURCE_METADATA_MAX_JSON = 4096
