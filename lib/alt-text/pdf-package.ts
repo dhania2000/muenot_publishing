@@ -672,10 +672,22 @@ function collectPageOccurrences(
     }
   }
 
-  const run = (bytes: Uint8Array, resources: PDFDict | null, state: ContentState, forms: { name: string; ref: string | null }[], ancestors: Set<string>) => {
+  /**
+   * `pageDepth` is how many entries of `state.marked` came from the page's own content stream.
+   * MCIDs opened inside a Form XObject belong to that form stream's namespace (structure tree
+   * /Stm references), not the page's, so only page-level MCIDs may resolve against `pageRef#mcid`.
+   */
+  const run = (
+    bytes: Uint8Array,
+    resources: PDFDict | null,
+    state: ContentState,
+    forms: { name: string; ref: string | null }[],
+    ancestors: Set<string>,
+    pageDepth: number,
+  ) => {
     const inForm = forms.length > 0
     const mcInfo = (s: ContentState) => {
-      const withMcid = [...s.marked].reverse().find((m) => m.mcid != null)
+      const withMcid = s.marked.slice(0, pageDepth).reverse().find((m) => m.mcid != null)
       const withAlt = [...s.marked].reverse().find((m) => m.alt || m.actualText)
       return {
         mcid: withMcid?.mcid ?? null,
@@ -776,7 +788,14 @@ function collectPageOccurrences(
           const formResources = dictOf(ctx, target.dict.get(n("Resources"))) ?? resources
           const nextAncestors = new Set(ancestors)
           if (ref) nextAncestors.add(ref)
-          run(formBytes, formResources, { ctm: multiply(matrix, s.ctm), marked: s.marked }, [...forms, { name: name.slice(0, 64), ref }], nextAncestors)
+          run(
+            formBytes,
+            formResources,
+            { ctm: multiply(matrix, s.ctm), marked: s.marked },
+            [...forms, { name: name.slice(0, 64), ref }],
+            nextAncestors,
+            inForm ? pageDepth : s.marked.length,
+          )
         },
       },
       budget,
@@ -792,7 +811,7 @@ function collectPageOccurrences(
     if (err instanceof DecodeLimitError) throw err
     note(limitations, "CONTENT_UNREADABLE", "Some drawing instructions could not be decoded and were skipped.")
   }
-  if (bytes) run(bytes, page.resources, { ctm: IDENTITY, marked: [] }, [], new Set(page.ref ? [page.ref] : []))
+  if (bytes) run(bytes, page.resources, { ctm: IDENTITY, marked: [] }, [], new Set(page.ref ? [page.ref] : []), Number.POSITIVE_INFINITY)
   if (stats.inlineUnreadable > 0) {
     for (let i = 0; i < stats.inlineUnreadable; i++) note(limitations, "INLINE_IMAGE_UNREADABLE", "Some inline images could not be located safely in the drawing instructions and were not extracted.")
   }

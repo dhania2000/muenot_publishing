@@ -146,6 +146,16 @@ function xhrUpload<T>(
   })
 }
 
+export const documentImagesUrl = (documentId: number, limit = 200, offset = 0) =>
+  `/api/alt-text/documents/${documentId}/images?${new URLSearchParams({ limit: String(limit), offset: String(offset) })}`
+
+export function extractDocumentImages(documentId: number) {
+  return requestJson<{ success: true; alreadyProcessed?: boolean; counts?: { total: number; extracted: number; failed: number; unsupported: number } }>(
+    `/api/alt-text/documents/${documentId}/extract`,
+    { method: "POST" },
+  )
+}
+
 export function newRequestId() {
   return `alt-${crypto.randomUUID().replace(/-/g, "")}`.slice(0, 40)
 }

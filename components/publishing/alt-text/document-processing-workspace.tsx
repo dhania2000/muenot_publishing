@@ -5,32 +5,12 @@
  * @module Publishing
  * @kind React client component
  * @summary Phase 3 Task 1 — Document Processing UI shell (upload area, settings,
- *   extraction summary, extracted-image table, reserved actions). Upload,
- *   extraction and remediation APIs arrive in later tasks, so every
- *   backend-dependent control is disabled and no data is fabricated.
+ *   extraction summary and extracted-image table). Remediation actions
+ *   remain disabled until their APIs exist; no data is fabricated.
  */
 import { useState } from "react"
-import {
-  CheckCircle2,
-  Download,
-  FileStack,
-  FileUp,
-  ImageIcon,
-  Images,
-  Info,
-  ListChecks,
-  ScanSearch,
-  ShieldCheck,
-  Sparkles,
-  XCircle,
-  Hourglass,
-  type LucideIcon,
-} from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Info } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { DEFAULT_GENERATION_SETTINGS, type GenerationSettings } from "@/lib/alt-text/core"
 import { DOCUMENT_MAX_FILE_MB } from "@/lib/alt-text/document-queue"
 import { DocumentDropZone, SelectedDocumentsCard } from "./document-selection-panel"
@@ -38,6 +18,7 @@ import { GenerationSettingsPanel, SelectField } from "./generation-settings-pane
 import { useDocumentQueue } from "./use-document-queue"
 import { useDocumentUploads } from "./use-document-uploads"
 import { UploadedDocumentsCard } from "./uploaded-documents-card"
+import { ExtractedImagesPanel } from "./extracted-images-panel"
 
 const DOCUMENT_TYPES = {
   auto: "Detect from file",
@@ -52,52 +33,6 @@ const SUPPORTED_FORMATS = [
   { ext: "PPTX", note: "Native alt text insertion per slide (planned)" },
   { ext: "DOCX", note: "Native alt text insertion per image (planned)" },
 ] as const
-
-const SUMMARY: { label: string; icon: LucideIcon }[] = [
-  { label: "Total Documents", icon: FileStack },
-  { label: "Extracted Images", icon: Images },
-  { label: "Pending Processing", icon: Hourglass },
-  { label: "Completed Images", icon: CheckCircle2 },
-  { label: "Failed Images", icon: XCircle },
-  { label: "Approved Alt Text", icon: ShieldCheck },
-]
-
-const TABLE_COLUMNS = [
-  "Image",
-  "Original Document",
-  "Page / Slide / Location",
-  "Image Type",
-  "Processing Status",
-  "Alt Text Preview",
-  "Actions",
-]
-
-const ACTIONS: { label: string; icon: LucideIcon; variant: "default" | "outline" }[] = [
-  { label: "Extract Images", icon: ScanSearch, variant: "default" },
-  { label: "Generate Alt Text", icon: Sparkles, variant: "outline" },
-  { label: "Review Descriptions", icon: ListChecks, variant: "outline" },
-  { label: "Download Accessible Document", icon: Download, variant: "outline" },
-  { label: "Export Results", icon: FileUp, variant: "outline" },
-]
-
-const UNAVAILABLE = "Available once document processing is enabled for this workspace."
-
-function DisabledAction({ label, icon: Icon, variant }: (typeof ACTIONS)[number]) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        {/* Wrapper keeps the tooltip reachable while the button itself is disabled. */}
-        <span tabIndex={0} className="inline-flex rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          <Button variant={variant} size="sm" disabled aria-describedby="doc-actions-note">
-            <Icon aria-hidden="true" />
-            {label}
-          </Button>
-        </span>
-      </TooltipTrigger>
-      <TooltipContent>{UNAVAILABLE}</TooltipContent>
-    </Tooltip>
-  )
-}
 
 export function DocumentProcessingWorkspace() {
   const queue = useDocumentQueue()
@@ -159,83 +94,7 @@ export function DocumentProcessingWorkspace() {
 
       <UploadedDocumentsCard />
 
-      <section aria-labelledby="doc-summary-heading" className="flex flex-col gap-3">
-        <h2 id="doc-summary-heading" className="text-sm font-semibold text-foreground">
-          Extraction Summary
-        </h2>
-        <ul className="grid gap-3 sm:grid-cols-3 xl:grid-cols-6">
-          {SUMMARY.map(({ label, icon: Icon }) => (
-            <li key={label}>
-              <Card className="gap-2 py-4">
-                <CardContent className="flex flex-col gap-2 px-4">
-                  <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-                    <Icon className="size-4" aria-hidden="true" />
-                    {label}
-                  </div>
-                  <p className="text-2xl font-semibold tabular-nums text-foreground" aria-label={`${label}: no data yet`}>
-                    {"—"}
-                  </p>
-                </CardContent>
-              </Card>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <Card className="min-w-0">
-        <CardHeader className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="flex flex-col gap-1.5">
-            <CardTitle className="text-base">Extracted Images</CardTitle>
-            <CardDescription>
-              Images will be listed with their original page, slide or location for context-aware descriptions and manual review.
-            </CardDescription>
-          </div>
-          <div role="group" aria-label="Document actions" className="flex flex-wrap gap-2">
-            {ACTIONS.map((a) => (
-              <DisabledAction key={a.label} {...a} />
-            ))}
-          </div>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <p id="doc-actions-note" className="sr-only">
-            {UNAVAILABLE}
-          </p>
-          <div className="overflow-x-auto rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  {TABLE_COLUMNS.map((c) => (
-                    <TableHead key={c} className="whitespace-nowrap">
-                      {c}
-                    </TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={TABLE_COLUMNS.length} className="p-0">
-                    <Empty className="py-10">
-                      <EmptyHeader>
-                        <EmptyMedia variant="icon">
-                          <ImageIcon aria-hidden="true" />
-                        </EmptyMedia>
-                        <EmptyTitle>No extracted images</EmptyTitle>
-                        <EmptyDescription>
-                          Images appear here after documents are uploaded and extracted.
-                        </EmptyDescription>
-                      </EmptyHeader>
-                    </Empty>
-                  </TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
-          </div>
-          <p className="text-xs leading-relaxed text-muted-foreground">
-            PPTX and DOCX support native alt text insertion. PDF remediation depends on the document&apos;s tag structure, so not
-            every PDF can be remediated automatically.
-          </p>
-        </CardContent>
-      </Card>
+      <ExtractedImagesPanel />
     </div>
   )
 }
