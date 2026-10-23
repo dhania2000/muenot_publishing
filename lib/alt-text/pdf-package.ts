@@ -34,8 +34,12 @@ import {
   PStr,
   decodePdfText,
   interpretContentStream,
+  intersectClip,
+  isAxisAligned,
   multiply,
   toMatrix,
+  transformRect,
+  type PdfClip,
   type ContentBudget,
   type ContentState,
   type ContentStats,
@@ -98,6 +102,10 @@ export type PdfOccurrenceStructure = {
   actualText: string | null
   /** /Alt or /ActualText found directly on the enclosing marked-content sequence. */
   markedContentAlt: string | null
+  /** Figure position in structure-tree order, only when the association is `resolved`. */
+  figureOrder: number | null
+  /** /Caption that is a direct child of the resolved Figure. */
+  caption: { structRef: string | null; text: string | null } | null
 }
 
 export type ImageClassification = "embedded_image" | "likely_scanned_page" | "mask"
@@ -119,6 +127,8 @@ export type PdfOccurrence = {
   ctm: Matrix
   pageBox: [number, number, number, number]
   rotate: number
+  /** Clip active at the draw (page space), including enclosing Form /BBox clips. */
+  clip: PdfClip
   pageCoverage: number
   classification: ImageClassification
   artifact: boolean
@@ -518,7 +528,15 @@ function readPageLabels(ctx: Ctx, root: PDFObject | undefined, pageCount: number
 // Structure tree (tagged PDF)
 // ---------------------------------------------------------------------------
 
-type Figure = { structRef: string | null; alt: string | null; actualText: string | null; occurrences: number }
+type Figure = {
+  structRef: string | null
+  alt: string | null
+  actualText: string | null
+  occurrences: number
+  /** 0-based position among Figure elements in structure-tree (logical reading) order. */
+  order: number
+  caption: { structRef: string | null; text: string | null } | null
+}
 
 /** Map `<pageRef>#<mcid>` → Figure. MCRs pointing into a form stream (/Stm) are not mapped. */
 function readFigures(ctx: Ctx, root: PDFDict | null): { figures: Map<string, Figure>; all: Figure[]; formMcrs: number } {
@@ -545,9 +563,12 @@ function readFigures(ctx: Ctx, root: PDFDict | null): { figures: Map<string, Fig
     visited.add(tag)
     return false
   }
-  const stack: { node: PDFObject | undefined; pg: string | null; figure: Figure | null; depth: number }[] = [{ node: root.get(n("K")), pg: null, figure: null, depth: 0 }]
+  // Depth-first pre-order (children pushed in reverse) so `Figure.order` follows the logical structure order.
+  const stack: { node: PDFObject | undefined; pg: string | null; figure: Figure | null; parentFigure: Figure | null; depth: number }[] = [
+    { node: root.get(n("K")), pg: null, figure: null, parentFigure: null, depth: 0 },
+  ]
   while (stack.length > 0) {
-    const { node, pg, figure, depth } = stack.pop()!
+    const { node, pg, figure, parentFigure, depth } = stack.pop()!
     if (++nodes > PDF_EXTRACTION_LIMITS.maxStructNodes || depth > 128) break
     const o = look(ctx, node)
     if (o instanceof PDFNumber) {
@@ -555,7 +576,8 @@ function readFigures(ctx: Ctx, root: PDFDict | null): { figures: Map<string, Fig
       continue
     }
     if (o instanceof PDFArray) {
-      for (const k of o.asArray()) stack.push({ node: k, pg, figure, depth: depth + 1 })
+      const kids = o.asArray()
+      for (let i = kids.length - 1; i >= 0; i--) stack.push({ node: kids[i], pg, figure, parentFigure, depth: depth + 1 })
       continue
     }
     if (!(o instanceof PDFDict) || seen(node)) continue
@@ -570,16 +592,25 @@ function readFigures(ctx: Ctx, root: PDFDict | null): { figures: Map<string, Fig
     if (type === "OBJR") continue
     const role = roleOf(nameOf(ctx, o.get(n("S"))))
     let current = figure
+    let opened: Figure | null = null
     if (role === "Figure" && !figure) {
-      current = {
+      current = opened = {
         structRef: refTag(node),
         alt: textOf(ctx, o.get(n("Alt"))),
         actualText: textOf(ctx, o.get(n("ActualText"))),
         occurrences: 0,
+        order: all.length,
+        caption: null,
       }
       all.push(current)
     }
-    stack.push({ node: o.get(n("K")), pg: elemPg, figure: current, depth: depth + 1 })
+    // Only a Caption that is a direct child of the Figure element is a structural association.
+    // Its text is kept only when the author supplied /ActualText; content text is not extracted here.
+    if (role === "Caption" && parentFigure && !parentFigure.caption) {
+      const text = textOf(ctx, o.get(n("ActualText")))
+      parentFigure.caption = { structRef: refTag(node), text: text ? text.slice(0, 300) : null }
+    }
+    stack.push({ node: o.get(n("K")), pg: elemPg, figure: current, parentFigure: opened, depth: depth + 1 })
   }
   return { figures, all, formMcrs }
 }
@@ -724,6 +755,7 @@ function collectPageOccurrences(
               parentForms: forms,
               chain: [...forms.map((f) => f.name)],
               ctm: s.ctm,
+              clip: s.clip ?? null,
               image: spec,
               problem: null,
               cacheKey: `inline:${key}`,
@@ -755,6 +787,7 @@ function collectPageOccurrences(
                 parentForms: forms,
                 chain: [...forms.map((f) => f.name), name],
                 ctm: s.ctm,
+                clip: s.clip ?? null,
                 image,
                 problem,
                 cacheKey: ref ? `obj:${ref}` : `anon:${pageIndex}:${drafts.length}`,
@@ -788,10 +821,19 @@ function collectPageOccurrences(
           const formResources = dictOf(ctx, target.dict.get(n("Resources"))) ?? resources
           const nextAncestors = new Set(ancestors)
           if (ref) nextAncestors.add(ref)
+          const formCtm = multiply(matrix, s.ctm)
+          // A form's /BBox clips everything it draws.
+          const bbox = numbersOf(ctx, target.dict.get(n("BBox")))
+          const bboxClip: PdfClip =
+            bbox && bbox.length === 4 && bbox.every(Number.isFinite)
+              ? isAxisAligned(formCtm)
+                ? { rect: transformRect(formCtm, Math.min(bbox[0], bbox[2]), Math.min(bbox[1], bbox[3]), Math.abs(bbox[2] - bbox[0]), Math.abs(bbox[3] - bbox[1])) }
+                : "complex"
+              : null
           run(
             formBytes,
             formResources,
-            { ctm: multiply(matrix, s.ctm), marked: s.marked },
+            { ctm: formCtm, marked: s.marked, clip: intersectClip(s.clip ?? null, bboxClip) },
             [...forms, { name: name.slice(0, 64), ref }],
             nextAncestors,
             inForm ? pageDepth : s.marked.length,
@@ -907,6 +949,8 @@ export async function readPdfPackage(bytes: Uint8Array): Promise<PdfPackage> {
           alt: association === "resolved" ? (figure?.alt ?? null) : null,
           actualText: association === "resolved" ? (figure?.actualText ?? null) : null,
           markedContentAlt: mcAlt ?? mcActual,
+          figureOrder: association === "resolved" ? (figure?.order ?? null) : null,
+          caption: association === "resolved" ? (figure?.caption ?? null) : null,
         },
       })
     }
