@@ -40,7 +40,38 @@ export function toMatrix(v: unknown): Matrix | null {
 
 export type MarkedContent = { tag: string; mcid: number | null; alt: string | null; actualText: string | null }
 
-export type ContentState = { ctm: Matrix; marked: readonly MarkedContent[] }
+/**
+ * Active clipping region in page user space. `rect` is tracked only for single-rectangle clip
+ * paths under an axis-aligned CTM; any other clip path is `"complex"` (bounds stay approximate).
+ */
+export type PdfClip = { rect: [number, number, number, number] } | "complex" | null
+
+export type ContentState = { ctm: Matrix; marked: readonly MarkedContent[]; clip?: PdfClip }
+
+const EPS = 1e-9
+export const isAxisAligned = (m: Matrix) => (Math.abs(m[1]) < EPS && Math.abs(m[2]) < EPS) || (Math.abs(m[0]) < EPS && Math.abs(m[3]) < EPS)
+
+/** Axis-aligned bounding box of a (x, y, w, h) rectangle transformed by `m`. */
+export function transformRect(m: Matrix, x: number, y: number, w: number, h: number): [number, number, number, number] {
+  const pts = [
+    [x, y],
+    [x + w, y],
+    [x, y + h],
+    [x + w, y + h],
+  ].map(([px, py]) => [px * m[0] + py * m[2] + m[4], px * m[1] + py * m[3] + m[5]])
+  const xs = pts.map((p) => p[0])
+  const ys = pts.map((p) => p[1])
+  return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]
+}
+
+/** Intersect a clip with an axis-aligned rectangle (or with `"complex"`). */
+export function intersectClip(clip: PdfClip, next: PdfClip): PdfClip {
+  if (clip === "complex" || next === "complex") return "complex"
+  if (!clip) return next
+  if (!next) return clip
+  const [a, b] = [clip.rect, next.rect]
+  return { rect: [Math.max(a[0], b[0]), Math.max(a[1], b[1]), Math.min(a[2], b[2]), Math.min(a[3], b[3])] }
+}
 
 export class ContentLimitError extends Error {
   constructor(message: string) {
@@ -270,11 +301,21 @@ export function interpretContentStream(
 ): void {
   const lx = new Lexer(bytes)
   const operands: PValue[] = []
-  const gsStack: Matrix[] = []
+  const gsStack: { ctm: Matrix; clip: PdfClip }[] = []
   let ctm = initial.ctm
+  let clip: PdfClip = initial.clip ?? null
+  let pathRect: PdfClip = null
+  let pathSegments = 0
+  let pendingClip = false
   const marked: MarkedContent[] = [...initial.marked]
   const inheritedDepth = initial.marked.length
-  const state = (): ContentState => ({ ctm, marked: [...marked] })
+  const state = (): ContentState => ({ ctm, marked: [...marked], clip })
+  const endPath = () => {
+    if (pendingClip) clip = intersectClip(clip, pathSegments === 1 && pathRect ? pathRect : "complex")
+    pathRect = null
+    pathSegments = 0
+    pendingClip = false
+  }
 
   for (;;) {
     const t = lx.next()
@@ -289,10 +330,35 @@ export function interpretContentStream(
     const op = t.v
     switch (op) {
       case "q":
-        if (gsStack.length < 512) gsStack.push(ctm)
+        if (gsStack.length < 512) gsStack.push({ ctm, clip })
         break
-      case "Q":
-        ctm = gsStack.pop() ?? ctm
+      case "Q": {
+        const saved = gsStack.pop()
+        if (saved) ({ ctm, clip } = saved)
+        break
+      }
+      case "re": {
+        const nums = operands.slice(-4)
+        pathSegments++
+        pathRect =
+          operands.length >= 4 && nums.every((v) => typeof v === "number" && Number.isFinite(v)) && isAxisAligned(ctm)
+            ? { rect: transformRect(ctm, ...(nums as [number, number, number, number])) }
+            : "complex"
+        break
+      }
+      case "m":
+      case "l":
+      case "c":
+      case "v":
+      case "y":
+        pathSegments += 2
+        break
+      case "W":
+      case "W*":
+        pendingClip = true
+        break
+      case "n":
+        endPath()
         break
       case "cm": {
         const m = toMatrix(operands.slice(-6))
@@ -368,8 +434,10 @@ export function interpretContentStream(
         break
       }
       default:
-        if (PATH_PAINT.has(op)) stats.pathPaints++
-        else if (TEXT_SHOW.has(op)) stats.textShows++
+        if (PATH_PAINT.has(op)) {
+          stats.pathPaints++
+          if (op !== "sh") endPath()
+        } else if (TEXT_SHOW.has(op)) stats.textShows++
     }
     operands.length = 0
   }
