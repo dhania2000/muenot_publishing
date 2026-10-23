@@ -106,12 +106,18 @@ async function processOccurrence(ctx: RunSettings, cache: DecodeCache, o: PdfOcc
     sourceMetadata: sourceMetadataFor(o),
     extractionStatus: "pending",
   })
+  const consume = () => {
+    if (!o.image) return
+    const left = (cache.remaining.get(o.cacheKey) ?? 1) - 1
+    cache.remaining.set(o.cacheKey, left)
+    if (left <= 0) cache.results.delete(o.cacheKey)
+  }
   if (!created.ok) {
     console.error("[alt-text/extract] occurrence not recorded", created.code)
+    consume()
     return false
   }
   const image = created.image
-  const consume = () => o.image && cache.remaining.set(o.cacheKey, (cache.remaining.get(o.cacheKey) ?? 1) - 1)
   if (image.extractionStatus === "extracted" || image.extractionStatus === "unsupported") {
     consume()
     return true
