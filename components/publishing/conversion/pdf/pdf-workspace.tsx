@@ -13,8 +13,8 @@
  */
 import { useCallback, useId, useState } from "react"
 import { Download, FileCheck2, Play } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { PdfStatusIndicator } from "@/components/publishing/conversion/pdf/pdf-capability-status"
 import {
   DEFAULT_EXPANDED_SETTINGS,
   describeLocalFile,
@@ -97,6 +97,26 @@ export function PdfWorkspace({ guidelinesHref = null }: { guidelinesHref?: strin
     if (file) setAnnouncement(`${file.name} removed.`)
   }
 
+  const replaceFile = (id: string, incoming: File) => {
+    const others = files.filter((f) => f.id !== id)
+    const replacement = describeLocalFile(incoming, others, id)
+    setFiles(files.map((f) => (f.id === id ? replacement : f)))
+    setAnnouncement(`Replaced with ${replacement.name}.${replacement.issue ? " The new file has a validation issue." : ""}`)
+  }
+
+  const removeAllFiles = () => {
+    const count = files.length
+    setFiles([])
+    setSelectedId(null)
+    setAnnouncement(`${count} ${count === 1 ? "file" : "files"} removed.`)
+  }
+
+  const previewFile = (id: string) => {
+    setSelectedId(id)
+    setPreviewMode("original")
+    goToStep("preview")
+  }
+
   const toggleGroup = (id: PdfSettingsGroupId) =>
     setExpandedGroups((groups) => (groups.includes(id) ? groups.filter((g) => g !== id) : [...groups, id]))
 
@@ -175,7 +195,10 @@ export function PdfWorkspace({ guidelinesHref = null }: { guidelinesHref?: strin
             onToggle={() => setLeftOpen((v) => !v)}
             onAddFiles={addFiles}
             onSelect={setSelectedId}
+            onPreview={previewFile}
+            onReplace={replaceFile}
             onRemove={removeFile}
+            onRemoveAll={removeAllFiles}
           />
         }
         preview={
@@ -299,7 +322,7 @@ export function PdfWorkspaceToolbar({
         <div className="flex items-center gap-1.5">
           <dt className="text-muted-foreground">Status</dt>
           <dd>
-            <Badge variant="outline">No active job</Badge>
+            <PdfStatusIndicator label="No active job" tone="neutral" bordered />
           </dd>
         </div>
       </dl>

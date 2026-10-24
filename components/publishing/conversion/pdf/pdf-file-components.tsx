@@ -48,6 +48,8 @@ type PdfUploadDropzoneProps = {
   /** Only true while a real upload is running; shown as indeterminate. */
   uploading?: boolean
   error?: string | null
+  /** Lets an external "Add Files" button open the same file picker. */
+  inputRef?: React.RefObject<HTMLInputElement | null>
   className?: string
 }
 
@@ -65,9 +67,11 @@ export function PdfUploadDropzone({
   disabledReason,
   uploading,
   error,
+  inputRef: externalRef,
   className,
 }: PdfUploadDropzoneProps) {
-  const inputRef = useRef<HTMLInputElement>(null)
+  const internalRef = useRef<HTMLInputElement>(null)
+  const inputRef = externalRef ?? internalRef
   const hintId = useId()
   const [dragging, setDragging] = useState(false)
   const { icon: Icon, lead } = PURPOSE_COPY[purpose]

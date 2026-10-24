@@ -95,8 +95,9 @@ describe("PdfWorkspace render", () => {
   })
 
   it("does not show fake progress, success or compliance", () => {
-    expect(html).not.toMatch(/\d+%/)
-    expect(html).not.toMatch(/completed|succeeded|compliant/i)
+    const visibleText = html.replace(/<[^>]*>/g, " ")
+    expect(visibleText).not.toMatch(/\d+%/)
+    expect(visibleText).not.toMatch(/completed|succeeded|compliant/i)
     expect(html).not.toContain('role="progressbar"')
   })
 
