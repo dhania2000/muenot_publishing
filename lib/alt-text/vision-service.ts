@@ -21,6 +21,7 @@ import {
   type AltTextResult,
   type AltTextSettings,
   type GenerationSettings,
+  type ImageClassification,
   type SupportedImageType,
 } from "./core"
 import { documentContextNotices, type DocumentPromptContext } from "./document-prompt"
@@ -93,6 +94,10 @@ export type GenerateAltTextFromImageInput = {
   model: CatalogModel
   /** Occurrence-specific document context resolved server-side; omitted for standalone images. */
   document?: DocumentPromptContext | null
+  /** False when automatic classification is switched off in Accessibility Settings. */
+  classify?: boolean
+  /** Editor-corrected category, mapped to the Phase 1 image type, handed to the prompt as a hint. */
+  classificationHint?: ImageClassification | null
   timeoutMs?: number
   abortSignal?: AbortSignal
 }
@@ -136,7 +141,8 @@ export async function generateAltTextFromImage(input: GenerateAltTextFromImageIn
     shortMaxChars: altTextSettings.shortMaxChars,
     generation,
     document: input.document ?? null,
-    classificationRules: CLASSIFICATION_PROMPT_RULES,
+    classificationRules: input.classify === false ? undefined : CLASSIFICATION_PROMPT_RULES,
+    classificationHint: input.classificationHint ?? null,
   })
 
   const started = Date.now()
@@ -180,7 +186,10 @@ export async function generateAltTextFromImage(input: GenerateAltTextFromImageIn
   }
   {
     const { rawAnalysis, ...rest } = output
-    output = { ...rest, automatedClassification: buildAutomatedClassification(parseClassificationAnalysis(rawAnalysis, output.classification), model.id) }
+    output =
+      input.classify === false
+        ? rest
+        : { ...rest, automatedClassification: buildAutomatedClassification(parseClassificationAnalysis(rawAnalysis, output.classification), model.id) }
   }
 
   const u = (result.usage ?? {}) as Record<string, unknown> & { inputTokenDetails?: { cacheReadTokens?: unknown } }

@@ -21,7 +21,9 @@ import { altTextRequestId, getAltTextCreditUsage, runMeteredAltTextGeneration, t
 import type { DocumentPromptContext } from "./document-prompt"
 import { withinScope } from "./history"
 import { openAltTextImage } from "./preview"
-import { claimForGeneration, getAsset, getSettings, markFailed, saveGeneration } from "./store"
+import { normalizeAccessibilityPreferences } from "./accessibility-settings"
+import { manualTypeHint } from "./classification"
+import { claimForGeneration, getAsset, getSettings, getSettingsRecord, markFailed, saveGeneration } from "./store"
 import { selectVisionModel } from "./vision-service"
 
 const CLIENT_REQUEST_ID = /^[A-Za-z0-9_-]{8,48}$/
@@ -191,6 +193,9 @@ export async function generateAltTextForAsset(
     if (prior?.status === "reserved") return fail(409, "GENERATION_IN_PROGRESS", "This generation request is already being processed.")
   }
 
+  const classify = await autoClassificationEnabled()
+  const classificationHint = manualTypeHint(target.classificationRecord ?? null)
+
   const attempt = await claimForGeneration(req.assetId)
   if (attempt == null) return fail(409, "GENERATION_CONFLICT", "Alt text is already being generated for this image.")
 
@@ -200,7 +205,7 @@ export async function generateAltTextForAsset(
       tenantId: actor.tenantId,
       userId: actor.userId,
       operationId: requestId.slice("alttext:".length),
-      vision: { image: { bytes, mediaType: image.contentType }, generation: req.settings, altTextSettings, model, document: req.document ?? null },
+      vision: { image: { bytes, mediaType: image.contentType }, generation: req.settings, altTextSettings, model, document: req.document ?? null, classify, classificationHint },
     })
   } catch (e) {
     const failure = e instanceof AiError ? aiErrorToFailure(e) : fail(500, "GENERATION_FAILED", "Alt text generation failed. Please try again.")
@@ -239,6 +244,16 @@ export async function generateAltTextForAsset(
   const success = await successFromAsset(req.assetId, credits, req.requestId, false)
   if (success.ok) success.body.result = { ...success.body.result, ...pickResult(output) }
   return success
+}
+
+/** Classification is on by default; an unreadable settings row must never block generation. */
+async function autoClassificationEnabled(): Promise<boolean> {
+  try {
+    const record = await getSettingsRecord()
+    return normalizeAccessibilityPreferences(record.accessibility).preferences.general.useAutoClassification !== false
+  } catch {
+    return true
+  }
 }
 
 function pickResult(o: AltTextResult) {
