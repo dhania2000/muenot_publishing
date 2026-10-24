@@ -8,10 +8,12 @@
  */
 import type { LucideIcon } from "lucide-react"
 import { PageHeader } from "@/components/enterprise/page-header"
-import { CONVERSION_CRUMB, ConversionModuleTabs, PUBLISHING_CRUMBS } from "@/components/publishing/conversion/conversion-nav"
+import { ConversionModuleTabs } from "@/components/publishing/conversion/conversion-nav"
 import { PdfFeedbackState } from "@/components/publishing/conversion/pdf/pdf-feedback-state"
+import { PdfHeaderActions } from "@/components/publishing/conversion/pdf/pdf-header-actions"
+import { getPdfHeader } from "@/components/publishing/conversion/pdf/pdf-header-config"
 import { getPdfSectionLayout, PdfModuleLayout } from "@/components/publishing/conversion/pdf/pdf-module-layout"
-import { conversionHref, type ConversionModule, type ConversionPage } from "@/lib/conversion-modules"
+import type { ConversionModule, ConversionPage } from "@/lib/conversion-modules"
 
 type PdfSectionPageProps = {
   module: ConversionModule
@@ -29,10 +31,7 @@ type PdfSectionPageProps = {
 
 export function PdfSectionPage({ module, page, icon, status, aside, asideLabel, toolbar, children }: PdfSectionPageProps) {
   const layout = getPdfSectionLayout(page?.slug ?? "")
-  const title = page?.label ?? module.label
-  const breadcrumbs = page
-    ? [...PUBLISHING_CRUMBS, CONVERSION_CRUMB, { label: module.label, href: conversionHref(module.slug) }, { label: page.label }]
-    : [...PUBLISHING_CRUMBS, CONVERSION_CRUMB, { label: module.label }]
+  const pdfHeader = getPdfHeader(module, page)
   const unavailableDescription = page
     ? `${module.label} ${page.label} is planned. Its tools will appear here once they are built.`
     : `${module.label} is set up. Its tools will appear here once they are built.`
@@ -41,7 +40,15 @@ export function PdfSectionPage({ module, page, icon, status, aside, asideLabel, 
     <PdfModuleLayout
       width={layout.width}
       spacing={layout.spacing}
-      header={<PageHeader title={title} description={module.description} icon={icon} breadcrumbs={breadcrumbs} />}
+      header={
+        <PageHeader
+          title={pdfHeader.title}
+          description={pdfHeader.subtitle}
+          icon={icon}
+          breadcrumbs={pdfHeader.breadcrumbs}
+          actions={<PdfHeaderActions actions={pdfHeader.actions} />}
+        />
+      }
       navigation={<ConversionModuleTabs module={module} activePage={page?.slug ?? ""} />}
       status={status}
       aside={aside}
