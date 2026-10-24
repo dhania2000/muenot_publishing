@@ -239,6 +239,18 @@ export function ensureAltTextSchema(): Promise<void> {
         if (e?.code !== "ER_DUP_FIELDNAME") throw e
       })
     }
+    // Phase 3 Task 11: durable document preparation state (the job itself lives in platform_background_jobs).
+    for (const ddl of [
+      "ALTER TABLE alt_text_documents ADD COLUMN preparation_stage VARCHAR(20) NULL",
+      "ALTER TABLE alt_text_documents ADD COLUMN preparation_job_id BIGINT UNSIGNED NULL",
+      "ALTER TABLE alt_text_documents ADD COLUMN preparation_error_code VARCHAR(64) NULL",
+      "ALTER TABLE alt_text_documents ADD COLUMN preparation_readiness_json JSON NULL",
+      "ALTER TABLE alt_text_documents ADD COLUMN preparation_updated_at TIMESTAMP NULL",
+    ]) {
+      await query(ddl).catch((e: { code?: string }) => {
+        if (e?.code !== "ER_DUP_FIELDNAME") throw e
+      })
+    }
     for (const ddl of [
       "ALTER TABLE alt_text_document_images ADD INDEX idx_alt_doc_images_selected (tenant_id, document_id, selected_for_processing)",
       "ALTER TABLE alt_text_document_images ADD INDEX idx_alt_doc_images_hash (tenant_id, document_id, media_sha256)",

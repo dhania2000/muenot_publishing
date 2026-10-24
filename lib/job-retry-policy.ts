@@ -28,6 +28,14 @@ export function classifyJobFailure(error: unknown, timedOut = false): FailureKin
  * downstream processor is not deployed). The queue returns the job to `queued`
  * after `delaySeconds` without consuming a retry attempt or marking completion.
  */
+/** Thrown by a handler at a safe checkpoint after the job's durable cancel_requested flag was observed. */
+export class JobCancelledError extends Error {
+  constructor(readonly code = "CANCELLED") {
+    super(code)
+    this.name = "JobCancelledError"
+  }
+}
+
 export class JobDeferredError extends Error {
   readonly delaySeconds: number
   constructor(readonly code: string, delaySeconds: number) {
