@@ -37,7 +37,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ uploadId: strin
     const run = await getValidationRunReport(doc.id, outputId, runId)
     if (!run || run.status !== "completed" || !run.report) return notFound("report")
     const base = `${run.outputFilename.replace(/\.[^.]+$/, "") || "output"}-validation-${runId.slice(0, 8)}`
-    const body = format === "csv" ? findingsCsv(run.report.checks) : JSON.stringify(run.report, null, 2)
+    const body = format === "csv" ? findingsCsv(run.report) : JSON.stringify(run.report, null, 2)
     return new NextResponse(body, {
       status: 200,
       headers: {

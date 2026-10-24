@@ -119,7 +119,10 @@ function UploadStatusCell({ entry, onRetry }: { entry?: UploadEntry; onRetry?: (
   )
 }
 
-export function BulkProcessingWorkspace({ onOpenInEditor }: { onOpenInEditor?: (asset: AltTextAssetView) => void } = {}) {
+export function BulkProcessingWorkspace({
+  onOpenInEditor,
+  externalOpenRequest,
+}: { onOpenInEditor?: (asset: AltTextAssetView) => void; externalOpenRequest?: BatchOpenRequest | null } = {}) {
   const [batchInfo, setBatchInfo] = useState<BatchInfo>(EMPTY_BATCH_INFO)
   const [nameTouched, setNameTouched] = useState(false)
   const [draftSettings, setDraftSettings] = useState<GenerationSettings>(DEFAULT_GENERATION_SETTINGS)
@@ -130,6 +133,12 @@ export function BulkProcessingWorkspace({ onOpenInEditor }: { onOpenInEditor?: (
   const [openRequest, setOpenRequest] = useState<BatchOpenRequest | null>(null)
   const openBatch = (id: string) => {
     setOpenRequest((prev) => ({ id, nonce: (prev?.nonce ?? 0) + 1 }))
+    setView("current")
+  }
+  const [handledExternal, setHandledExternal] = useState(0)
+  if (externalOpenRequest && externalOpenRequest.nonce !== handledExternal) {
+    setHandledExternal(externalOpenRequest.nonce)
+    setOpenRequest((prev) => ({ id: externalOpenRequest.id, nonce: (prev?.nonce ?? 0) + 1 }))
     setView("current")
   }
   const imageQueue = useBulkImageQueue()

@@ -9,8 +9,10 @@
  *   remain disabled until their APIs exist; no data is fabricated.
  */
 import { useState } from "react"
-import { Info } from "lucide-react"
+import { FileText, History, Info } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { DocumentHistory } from "./document-history"
 import { DEFAULT_GENERATION_SETTINGS, type GenerationSettings } from "@/lib/alt-text/core"
 import { DOCUMENT_MAX_FILE_MB } from "@/lib/alt-text/document-queue"
 import { DocumentDropZone, SelectedDocumentsCard } from "./document-selection-panel"
@@ -18,7 +20,7 @@ import { GenerationSettingsPanel, SelectField } from "./generation-settings-pane
 import { useDocumentQueue } from "./use-document-queue"
 import { useDocumentUploads } from "./use-document-uploads"
 import { UploadedDocumentsCard } from "./uploaded-documents-card"
-import { ExtractedImagesPanel } from "./extracted-images-panel"
+import { ExtractedImagesPanel, type DocumentOpenRequest } from "./extracted-images-panel"
 import { DocumentLiveProcessing } from "./document-live-processing"
 
 const DOCUMENT_TYPES = {
@@ -35,7 +37,38 @@ const SUPPORTED_FORMATS = [
   { ext: "DOCX", note: "Native alt text insertion per image (planned)" },
 ] as const
 
-export function DocumentProcessingWorkspace() {
+export function DocumentProcessingWorkspace({ onOpenBatch }: { onOpenBatch?: (batchId: string) => void } = {}) {
+  const [view, setView] = useState<"current" | "history">("current")
+  const [openRequest, setOpenRequest] = useState<DocumentOpenRequest | null>(null)
+
+  const openDocument = (id: number) => {
+    setOpenRequest((prev) => ({ id, nonce: (prev?.nonce ?? 0) + 1 }))
+    setView("current")
+    requestAnimationFrame(() => document.getElementById("extracted-images")?.scrollIntoView({ behavior: "smooth", block: "start" }))
+  }
+
+  return (
+    <Tabs value={view} onValueChange={(v) => setView(v as "current" | "history")} className="flex min-w-0 flex-col gap-4">
+      <TabsList className="w-full sm:w-fit" aria-label="Document processing views">
+        <TabsTrigger value="current" className="flex-1 gap-2 sm:flex-none">
+          <FileText aria-hidden="true" /> Current Document
+        </TabsTrigger>
+        <TabsTrigger value="history" className="flex-1 gap-2 sm:flex-none">
+          <History aria-hidden="true" /> Document History
+        </TabsTrigger>
+      </TabsList>
+      {/* Current stays mounted so queued uploads and selections survive switching to History. */}
+      <TabsContent value="current" keepMounted className="mt-0">
+        <CurrentDocument openRequest={openRequest} />
+      </TabsContent>
+      <TabsContent value="history" className="mt-0">
+        <DocumentHistory onOpenDocument={openDocument} onOpenBatch={onOpenBatch} />
+      </TabsContent>
+    </Tabs>
+  )
+}
+
+function CurrentDocument({ openRequest }: { openRequest: DocumentOpenRequest | null }) {
   const queue = useDocumentQueue()
   const uploads = useDocumentUploads()
   const [documentType, setDocumentType] = useState<DocumentType>("auto")
@@ -100,7 +133,7 @@ export function DocumentProcessingWorkspace() {
       />
 
       <div id="extracted-images" className="min-w-0 scroll-mt-4">
-        <ExtractedImagesPanel />
+        <ExtractedImagesPanel openRequest={openRequest} />
       </div>
     </div>
   )

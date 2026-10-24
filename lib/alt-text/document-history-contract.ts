@@ -5,7 +5,8 @@
  * @summary Phase 3 Task 19 — Document History types, filter parsing and URL builders.
  *   History is read-only: nothing here triggers extraction, AI generation, export or validation.
  */
-import type { DocumentRecordProcessingStatus, DocumentSecurityStatus, DocumentType, DocumentUploadStatus } from "./document-records"
+import type { DocumentRecordProcessingStatus, DocumentType, DocumentUploadStatus } from "./document-records"
+import type { DocumentSecurityStatus } from "./document-upload-contract"
 import type { AccessibleExportFormat } from "./docx-export-contract"
 import type { CheckStatus, OverallStatus, ValidationCounts } from "./output-validation-contract"
 

@@ -26,6 +26,7 @@ import {
   cancelDocumentPreparation,
   describeBatchError,
   documentListUrl,
+  documentStatusUrl,
   generateDocumentAltText,
   newIdempotencyKey,
   startDocumentPreparation,
@@ -89,7 +90,9 @@ function LaterButton({ label, icon: Icon, note = LATER_NOTE }: { label: string; 
   )
 }
 
-export function ExtractedImagesPanel() {
+export type DocumentOpenRequest = { id: number; nonce: number }
+
+export function ExtractedImagesPanel({ openRequest }: { openRequest?: DocumentOpenRequest | null } = {}) {
   const docs = useSWR<DocumentListResponse>(documentListUrl(1, 100), altTextFetcher, { revalidateOnFocus: false })
   const [selected, setSelected] = useState<string>("")
   const [running, setRunning] = useState(false)
@@ -100,13 +103,24 @@ export function ExtractedImagesPanel() {
   const [contextTarget, setContextTarget] = useState<ContextSheetTarget | null>(null)
   const [details, setDetails] = useState<DetailsTarget | null>(null)
   const [exportOpen, setExportOpen] = useState(false)
+  const [handledNonce, setHandledNonce] = useState(0)
+  if (openRequest && openRequest.nonce !== handledNonce) {
+    setHandledNonce(openRequest.nonce)
+    setSelected(String(openRequest.id))
+    setDetails(null)
+    setContextTarget(null)
+  }
   const documentId = selected ? Number(selected) : null
-  const doc = docs.data?.documents.find((d) => d.id === documentId) ?? null
+  const listed = docs.data?.documents.find((d) => d.id === documentId) ?? null
+  // Documents opened from history may be older than the first page of the list; load that record directly.
+  const single = useSWR<{ document: DocumentRecord }>(documentId && docs.data && !listed ? documentStatusUrl(String(documentId)) : null, altTextFetcher, { revalidateOnFocus: false })
+  const doc = listed ?? single.data?.document ?? null
   const review = useImageReview(documentId)
   const { data } = review
   const counts = data?.counts ?? null
   const summary = data?.summary ?? null
-  const reviewable = docs.data?.documents.filter((d) => d.extractionReady && REVIEWABLE.has(d.documentType)) ?? []
+  const listedReviewable = docs.data?.documents.filter((d) => d.extractionReady && REVIEWABLE.has(d.documentType)) ?? []
+  const reviewable = doc && !listed && REVIEWABLE.has(doc.documentType) ? [doc, ...listedReviewable] : listedReviewable
   const filtersActive = JSON.stringify({ ...review.filters, sort: DEFAULT_FILTERS.sort }) !== JSON.stringify(DEFAULT_FILTERS)
 
   function selectDocument(id: string) {
