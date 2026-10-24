@@ -4,12 +4,18 @@ import Link from "next/link"
 import { useState } from "react"
 import { usePathname } from "next/navigation"
 import {
+  Accessibility,
   ChevronDown,
   ClipboardCheck,
+  FileCheck2,
   FilePen,
+  Film,
+  Handshake,
   Microscope,
+  MonitorSmartphone,
   NotebookPen,
   Share2,
+  ShieldCheck,
   type LucideIcon,
 } from "lucide-react"
 import type { NavMenu, NavMenuCategoryIcon } from "@/lib/navigation"
@@ -17,6 +23,7 @@ import { cn } from "@/lib/utils"
 
 const MENU_ICONS: Record<NavMenu["icon"], LucideIcon> = {
   "editorial-services": NotebookPen,
+  "accessibility-services": Accessibility,
 }
 
 const CATEGORY_ICONS: Record<NavMenuCategoryIcon, LucideIcon> = {
@@ -24,6 +31,11 @@ const CATEGORY_ICONS: Record<NavMenuCategoryIcon, LucideIcon> = {
   "specialist-editing": Microscope,
   "editorial-quality": ClipboardCheck,
   "publishing-support": Share2,
+  "document-accessibility": FileCheck2,
+  "digital-accessibility": MonitorSmartphone,
+  "multimedia-accessibility": Film,
+  "testing-compliance": ShieldCheck,
+  "accessibility-support": Handshake,
 }
 
 export function SidebarMenuToggle({

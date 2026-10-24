@@ -16,7 +16,16 @@ export type NavItem = {
   children?: NavChild[]
 }
 
-export type NavMenuCategoryIcon = "core-editing" | "specialist-editing" | "editorial-quality" | "publishing-support"
+export type NavMenuCategoryIcon =
+  | "core-editing"
+  | "specialist-editing"
+  | "editorial-quality"
+  | "publishing-support"
+  | "document-accessibility"
+  | "digital-accessibility"
+  | "multimedia-accessibility"
+  | "testing-compliance"
+  | "accessibility-support"
 
 /** A menu entry without an href is listed but not navigable until its page exists. */
 export type NavMenuEntry = {
@@ -35,7 +44,7 @@ export type NavMenuCategory = {
 export type NavMenu = {
   id: string
   label: string
-  icon: "editorial-services"
+  icon: "editorial-services" | "accessibility-services"
   categories: NavMenuCategory[]
 }
 
@@ -102,6 +111,61 @@ export const EDITORIAL_SERVICES_MENU: NavMenu = {
   ],
 }
 
+export const ACCESSIBILITY_SERVICES_MENU: NavMenu = {
+  id: "accessibility-services",
+  label: "Accessibility Services",
+  icon: "accessibility-services",
+  categories: [
+    {
+      id: "document-accessibility",
+      label: "Document Accessibility",
+      icon: "document-accessibility",
+      entries: [
+        { label: "PPT Accessibility" },
+        { label: "PDF Accessibility" },
+        { label: "Word Accessibility" },
+        { label: "Excel Accessibility" },
+        { label: "ePub Accessibility" },
+      ],
+    },
+    {
+      id: "digital-accessibility",
+      label: "Digital Accessibility",
+      icon: "digital-accessibility",
+      entries: [
+        { label: "Web Accessibility" },
+        { label: "Mobile Accessibility" },
+        { label: "LMS Accessibility" },
+        { label: "eLearning Accessibility" },
+        { label: "Forms Accessibility" },
+        { label: "Math Accessibility" },
+      ],
+    },
+    {
+      id: "multimedia-accessibility",
+      label: "Multimedia Accessibility",
+      icon: "multimedia-accessibility",
+      entries: [{ label: "Audio Accessibility" }, { label: "Video Accessibility" }],
+    },
+    {
+      id: "testing-compliance",
+      label: "Testing & Compliance",
+      icon: "testing-compliance",
+      entries: [{ label: "Testing" }, { label: "Remediation" }, { label: "Compliance Reports" }],
+    },
+    {
+      id: "accessibility-support",
+      label: "Accessibility Support",
+      icon: "accessibility-support",
+      entries: [
+        { label: "Accessible Design" },
+        { label: "Accessibility Consulting" },
+        { label: "Accessibility Training" },
+      ],
+    },
+  ],
+}
+
 export const NAV_GROUPS: NavGroup[] = [
   {
     label: "Publishing",
@@ -120,7 +184,7 @@ export const NAV_GROUPS: NavGroup[] = [
         ),
       },
     ],
-    menus: [EDITORIAL_SERVICES_MENU],
+    menus: [EDITORIAL_SERVICES_MENU, ACCESSIBILITY_SERVICES_MENU],
   },
   {
     label: "Admin",
