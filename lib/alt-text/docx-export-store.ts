@@ -90,7 +90,7 @@ function toRecord(r: Row): StoredDocxExport {
   const report = typeof r.report === "string" ? JSON.parse(r.report) : (r.report ?? null)
   return {
     outputId: r.output_ref,
-    format: r.format === "pptx" ? "pptx" : "docx",
+    format: r.format === "pptx" || r.format === "pdf" ? r.format : "docx",
     status,
     policy: (r.policy === "strict" ? "strict" : "approved_only") as DocxExportPolicy,
     filename: r.output_filename,

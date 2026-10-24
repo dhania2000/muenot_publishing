@@ -11,6 +11,7 @@ import { createHash } from "node:crypto"
 import type { InsertionBlocker, InsertionReadinessRow } from "./document-approval-contract"
 import type { DocxInsertInstruction, DocxInsertReport } from "./docx-alt-text-inserter"
 import type { PptxInsertReport } from "./pptx-alt-text-inserter"
+import type { PdfInsertReport } from "./pdf-alt-text-remediator"
 import type { DocxExportItem, DocxExportPolicy, DocxExportSummary } from "./docx-export-contract"
 
 /** Upper bound of occurrences handled by one synchronous export run. */
@@ -91,8 +92,9 @@ export function strictPreconditionFailure(totals: DocxExportTotals): string | nu
   return null
 }
 
-export function mergeExportReport(report: DocxInsertReport | PptxInsertReport | null, plan: DocxExportPlan): { summary: DocxExportSummary; items: DocxExportItem[] } {
-  const inserted: DocxExportItem[] = (report?.items ?? []).map((i: DocxInsertReport["items"][number] | PptxInsertReport["items"][number]) => ({
+export function mergeExportReport(report: DocxInsertReport | PptxInsertReport | PdfInsertReport | null, plan: DocxExportPlan): { summary: DocxExportSummary; items: DocxExportItem[] } {
+  type AnyItem = DocxInsertReport["items"][number] | PptxInsertReport["items"][number] | PdfInsertReport["items"][number]
+  const inserted: DocxExportItem[] = (report?.items ?? []).map((i: AnyItem) => ({
     occurrenceId: i.occurrenceId,
     status: i.status,
     code: i.code,
@@ -101,8 +103,10 @@ export function mergeExportReport(report: DocxInsertReport | PptxInsertReport | 
     placement: "placement" in i ? i.placement : null,
     decorative: i.decorative,
     ...("slideNumber" in i ? { slideNumber: i.slideNumber, grouped: i.grouped } : {}),
+    ...("pageNumber" in i ? { pageNumber: i.pageNumber } : {}),
   }))
   const slides = report && "slideCount" in report ? { slideCount: report.slideCount, groupedPictureCount: report.groupedPictureCount } : {}
+  const pdf = report && "pdf" in report ? { pdf: report.pdf } : {}
   const items = [...inserted, ...plan.skipped].sort((a, b) => a.occurrenceId - b.occurrenceId)
   const warnings = [...(report?.warnings ?? [])]
   if (plan.totals.unmapped > 0) {
@@ -123,6 +127,7 @@ export function mergeExportReport(report: DocxInsertReport | PptxInsertReport | 
       pictureCount: report?.pictureCount ?? 0,
       uniqueMediaCount: report?.uniqueMediaCount ?? 0,
       ...slides,
+      ...pdf,
       warnings,
     },
   }
@@ -135,13 +140,18 @@ export function exportPolicyFailure(policy: DocxExportPolicy, summary: DocxExpor
   if (policy === "strict" && blocking > 0) {
     return { code: "STRICT_POLICY_UNMET", message: `${blocking} approved image${blocking === 1 ? "" : "s"} could not be inserted, so no document was produced.` }
   }
+  // PDF: every meaningful image must end up on a reliably mapped Figure with a description.
+  const manual = summary.pdf?.manualRemediationRequired ?? 0
+  if (policy === "strict" && manual > 0) {
+    return { code: "STRICT_POLICY_UNMET", message: `${manual} image${manual === 1 ? " still needs" : "s still need"} manual PDF remediation, so no document was produced.` }
+  }
   if (summary.updated + summary.unchanged === 0) return { code: "NOTHING_TO_INSERT", message: "No approved description could be inserted into this document." }
   return null
 }
 
 const SAFE = /[^A-Za-z0-9._ -]+/g
 
-export function exportFilename(original: string, ext: "docx" | "pptx" = "docx"): string {
-  const base = original.replace(/\.(?:docx|pptx)$/i, "").replace(SAFE, "_").replace(/\s+/g, " ").trim().slice(0, 120) || "document"
-  return `${base}-alt-text.${ext}`
+export function exportFilename(original: string, ext: "docx" | "pptx" | "pdf" = "docx"): string {
+  const base = original.replace(/\.(?:docx|pptx|pdf)$/i, "").replace(SAFE, "_").replace(/\s+/g, " ").trim().slice(0, 120) || "document"
+  return ext === "pdf" ? `${base}-alt-text-updated.pdf` : `${base}-alt-text.${ext}`
 }

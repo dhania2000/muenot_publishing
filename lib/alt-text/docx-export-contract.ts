@@ -16,12 +16,25 @@ export const DOCX_EXPORT_POLICY_LABELS: Record<DocxExportPolicy, string> = {
   approved_only: "Insert approved images only",
 }
 
-export const ACCESSIBLE_EXPORT_FORMATS = ["docx", "pptx"] as const
+import type { PdfRemediationDetails, PdfTaggingStatus } from "./pdf-alt-text-remediator"
+
+export type { PdfRemediationDetails, PdfTaggingStatus }
+
+export const ACCESSIBLE_EXPORT_FORMATS = ["docx", "pptx", "pdf"] as const
 export type AccessibleExportFormat = (typeof ACCESSIBLE_EXPORT_FORMATS)[number]
 
 export const ACCESSIBLE_EXPORT_MIME: Record<AccessibleExportFormat, string> = {
   docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  pdf: "application/pdf",
+}
+
+export const PDF_TAGGING_LABELS: Record<PdfTaggingStatus, string> = {
+  tagged: "Tagged PDF",
+  partially_tagged: "Partially tagged PDF",
+  untagged: "Untagged PDF",
+  scanned: "Scanned PDF",
+  protected: "Signed or protected PDF",
 }
 
 export const isAccessibleExportFormat = (v: unknown): v is AccessibleExportFormat => typeof v === "string" && (ACCESSIBLE_EXPORT_FORMATS as readonly string[]).includes(v)
@@ -36,7 +49,7 @@ export function parseDocxExportRequest(body: unknown): { ok: true; request: Docx
   const b = body as Record<string, unknown>
   const allowed = new Set(["format", "policy", "idempotencyKey", "snapshot"])
   if (Object.keys(b).some((k) => !allowed.has(k))) return { ok: false, error: "The request contains unknown fields." }
-  if (!isAccessibleExportFormat(b.format)) return { ok: false, error: "Only DOCX or PPTX output is supported." }
+  if (!isAccessibleExportFormat(b.format)) return { ok: false, error: "Only DOCX, PPTX or PDF output is supported." }
   if (typeof b.policy !== "string" || !(DOCX_EXPORT_POLICIES as readonly string[]).includes(b.policy)) return { ok: false, error: "Choose an export policy." }
   if (typeof b.idempotencyKey !== "string" || !KEY.test(b.idempotencyKey)) return { ok: false, error: "A valid idempotency key is required." }
   if (b.snapshot != null && (typeof b.snapshot !== "string" || !HASH.test(b.snapshot))) return { ok: false, error: "The approval snapshot is invalid." }
@@ -57,6 +70,8 @@ export type DocxExportItem = {
   slideNumber?: number | null
   /** PPTX only: the picture sits inside a group shape. */
   grouped?: boolean
+  /** PDF only. */
+  pageNumber?: number | null
 }
 
 export type DocxExportSummary = {
@@ -72,6 +87,8 @@ export type DocxExportSummary = {
   slideCount?: number
   /** PPTX only. */
   groupedPictureCount?: number
+  /** PDF only: tagging assessment, manual-remediation count and output validation. */
+  pdf?: PdfRemediationDetails
   warnings: { code: string; message: string }[]
 }
 
@@ -104,6 +121,8 @@ export type DocxExportPreflight = {
   snapshot: string
   totals: { occurrences: number; eligible: number; pendingReview: number; unmapped: number; blocked: number }
   plan: (DocxExportSummary & { items: DocxExportItem[] }) | null
+  /** PDF only: structural assessment, also present when the PDF cannot be remediated. */
+  pdfAssessment?: PdfRemediationDetails | null
   exports: DocxExportRecord[]
 }
 

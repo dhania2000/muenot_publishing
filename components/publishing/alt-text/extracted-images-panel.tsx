@@ -31,6 +31,7 @@ import {
   startDocumentPreparation,
 } from "@/lib/alt-text/client"
 import { AccessibleDocumentSheet } from "./accessible-document-sheet"
+import { isAccessibleExportFormat } from "@/lib/alt-text/docx-export-contract"
 import { DocumentPreparationStatus } from "./document-preparation-status"
 import { useDocumentPreparation } from "./use-document-preparation"
 import type { ReviewImageRecord } from "@/lib/alt-text/document-image-review"
@@ -180,6 +181,7 @@ export function ExtractedImagesPanel() {
   const selectedCount = summary?.selectedOccurrences ?? 0
   const hasImages = (counts?.total ?? 0) > 0
   const isDocx = doc?.documentType === "docx"
+  const exportFormat = doc && isAccessibleExportFormat(doc.documentType) ? doc.documentType : null
   const eligibleSelected = summary?.selectedOccurrences ?? 0
   const canGenerate = !!doc && doc.securityStatus === "clean" && eligibleSelected > 0 && !generating && !prep.active
 
@@ -256,13 +258,13 @@ export function ExtractedImagesPanel() {
                 {generating ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Sparkles aria-hidden="true" />}
                 {generating ? "Queuing…" : `Generate Alt Text${eligibleSelected ? ` (${eligibleSelected})` : ""}`}
               </Button>
-              {isDocx ? (
+              {exportFormat ? (
                 <Button size="sm" variant="outline" onClick={() => setExportOpen(true)} disabled={doc?.securityStatus !== "clean"}>
                   <Download aria-hidden="true" />
                   Download Accessible Document
                 </Button>
               ) : (
-                <LaterButton label="Download Accessible Document" icon={Download} note="Available for Word (DOCX) documents." />
+                <LaterButton label="Download Accessible Document" icon={Download} note="Available for Word, PowerPoint and tagged PDF documents." />
               )}
               {LATER.map((l) => (
                 <LaterButton key={l.label} {...l} />
@@ -346,7 +348,9 @@ export function ExtractedImagesPanel() {
         canManage={review.canManage}
       />
       <DocumentContextSheet target={contextTarget} onClose={() => setContextTarget(null)} onAnalyzed={() => review.revalidateDocument()} />
-      <AccessibleDocumentSheet key={documentId ?? "none"} documentId={isDocx ? documentId : null} open={exportOpen && isDocx} onOpenChange={setExportOpen} />
+      {exportFormat ? (
+        <AccessibleDocumentSheet key={documentId ?? "none"} documentId={documentId} format={exportFormat} open={exportOpen} onOpenChange={setExportOpen} />
+      ) : null}
     </>
   )
 }
