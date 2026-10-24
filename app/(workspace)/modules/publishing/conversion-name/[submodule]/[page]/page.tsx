@@ -9,6 +9,7 @@ import {
   PUBLISHING_CRUMBS,
 } from "@/components/publishing/conversion/conversion-nav"
 import { PdfSectionPage } from "@/components/publishing/conversion/pdf/pdf-section-page"
+import { PdfWorkspace } from "@/components/publishing/conversion/pdf/pdf-workspace"
 import { CONVERSION_MODULES, conversionHref, getConversionModule, getConversionPage } from "@/lib/conversion-modules"
 
 type Params = { submodule: string; page: string }
@@ -42,6 +43,16 @@ export default async function ConversionInternalPage({ params }: { params: Promi
   const { Icon } = await guardBusinessLine("publishing")
 
   if (conversionModule.slug === "pdf") {
+    if (conversionPage.slug === "workspace") {
+      const guidelinesHref = conversionModule.pages.some((p) => p.slug === "guidelines")
+        ? conversionHref(conversionModule.slug, "guidelines")
+        : null
+      return (
+        <PdfSectionPage module={conversionModule} page={conversionPage} icon={Icon}>
+          <PdfWorkspace guidelinesHref={guidelinesHref} />
+        </PdfSectionPage>
+      )
+    }
     return <PdfSectionPage module={conversionModule} page={conversionPage} icon={Icon} />
   }
 

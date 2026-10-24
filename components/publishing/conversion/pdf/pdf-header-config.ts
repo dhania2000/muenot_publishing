@@ -54,7 +54,10 @@ export function getPdfHeader(module: ConversionModule, page?: ConversionPage): P
     label: "Upload Files",
     variant: "primary",
     status: "unavailable",
-    reason: "Upload becomes available with the PDF Workspace.",
+    reason:
+      slug === "workspace"
+        ? "Server upload is planned. Files added in Source Files stay in this browser."
+        : "Server upload is planned. Add files locally in the Workspace.",
   }
 
   const secondary = [
