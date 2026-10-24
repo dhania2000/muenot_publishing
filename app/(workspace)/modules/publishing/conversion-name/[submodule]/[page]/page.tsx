@@ -8,6 +8,8 @@ import {
   PlannedPage,
   PUBLISHING_CRUMBS,
 } from "@/components/publishing/conversion/conversion-nav"
+import { PdfFeedbackState } from "@/components/publishing/conversion/pdf/pdf-feedback-state"
+import { getPdfSectionLayout, PdfModuleLayout } from "@/components/publishing/conversion/pdf/pdf-module-layout"
 import { CONVERSION_MODULES, conversionHref, getConversionModule, getConversionPage } from "@/lib/conversion-modules"
 
 type Params = { submodule: string; page: string }
@@ -39,6 +41,36 @@ export default async function ConversionInternalPage({ params }: { params: Promi
   const { conversionModule, conversionPage } = resolved
 
   const { Icon } = await guardBusinessLine("publishing")
+
+  if (conversionModule.slug === "pdf") {
+    const layout = getPdfSectionLayout(conversionPage.slug)
+    return (
+      <PdfModuleLayout
+        width={layout.width}
+        spacing={layout.spacing}
+        header={
+          <PageHeader
+            title={conversionPage.label}
+            description={conversionModule.description}
+            icon={Icon}
+            breadcrumbs={[
+              ...PUBLISHING_CRUMBS,
+              CONVERSION_CRUMB,
+              { label: conversionModule.label, href: conversionHref(conversionModule.slug) },
+              { label: conversionPage.label },
+            ]}
+          />
+        }
+        navigation={<ConversionModuleTabs module={conversionModule} activePage={conversionPage.slug} />}
+      >
+        <PdfFeedbackState
+          kind="unavailable"
+          icon={conversionModule.icon}
+          description={`${conversionModule.label} ${conversionPage.label} is planned. Its tools will appear here once they are built.`}
+        />
+      </PdfModuleLayout>
+    )
+  }
 
   return (
     <div className="flex min-w-0 flex-col gap-6 p-4 sm:p-6 md:p-8">
