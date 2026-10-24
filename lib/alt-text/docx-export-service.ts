@@ -30,6 +30,7 @@ import {
   type DocxExportResponse,
 } from "./docx-export-contract"
 import { insertPptxAltText } from "./pptx-alt-text-inserter"
+import { remediatePdfAltText } from "./pdf-alt-text-remediator"
 import {
   approvalSnapshot,
   DOCX_EXPORT_MAX_OCCURRENCES,
@@ -46,8 +47,16 @@ import { ALT_TEXT_UPLOAD_MAX_MB } from "./upload"
 
 const isExportable = (t: string): t is AccessibleExportFormat => isAccessibleExportFormat(t)
 
-function insertAltText(format: AccessibleExportFormat, source: Buffer, instructions: DocxInsertInstruction[], opts: { maxOutputBytes: number; dryRun?: boolean }) {
+async function insertAltText(format: AccessibleExportFormat, source: Buffer, instructions: DocxInsertInstruction[], opts: { maxOutputBytes: number; dryRun?: boolean }) {
+  if (format === "pdf") return remediatePdfAltText(source, instructions, opts)
   return format === "pptx" ? insertPptxAltText(source, instructions, opts) : insertDocxAltText(source, instructions, opts)
+}
+
+const FAILURE_STATUS: Record<string, ExportFailure["status"]> = {
+  SIGNED_DOCUMENT: 409,
+  ENCRYPTED_DOCUMENT: 409,
+  OUTPUT_TOO_LARGE: 413,
+  TOO_MANY_IMAGES: 413,
 }
 const MAX_SOURCE_BYTES = ALT_TEXT_UPLOAD_MAX_MB * 1024 * 1024
 /** Alt text adds a few attributes; headroom covers re-deflated XML parts. */
@@ -59,7 +68,7 @@ const fail = (status: ExportFailure["status"], code: string, error: string, deta
 const sha256 = (b: Buffer) => createHash("sha256").update(b).digest("hex")
 
 function unavailableReason(doc: StoredDocument): string | null {
-  if (!isExportable(doc.documentType)) return "Accessible document download is available for Word (DOCX) and PowerPoint (PPTX) documents."
+  if (!isExportable(doc.documentType)) return "Accessible document download is available for Word (DOCX), PowerPoint (PPTX) and tagged PDF documents."
   if (doc.securityStatus !== "clean") return "The document has not passed the security scan."
   return null
 }
@@ -84,15 +93,21 @@ export async function getDocxExportPreflight(documentId: number, actor: HistoryA
   if (!reason && readiness.total === 0) reason = "No image occurrences have been mapped for this document yet."
 
   let dryRun: DocxExportPreflight["plan"] = null
-  if (!reason && plan.instructions.length > 0) {
+  let pdfAssessment: DocxExportPreflight["pdfAssessment"] = null
+  const isPdf = doc.documentType === "pdf"
+  // PDFs are always assessed so the tagging status is shown even before anything is approved.
+  if (!reason && (plan.instructions.length > 0 || isPdf)) {
     const original = await readVerifiedOriginal(doc, MAX_SOURCE_BYTES)
     if (!original.ok) reason = original.error
     else {
-      const result = insertAltText(doc.documentType as AccessibleExportFormat, original.bytes, plan.instructions, { maxOutputBytes: MAX_OUTPUT_BYTES, dryRun: true })
-      if (!result.ok) reason = result.message
-      else {
+      const result = await insertAltText(doc.documentType as AccessibleExportFormat, original.bytes, plan.instructions, { maxOutputBytes: MAX_OUTPUT_BYTES, dryRun: true })
+      if (!result.ok) {
+        reason = result.message
+        if ("details" in result) pdfAssessment = result.details ?? null
+      } else {
         const merged = mergeExportReport(result.report, plan)
         dryRun = { ...merged.summary, items: merged.items }
+        pdfAssessment = merged.summary.pdf ?? null
       }
     }
   }
@@ -109,6 +124,7 @@ export async function getDocxExportPreflight(documentId: number, actor: HistoryA
       snapshot: approvalSnapshot(readiness.rows),
       totals: plan.totals,
       plan: dryRun,
+      ...(isPdf ? { pdfAssessment } : {}),
       exports,
     },
   }
@@ -125,7 +141,7 @@ function replay(existing: StoredDocxExport): { ok: true; response: DocxExportRes
 export async function runDocxExport(documentId: number, actor: HistoryActor, request: DocxExportRequest): Promise<{ ok: true; response: DocxExportResponse } | ExportFailure> {
   const doc = await loadOwnedDocument(documentId, actor)
   if (!doc) return fail(404, "NOT_FOUND", "The document could not be found.")
-  if (!isExportable(doc.documentType)) return fail(415, "UNSUPPORTED_DOCUMENT_TYPE", "Accessible document download is available for DOCX and PPTX documents only.")
+  if (!isExportable(doc.documentType)) return fail(415, "UNSUPPORTED_DOCUMENT_TYPE", "Accessible document download is available for DOCX, PPTX and PDF documents only.")
   const format = doc.documentType
   if (request.format !== format) return fail(422, "FORMAT_MISMATCH", `This document is a ${format.toUpperCase()} file; request ${format.toUpperCase()} output.`)
   if (doc.securityStatus !== "clean") return fail(409, "DOCUMENT_NOT_CLEAN", "The document has not passed the security scan.")
@@ -168,11 +184,11 @@ export async function runDocxExport(documentId: number, actor: HistoryActor, req
     const source = original.bytes
     const sourceChecksum = sha256(source)
 
-    const result = insertAltText(format, source, plan.instructions, { maxOutputBytes: MAX_OUTPUT_BYTES })
+    const result = await insertAltText(format, source, plan.instructions, { maxOutputBytes: MAX_OUTPUT_BYTES })
     if (!result.ok) {
       await failExport(doc.id, outputRef, result.code)
-      const status = result.code === "SIGNED_DOCUMENT" ? 409 : result.code === "OUTPUT_TOO_LARGE" ? 413 : 422
-      return fail(status, result.code, result.message)
+      const details = "details" in result && result.details ? { pdf: result.details } : undefined
+      return fail(FAILURE_STATUS[result.code] ?? 422, result.code, result.message, details)
     }
     const report = mergeExportReport(result.report, plan)
     const verdict = exportPolicyFailure(request.policy, report.summary)

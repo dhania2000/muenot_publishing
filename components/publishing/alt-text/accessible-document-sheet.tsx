@@ -4,7 +4,7 @@
  * @file components/publishing/alt-text/accessible-document-sheet.tsx
  * @module Publishing · Alt Text
  * @kind Client component
- * @summary Phase 3 Task 15 — "Download Accessible Document" for DOCX. Shows the preflight
+ * @summary Phase 3 — "Download Accessible Document" for DOCX, PPTX and tagged PDF. Shows the preflight
  *   (readiness totals + dry-run plan), lets the user choose a policy, runs the idempotent export
  *   and offers the download plus a per-image report. The original document is never changed.
  */
@@ -23,6 +23,9 @@ import { altTextFetcher, docxExportPreflightUrl, exportAccessibleDocx, newIdempo
 import {
   DOCX_EXPORT_POLICIES,
   DOCX_EXPORT_POLICY_LABELS,
+  PDF_TAGGING_LABELS,
+  type AccessibleExportFormat,
+  type PdfRemediationDetails,
   type DocxExportItem,
   type DocxExportPolicy,
   type DocxExportPreflight,
@@ -59,7 +62,10 @@ function ItemList({ items }: { items: DocxExportItem[] }) {
       {notable.slice(0, 50).map((i) => (
         <li key={i.occurrenceId} className="flex flex-col gap-1 rounded-md border px-3 py-2 text-sm">
           <div className="flex items-center justify-between gap-2">
-            <span className="font-medium text-foreground">{`Image #${i.occurrenceId}`}</span>
+            <span className="font-medium text-foreground">
+              {i.slideNumber != null ? `Slide ${i.slideNumber} · ` : i.pageNumber != null ? `Page ${i.pageNumber} · ` : ""}
+              {`Image #${i.occurrenceId}`}
+            </span>
             <Badge variant={i.status === "failed" ? "destructive" : "secondary"}>{STATUS_LABEL[i.status]}</Badge>
           </div>
           <p className="text-muted-foreground">{i.message}</p>
@@ -70,7 +76,45 @@ function ItemList({ items }: { items: DocxExportItem[] }) {
   )
 }
 
-export function AccessibleDocumentSheet({ documentId, open, onOpenChange }: { documentId: number | null; open: boolean; onOpenChange: (open: boolean) => void }) {
+const FORMAT_LABEL: Record<AccessibleExportFormat, string> = { docx: "DOCX", pptx: "PPTX", pdf: "PDF" }
+
+function PdfAssessment({ details }: { details: PdfRemediationDetails }) {
+  const tagged = details.taggingStatus === "tagged"
+  return (
+    <section aria-labelledby="pdf-assessment" className="flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <h3 id="pdf-assessment" className="text-sm font-semibold text-foreground">
+          PDF structure
+        </h3>
+        <Badge variant={tagged ? "secondary" : "destructive"}>{PDF_TAGGING_LABELS[details.taggingStatus]}</Badge>
+      </div>
+      <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <Stat label="Pages" value={details.totalPages} />
+        <Stat label="Mapped figures" value={details.mappedFigures} />
+        <Stat label="Ambiguous" value={details.ambiguousOccurrences} />
+        <Stat label="Manual fixes" value={details.manualRemediationRequired} />
+      </dl>
+      {details.scannedPagesWithoutText > 0 ? (
+        <p className="text-xs text-muted-foreground">{`${details.scannedPagesWithoutText} scanned page${details.scannedPagesWithoutText === 1 ? "" : "s"} without a text layer need OCR before they are accessible.`}</p>
+      ) : null}
+      <p className="text-xs text-muted-foreground">
+        Alt text is written only to existing Figure tags. Reading order is preserved, not assessed. PDF/UA and WCAG conformance are not verified by this export.
+      </p>
+    </section>
+  )
+}
+
+export function AccessibleDocumentSheet({
+  documentId,
+  format,
+  open,
+  onOpenChange,
+}: {
+  documentId: number | null
+  format: AccessibleExportFormat
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
   const pre = useSWR<DocxExportPreflight>(open && documentId ? docxExportPreflightUrl(documentId) : null, altTextFetcher, { revalidateOnFocus: false })
   const [policy, setPolicy] = useState<DocxExportPolicy>("approved_only")
   const [running, setRunning] = useState(false)
@@ -93,7 +137,7 @@ export function AccessibleDocumentSheet({ documentId, open, onOpenChange }: { do
     setRunning(true)
     setFailure(null)
     key.current ??= newIdempotencyKey()
-    const r = await exportAccessibleDocx(documentId, { format: "docx", policy, idempotencyKey: key.current, snapshot: data.snapshot })
+    const r = await exportAccessibleDocx(documentId, { format, policy, idempotencyKey: key.current, snapshot: data.snapshot })
     setRunning(false)
     if (!r.ok) {
       if (r.error.code !== "RATE_LIMITED") key.current = null
@@ -152,6 +196,8 @@ export function AccessibleDocumentSheet({ documentId, open, onOpenChange }: { do
                   <Stat label="Unmapped" value={t.unmapped} />
                 </dl>
               </section>
+
+              {data.pdfAssessment ? <PdfAssessment details={data.pdfAssessment} /> : null}
 
               {!data.supported ? (
                 <Alert>
@@ -264,7 +310,7 @@ export function AccessibleDocumentSheet({ documentId, open, onOpenChange }: { do
         <SheetFooter className="border-t">
           <Button onClick={run} disabled={!data?.supported || running || pre.isLoading}>
             {running ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Download aria-hidden="true" />}
-            {running ? "Preparing document…" : "Create accessible DOCX"}
+            {running ? "Preparing document…" : `Create accessible ${FORMAT_LABEL[format]}`}
           </Button>
         </SheetFooter>
       </SheetContent>

@@ -36,7 +36,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ uploadId: stri
     return new NextResponse(new Uint8Array(file.body), {
       status: 200,
       headers: {
-        "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "Content-Type": file.mimeType,
         "Content-Length": String(file.body.length),
         "Content-Disposition": contentDisposition(file.filename),
         "Cache-Control": "no-store, private",

@@ -179,7 +179,14 @@ export type PdfTextLayout = {
   truncated: boolean
 }
 
-export type PdfPackage = { totalPages: number; occurrences: PdfOccurrence[]; report: PdfExtractionReport; text?: PdfTextLayout }
+export type PdfPackage = {
+  totalPages: number
+  occurrences: PdfOccurrence[]
+  report: PdfExtractionReport
+  text?: PdfTextLayout
+  /** Task 17: the parsed document, so remediation reuses one parse instead of loading twice. */
+  document?: PDFDocument
+}
 
 export const PDF_TEXT_LIMITS = { maxRunsPerPage: 4000, maxRunsTotal: 60_000, maxRunChars: 500 } as const
 
@@ -961,7 +968,7 @@ function collectPageOccurrences(
 }
 
 /** Parse the PDF and enumerate image occurrences. Throws PdfPackageError for document-level problems. */
-export async function readPdfPackage(bytes: Uint8Array, options: { collectText?: boolean } = {}): Promise<PdfPackage> {
+export async function readPdfPackage(bytes: Uint8Array, options: { collectText?: boolean; retainDocument?: boolean } = {}): Promise<PdfPackage> {
   if (!/^%PDF-[12]\.\d/.test(Buffer.from(bytes.subarray(0, 16)).toString("latin1"))) throw new PdfPackageError("INVALID_DOCUMENT", "The file is not a valid PDF document.")
   let doc: PDFDocument
   try {
@@ -1099,6 +1106,7 @@ export async function readPdfPackage(bytes: Uint8Array, options: { collectText?:
       limitations: [...limitations.values()],
     },
     ...(textLayout ? { text: textLayout } : {}),
+    ...(options.retainDocument ? { document: doc } : {}),
   }
 }
 
