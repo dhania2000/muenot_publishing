@@ -496,6 +496,7 @@ export function buildPrompt(input: PromptInput) {
     "extractedText: transcribe all legible visible text verbatim, preserving Unicode, symbols and subscripts/superscripts as written; use [illegible] for text you cannot read.",
     "treatment: one sentence telling the editor how to apply the result (alt attribute only, alt plus adjacent long description, or alt=\"\").",
     "NEVER invent numbers, labels, trends or relationships you cannot clearly see. If precise values cannot be determined, describe them approximately as approximate and add a warning. Add a warning for every uncertain or illegible element.",
+    input.document ? documentContextRules(input.document) : "",
     'Respond with ONLY a JSON object: {"classification": string, "purpose": string, "shortAlt": string, "longDescription": string, "extractedText": string, "warnings": string[], "treatment": string}',
   ]
     .filter(Boolean)
@@ -504,6 +505,7 @@ export function buildPrompt(input: PromptInput) {
   const blocks: string[] = []
   if (g.chapterTopic) blocks.push(`UNTRUSTED chapter/topic supplied by the editor:\n"""${fence(g.chapterTopic, GENERATION_FIELD_LIMITS.chapterTopic)}"""`)
   if (g.imageContext) blocks.push(`UNTRUSTED surrounding context supplied by the editor (use it to judge purpose, do not repeat it verbatim):\n"""${fence(g.imageContext, GENERATION_FIELD_LIMITS.imageContext)}"""`)
+  if (input.document) blocks.push(formatDocumentContextBlock(input.document))
   if (blocks.length === 0) blocks.push("No surrounding context was supplied. Describe the image for a general reader.")
   blocks.push("Describe the attached image now.")
   return { instructions, prompt: blocks.join("\n\n") }
