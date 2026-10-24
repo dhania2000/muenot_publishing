@@ -34,6 +34,7 @@ import {
   PdfSourcePanel,
   type PdfPreviewMode,
 } from "@/components/publishing/conversion/pdf/pdf-workspace-panels"
+import { PdfThreePanelContent } from "@/components/publishing/conversion/pdf/pdf-content"
 import { cn } from "@/lib/utils"
 
 type PanelTab = "source" | "preview" | "settings"
@@ -43,13 +44,6 @@ const PANEL_TABS: { id: PanelTab; label: string }[] = [
   { id: "preview", label: "Preview" },
   { id: "settings", label: "Settings" },
 ]
-
-const GRID_COLUMNS = {
-  "open-open": "xl:grid-cols-[minmax(240px,280px)_minmax(0,1fr)_minmax(280px,320px)]",
-  "closed-open": "xl:grid-cols-[3rem_minmax(0,1fr)_minmax(280px,320px)]",
-  "open-closed": "xl:grid-cols-[minmax(240px,280px)_minmax(0,1fr)_3rem]",
-  "closed-closed": "xl:grid-cols-[3rem_minmax(0,1fr)_3rem]",
-} as const
 
 let fileSeq = 0
 
@@ -131,7 +125,6 @@ export function PdfWorkspace({ guidelinesHref = null }: { guidelinesHref?: strin
     requestAnimationFrame(() => document.getElementById(regionIds[region])?.focus({ preventScroll: false }))
   }
 
-  const columns = GRID_COLUMNS[`${leftOpen ? "open" : "closed"}-${rightOpen ? "open" : "closed"}`]
   const panelVisibility = (tab: PanelTab) => cn("min-h-0 min-w-0", panelTab !== tab && "md:max-xl:hidden")
 
   return (
@@ -163,11 +156,17 @@ export function PdfWorkspace({ guidelinesHref = null }: { guidelinesHref?: strin
         ))}
       </div>
 
-      <div
+      <PdfThreePanelContent
         data-slot="pdf-workspace-panels"
-        className={cn("grid min-w-0 gap-3 xl:h-[min(80dvh,920px)] xl:min-h-[600px]", columns)}
-      >
-        <div className={panelVisibility("source")}>
+        sourceCollapsed={!leftOpen}
+        settingsCollapsed={!rightOpen}
+        className="gap-3 xl:h-[min(80dvh,920px)] xl:min-h-[600px]"
+        slotClassNames={{
+          source: panelVisibility("source"),
+          preview: cn(panelVisibility("preview"), "md:max-xl:h-[70dvh]"),
+          settings: panelVisibility("settings"),
+        }}
+        source={
           <PdfSourcePanel
             regionId={regionIds.source}
             files={files}
@@ -178,8 +177,8 @@ export function PdfWorkspace({ guidelinesHref = null }: { guidelinesHref?: strin
             onSelect={setSelectedId}
             onRemove={removeFile}
           />
-        </div>
-        <div className={cn(panelVisibility("preview"), "md:max-xl:h-[70dvh]")}>
+        }
+        preview={
           <PdfPreviewPanel
             regionId={regionIds.preview}
             file={selectedFile}
@@ -187,8 +186,8 @@ export function PdfWorkspace({ guidelinesHref = null }: { guidelinesHref?: strin
             mode={previewMode}
             onModeChange={setPreviewMode}
           />
-        </div>
-        <div className={panelVisibility("settings")}>
+        }
+        settings={
           <PdfSettingsPanel
             regionId={regionIds.settings}
             guidelinesRegionId={regionIds.guidelines}
@@ -203,8 +202,8 @@ export function PdfWorkspace({ guidelinesHref = null }: { guidelinesHref?: strin
             guidelinesHref={guidelinesHref}
             onReset={resetSettings}
           />
-        </div>
-      </div>
+        }
+      />
 
       <PdfProcessingPanel regionId={regionIds.processing} expanded={bottomOpen} onToggle={() => setBottomOpen((v) => !v)} files={files} />
     </div>
