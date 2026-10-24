@@ -154,7 +154,8 @@ export function PdfWorkspace({
     requestAnimationFrame(() => document.getElementById(regionIds[region])?.focus({ preventScroll: false }))
   }
 
-  const panelVisibility = (tab: PanelTab) => cn("min-h-0 min-w-0", panelTab !== tab && "md:max-xl:hidden")
+  // CSS-only visibility: every panel stays mounted, so files, selection and settings survive resizes and switching.
+  const panelVisibility = (tab: PanelTab) => cn("min-h-0 min-w-0", panelTab !== tab && "max-xl:hidden")
 
   return (
     <div data-slot="pdf-workspace" className="flex min-w-0 flex-col gap-3">
@@ -166,7 +167,11 @@ export function PdfWorkspace({
 
       <PdfWorkspaceToolbar file={selectedFile} fileCount={files.length} targetFormat={targetFormat} />
 
-      <div role="group" aria-label="Workspace panels" className="hidden gap-1 rounded-lg bg-muted p-1 md:flex xl:hidden">
+      <div
+        role="group"
+        aria-label="Workspace panels"
+        className="sticky top-0 z-10 flex gap-1 rounded-lg bg-muted p-1 shadow-sm xl:hidden"
+      >
         {PANEL_TABS.map((tab) => (
           <button
             key={tab.id}
@@ -175,7 +180,7 @@ export function PdfWorkspace({
             aria-controls={regionIds[tab.id]}
             onClick={() => setPanelTab(tab.id)}
             className={cn(
-              "flex-1 rounded-md px-3 py-1.5 text-sm font-medium outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50",
+              "inline-flex min-h-10 min-w-0 flex-1 items-center justify-center rounded-md px-2 py-1.5 text-sm font-medium outline-none sm:px-3 transition-colors focus-visible:ring-3 focus-visible:ring-ring/50",
               panelTab === tab.id ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
             )}
           >
@@ -192,7 +197,7 @@ export function PdfWorkspace({
         className="gap-3 xl:h-[min(80dvh,920px)] xl:min-h-[600px]"
         slotClassNames={{
           source: panelVisibility("source"),
-          preview: cn(panelVisibility("preview"), "md:max-xl:h-[70dvh]"),
+          preview: cn(panelVisibility("preview"), "max-xl:h-[min(70dvh,880px)]"),
           settings: panelVisibility("settings"),
         }}
         source={
@@ -284,7 +289,7 @@ export function PdfWorkflowStepper({
                     {step.label}
                     {step.optional && <span className="text-xs font-normal text-muted-foreground">(Optional)</span>}
                   </span>
-                  <span className="truncate text-xs text-muted-foreground">{step.description}</span>
+                  <span className="line-clamp-2 text-xs text-muted-foreground">{step.description}</span>
                   {state === "planned" && <span className="text-xs text-muted-foreground">Planned</span>}
                 </span>
               </button>

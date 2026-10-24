@@ -90,15 +90,16 @@ export function PdfPanelHeader({
 }) {
   const Heading = headingLevel === 2 ? "h2" : "h3"
   return (
-    <header className={cn("flex min-h-11 min-w-0 shrink-0 items-center justify-between gap-2 border-b bg-card px-3 py-2", className)}>
-      <div className="flex min-w-0 items-center gap-2">
+    <header className={cn("flex min-h-11 min-w-0 shrink-0 flex-wrap items-center justify-between gap-2 border-b bg-card px-3 py-2", className)}>
+      {/* basis-40 lets the controls wrap below the title on narrow panels instead of squeezing it to "Do…". */}
+      <div className="flex min-w-0 basis-40 grow items-center gap-2">
         <Heading id={headingId} className="flex min-w-0 items-center gap-2 text-sm font-semibold text-foreground">
           {Icon && <Icon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />}
           <span className="truncate">{title}</span>
         </Heading>
         {meta}
       </div>
-      {children && <div className="flex shrink-0 items-center gap-1">{children}</div>}
+      {children && <div className="flex max-w-full shrink-0 flex-wrap items-center gap-1">{children}</div>}
     </header>
   )
 }
