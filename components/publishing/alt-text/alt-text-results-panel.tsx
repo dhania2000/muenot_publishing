@@ -3,18 +3,18 @@
 /**
  * @file components/publishing/alt-text/alt-text-results-panel.tsx
  * @module Publishing
- * @kind React client component
- * @summary AI results card: classification, editable short alt / detailed
- *   description, extracted text and review warnings. Generation, saving and
- *   export are wired in later tasks; until then results stay empty.
+ * @kind React client components
+ * @summary AI Results workspace for the Generate tab. One result view is visible at a time
+ *   (Short Alt Text | Detailed Description | Extracted Text | Review); all views stay mounted
+ *   so in-progress edits survive switching. Primary actions (Generate/Regenerate, Save, Export)
+ *   live in GenerateActions, rendered by the workspace toolbar.
  */
-import { AlertCircle, AlignLeft, Download, FileText, RefreshCw, Save, ScanText, ShieldCheck, Sparkles, Tag } from "lucide-react"
+import { useState } from "react"
+import { AlertCircle, AlignLeft, Download, FileText, ImageUp, RefreshCw, Save, ScanText, ShieldCheck, Sparkles } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
-import type { ReactNode } from "react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,7 +23,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Separator } from "@/components/ui/separator"
 import type { ExportFormat } from "@/lib/alt-text/export"
 import { Spinner } from "@/components/ui/spinner"
 import {
@@ -34,6 +33,7 @@ import {
   type GenerationPurpose,
   type LanguageCode,
 } from "@/lib/alt-text/core"
+import { cn } from "@/lib/utils"
 import { ClassificationSummary, EditableField, ExtractedText, ReviewWarnings } from "./alt-text-result-sections"
 
 export type GenerationStatus = "idle" | "generating"
@@ -76,23 +76,71 @@ const EXPORT_OPTIONS: { format: ExportFormat; label: string }[] = [
 
 const UNCERTAIN_CLASSIFICATION = /classification was uncertain/i
 
+type ResultView = "short" | "detailed" | "text" | "review"
+const VIEWS: { id: ResultView; label: string; icon: LucideIcon }[] = [
+  { id: "short", label: "Short Alt Text", icon: AlignLeft },
+  { id: "detailed", label: "Detailed Description", icon: FileText },
+  { id: "text", label: "Extracted Text", icon: ScanText },
+  { id: "review", label: "Review", icon: ShieldCheck },
+]
+
 function shortAltGuidance(length: number) {
   if (length > 250) return "Long for alt text. Consider moving secondary detail to the detailed description."
   if (length > 150) return "Guidance: most alt text is under ~150 characters, but keep essential content."
   return null
 }
 
-function ResultSection({ id, title, icon: Icon, children }: { id: string; title: string; icon: LucideIcon; children: ReactNode }) {
+/** Generate / Regenerate, Save Changes and Export — rendered once, in the workspace toolbar. */
+export function GenerateActions({
+  imageSelected,
+  hasResult,
+  status,
+  actions,
+}: {
+  imageSelected: boolean
+  hasResult: boolean
+  status: GenerationStatus
+  actions: ResultsPanelActions
+}) {
+  const { generateBlockedReason, saving, exporting, dirty } = actions
+  const generating = status === "generating"
+  const busy = generating || saving || exporting
+  const generateDisabled = !imageSelected || busy || generateBlockedReason !== null
+
   return (
-    <section aria-labelledby={`alt-result-${id}`} className="flex flex-col gap-3 p-4">
-      <div className="flex items-center gap-2">
-        <Icon className="size-4 text-muted-foreground" aria-hidden="true" />
-        <h3 id={`alt-result-${id}`} className="text-sm font-semibold text-foreground">
-          {title}
-        </h3>
-      </div>
-      {children}
-    </section>
+    <>
+      <Button
+        size="sm"
+        variant={hasResult ? "outline" : "default"}
+        onClick={hasResult ? actions.onRegenerate : actions.onGenerate}
+        disabled={generateDisabled}
+        title={generateBlockedReason ?? undefined}
+      >
+        {generating ? <Spinner /> : hasResult ? <RefreshCw aria-hidden="true" /> : <Sparkles aria-hidden="true" />}
+        {generating ? "Generating…" : hasResult ? "Regenerate" : "Generate"}
+      </Button>
+      <Button size="sm" onClick={actions.onSave} disabled={!actions.canSave || !dirty || busy}>
+        {saving ? <Spinner /> : <Save aria-hidden="true" />}
+        {saving ? "Saving…" : "Save Changes"}
+      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="sm" disabled={!actions.canExport || busy}>
+            {exporting ? <Spinner /> : <Download aria-hidden="true" />}
+            {exporting ? "Exporting…" : "Export"}
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuLabel>Export saved version</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          {EXPORT_OPTIONS.map(({ format, label }) => (
+            <DropdownMenuItem key={format} onSelect={() => actions.onExport(format)}>
+              {label}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </>
   )
 }
 
@@ -109,12 +157,14 @@ export function AltTextResultsPanel({
   output: GeneratedOutput | null
   actions: ResultsPanelActions
 }) {
+  const [view, setView] = useState<ResultView>("short")
   const { generateBlockedReason, saving, exporting, dirty, saved, usage, saveError } = actions
   const generating = status === "generating"
   const busy = generating || saving || exporting
   const result = output?.result ?? null
   const lang = output?.language ?? "en"
   const decorative = result?.classification === "decorative" || output?.purpose === "decorative"
+  const warningCount = result?.warnings.length ?? 0
 
   const statusLabel = generating
     ? "Generating"
@@ -132,172 +182,171 @@ export function AltTextResultsPanel({
               ? "Awaiting image"
               : (generateBlockedReason ?? "Ready to generate")
 
-  const awaiting = "Awaiting generation"
-  const classificationItems = [
-    {
-      label: "Detected Image Type",
-      value: result ? CLASSIFICATION_LABELS[result.classification] : awaiting,
-      muted: !result,
-      note: result?.warnings.some((w) => UNCERTAIN_CLASSIFICATION.test(w)) ? "Unverified" : undefined,
-    },
-    { label: "Image Purpose", value: output ? GENERATION_PURPOSES[output.purpose].label : awaiting, muted: !output },
-    { label: "Output Language", value: output ? LANGUAGES[output.language] : awaiting, muted: !output },
-    { label: "Generation Status", value: statusLabel, muted: !result && !generating },
-  ]
+  const classificationItems = result
+    ? [
+        {
+          label: "Detected Image Type",
+          value: CLASSIFICATION_LABELS[result.classification],
+          note: result.warnings.some((w) => UNCERTAIN_CLASSIFICATION.test(w)) ? "Unverified" : undefined,
+        },
+        { label: "Image Purpose", value: output ? GENERATION_PURPOSES[output.purpose].label : "—" },
+        { label: "Output Language", value: output ? LANGUAGES[output.language] : "—" },
+        { label: "Generation Status", value: statusLabel },
+      ]
+    : []
 
   return (
-    <Card className="h-full">
-      <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <CardTitle className="text-base">AI Results</CardTitle>
-          <CardDescription>Review and edit generated descriptions before publishing.</CardDescription>
+    <section aria-label="AI results" className="flex min-w-0 flex-col rounded-lg border bg-card lg:h-full lg:min-h-0">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-2 py-1.5">
+        <div role="tablist" aria-label="Result views" className="flex min-w-0 flex-wrap items-center gap-0.5">
+          {VIEWS.map(({ id, label, icon: Icon }) => {
+            const active = view === id
+            return (
+              <button
+                key={id}
+                id={`alt-view-tab-${id}`}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                aria-controls={`alt-view-${id}`}
+                disabled={!result}
+                onClick={() => setView(id)}
+                className={cn(
+                  "inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
+                  active && result ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                )}
+              >
+                <Icon className="size-4" aria-hidden="true" />
+                <span className="hidden sm:inline">{label}</span>
+                <span className="sm:hidden">{label.split(" ")[0]}</span>
+                {id === "review" && warningCount > 0 ? (
+                  <Badge variant="outline" className="h-4 border-amber-500/50 px-1 text-[10px] tabular-nums text-amber-700">
+                    {warningCount}
+                    <span className="sr-only"> warnings</span>
+                  </Badge>
+                ) : null}
+              </button>
+            )
+          })}
         </div>
-        <Badge variant={error ? "destructive" : imageSelected ? "default" : "secondary"} className="shrink-0">
+        <Badge variant={error ? "destructive" : result ? "default" : "secondary"} className="shrink-0" aria-live="polite">
           {statusLabel}
         </Badge>
-      </CardHeader>
+      </div>
 
-      <CardContent className="flex flex-col gap-4">
-        {error && (
-          <Alert variant="destructive">
-            <AlertCircle aria-hidden="true" />
-            <AlertTitle>Generation failed</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-
-        {saveError && (
-          <Alert variant="destructive">
-            <AlertCircle aria-hidden="true" />
-            <AlertTitle>{saveError.title}</AlertTitle>
-            <AlertDescription>{saveError.message}</AlertDescription>
-          </Alert>
-        )}
-
-        {usage && (
-          <dl className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted-foreground">
-            <div className="flex gap-1.5">
-              <dt>Model</dt>
-              <dd className="font-mono text-foreground">{usage.model}</dd>
-            </div>
-            <div className="flex gap-1.5">
-              <dt>{usage.creditsCharged === null ? "Credits reserved" : "Credits used"}</dt>
-              <dd className="tabular-nums text-foreground">{usage.creditsCharged ?? usage.creditsReserved}</dd>
-            </div>
-            {saved && (
-              <div className="flex gap-1.5">
-                <dt>Saved version</dt>
-                <dd className="tabular-nums text-foreground">v{saved.version}</dd>
-              </div>
-            )}
-          </dl>
-        )}
-
-        {!result && (
-          <div className="flex flex-col gap-3 rounded-lg border bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex min-w-0 items-start gap-3">
-              <Sparkles className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden="true" />
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-foreground">{generating ? "Analyzing image…" : "No results yet"}</p>
-                <p className="text-xs text-muted-foreground">
-                  {imageSelected ? "Adjust the settings, then generate alt text." : "Add an image and settings to generate alt text."}
-                </p>
-              </div>
-            </div>
-            <Button
-              disabled={!imageSelected || generating || generateBlockedReason !== null}
-              aria-disabled={!imageSelected || generating || generateBlockedReason !== null}
-              onClick={actions.onGenerate}
-              className="w-full sm:w-auto"
-            >
-              {generating ? <Spinner /> : <Sparkles aria-hidden="true" />}
-              {generating ? "Generating" : "Generate"}
-            </Button>
-          </div>
-        )}
-
-        <div className="flex flex-col divide-y rounded-lg border" aria-busy={generating}>
-          <ResultSection id="classification" title="Image Classification" icon={Tag}>
-            <ClassificationSummary items={classificationItems} />
-          </ResultSection>
-
-          <ResultSection id="short" title="Short Alt Text" icon={AlignLeft}>
-            <EditableField
-              id="alt-short-text"
-              label="Short Alt Text"
-              value={result ? (saved?.shortAlt ?? result.shortAlt) : null}
-              lang={lang}
-              rows={3}
-              disabled={busy}
-              onDraftChange={(d, isDirty) => actions.onDraftChange("shortAlt", d, isDirty)}
-              intentionallyEmpty={decorative}
-              emptyAiMessage="The AI did not return short alt text — write one manually."
-              guidance={shortAltGuidance}
-            />
-          </ResultSection>
-
-          <ResultSection id="detailed" title="Detailed Description" icon={FileText}>
-            <EditableField
-              id="alt-detailed-description"
-              label="Detailed Description"
-              value={result ? (saved?.longDescription ?? result.longDescription) : null}
-              lang={lang}
-              rows={6}
-              disabled={busy}
-              onDraftChange={(d, isDirty) => actions.onDraftChange("longDescription", d, isDirty)}
-              collapsible
-              emptyAiMessage={
-                decorative ? "Not needed for a decorative image." : "No detailed description was returned."
-              }
-            />
-          </ResultSection>
-
-          <ResultSection id="text" title="Extracted Visible Text" icon={ScanText}>
-            <ExtractedText text={result ? result.extractedText : null} lang={lang} />
-          </ResultSection>
-
-          <ResultSection id="review" title="Accessibility Review Warnings" icon={ShieldCheck}>
-            <ReviewWarnings warnings={result ? result.warnings : null} />
-          </ResultSection>
+      {(error || saveError) && (
+        <div className="flex shrink-0 flex-col gap-2 border-b p-3">
+          {error && (
+            <Alert variant="destructive">
+              <AlertCircle aria-hidden="true" />
+              <AlertTitle>Generation failed</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          {saveError && (
+            <Alert variant="destructive">
+              <AlertCircle aria-hidden="true" />
+              <AlertTitle>{saveError.title}</AlertTitle>
+              <AlertDescription>{saveError.message}</AlertDescription>
+            </Alert>
+          )}
         </div>
-      </CardContent>
+      )}
 
-      <Separator />
+      <div className="min-h-0 flex-1 overflow-y-auto p-4" aria-busy={generating}>
+        {!result ? (
+          <div className="flex h-full min-h-48 flex-col items-center justify-center gap-2 text-center">
+            {generating ? (
+              <>
+                <Spinner className="size-5" />
+                <p className="text-sm font-medium text-foreground">Analyzing image…</p>
+                <p className="text-xs text-muted-foreground">Results appear here when generation finishes.</p>
+              </>
+            ) : imageSelected ? (
+              <>
+                <Sparkles className="size-5 text-primary" aria-hidden="true" />
+                <p className="text-sm font-medium text-foreground">Ready to generate</p>
+                <p className="max-w-xs text-xs text-muted-foreground">
+                  Check the configuration in the toolbar, then choose Generate.
+                </p>
+              </>
+            ) : (
+              <>
+                <ImageUp className="size-5 text-muted-foreground" aria-hidden="true" />
+                <p className="text-sm font-medium text-foreground">Upload an image to begin.</p>
+                <p className="max-w-xs text-xs text-muted-foreground">Short alt text, a detailed description and extracted text will appear here.</p>
+              </>
+            )}
+          </div>
+        ) : (
+          <>
+            <div role="tabpanel" id="alt-view-short" aria-labelledby="alt-view-tab-short" hidden={view !== "short"}>
+              <EditableField
+                id="alt-short-text"
+                label="Short Alt Text"
+                value={saved?.shortAlt ?? result.shortAlt}
+                lang={lang}
+                rows={4}
+                disabled={busy}
+                onDraftChange={(d, isDirty) => actions.onDraftChange("shortAlt", d, isDirty)}
+                intentionallyEmpty={decorative}
+                emptyAiMessage="The AI did not return short alt text — write one manually."
+                guidance={shortAltGuidance}
+              />
+            </div>
+            <div role="tabpanel" id="alt-view-detailed" aria-labelledby="alt-view-tab-detailed" hidden={view !== "detailed"}>
+              <EditableField
+                id="alt-detailed-description"
+                label="Detailed Description"
+                value={saved?.longDescription ?? result.longDescription}
+                lang={lang}
+                rows={14}
+                disabled={busy}
+                onDraftChange={(d, isDirty) => actions.onDraftChange("longDescription", d, isDirty)}
+                emptyAiMessage={decorative ? "Not needed for a decorative image." : "No detailed description was returned."}
+              />
+            </div>
+            <div role="tabpanel" id="alt-view-text" aria-labelledby="alt-view-tab-text" hidden={view !== "text"}>
+              <ExtractedText text={result.extractedText} lang={lang} />
+            </div>
+            <div role="tabpanel" id="alt-view-review" aria-labelledby="alt-view-tab-review" hidden={view !== "review"} className="flex flex-col gap-5">
+              <ClassificationSummary items={classificationItems} />
+              <div className="flex flex-col gap-2">
+                <h3 className="text-xs font-medium text-muted-foreground">Accessibility warnings</h3>
+                <ReviewWarnings warnings={result.warnings} />
+              </div>
+              {(usage || saved) && (
+                <dl className="flex flex-wrap gap-x-6 gap-y-1 border-t pt-3 text-xs text-muted-foreground">
+                  {usage && (
+                    <>
+                      <div className="flex gap-1.5">
+                        <dt>Model</dt>
+                        <dd className="font-mono text-foreground">{usage.model}</dd>
+                      </div>
+                      <div className="flex gap-1.5">
+                        <dt>{usage.creditsCharged === null ? "Credits reserved" : "Credits used"}</dt>
+                        <dd className="tabular-nums text-foreground">{usage.creditsCharged ?? usage.creditsReserved}</dd>
+                      </div>
+                    </>
+                  )}
+                  {saved && (
+                    <div className="flex gap-1.5">
+                      <dt>Saved version</dt>
+                      <dd className="tabular-nums text-foreground">v{saved.version}</dd>
+                    </div>
+                  )}
+                </dl>
+              )}
+            </div>
+          </>
+        )}
+      </div>
 
-      <CardFooter className="flex flex-wrap gap-2 pt-6">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={actions.onRegenerate}
-          disabled={!result || busy || generateBlockedReason !== null}
-          className="flex-1 sm:flex-none"
-        >
-          {generating ? <Spinner /> : <RefreshCw aria-hidden="true" />}
-          Regenerate
-        </Button>
-        <Button size="sm" onClick={actions.onSave} disabled={!actions.canSave || !dirty || busy} className="flex-1 sm:flex-none">
-          {saving ? <Spinner /> : <Save aria-hidden="true" />}
-          {saving ? "Saving" : "Save Changes"}
-        </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" disabled={!actions.canExport || busy} className="flex-1 sm:flex-none">
-              {exporting ? <Spinner /> : <Download aria-hidden="true" />}
-              {exporting ? "Exporting" : "Export"}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Export saved version</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {EXPORT_OPTIONS.map(({ format, label }) => (
-              <DropdownMenuItem key={format} onSelect={() => actions.onExport(format)}>
-                {label}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-        {dirty && <p className="w-full text-xs text-amber-700">You have unsaved edits. Exports contain the last saved version.</p>}
-      </CardFooter>
-    </Card>
+      {dirty && (
+        <p className="shrink-0 border-t px-4 py-2 text-xs text-amber-700" role="status">
+          You have unsaved edits. Exports contain the last saved version.
+        </p>
+      )}
+    </section>
   )
 }
