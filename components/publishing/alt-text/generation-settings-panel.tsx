@@ -112,6 +112,7 @@ export function GenerationSettingsPanel({
   footer,
   layout = "vertical",
   collapsible = false,
+  bare = false,
 }: {
   settings: GenerationSettings
   onChange: (settings: GenerationSettings) => void
@@ -120,6 +121,8 @@ export function GenerationSettingsPanel({
   footer?: ReactNode
   layout?: "vertical" | "horizontal"
   collapsible?: boolean
+  /** Render without the card chrome, for use inside a drawer that already provides a heading. */
+  bare?: boolean
 }) {
   const horizontal = layout === "horizontal"
   const [open, setOpen] = useState(true)
@@ -135,50 +138,8 @@ export function GenerationSettingsPanel({
   const contextLength = settings.imageContext.length
   const contextMax = GENERATION_FIELD_LIMITS.imageContext
 
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <CardTitle className="text-base">{title}</CardTitle>
-          <CardDescription>{description}</CardDescription>
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => onChange(DEFAULT_GENERATION_SETTINGS)}
-          disabled={isDefault}
-          className="shrink-0"
-        >
-          <RotateCcw className="size-3.5" aria-hidden="true" />
-          Reset
-          <span className="sr-only"> settings to defaults</span>
-        </Button>
-        {collapsible && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => setOpen((o) => !o)}
-            aria-expanded={open}
-            aria-controls={contentId}
-            className="shrink-0"
-          >
-            <ChevronDown className={cn("size-4 transition-transform", open && "rotate-180")} aria-hidden="true" />
-            {open ? "Collapse" : "Expand"}
-            <span className="sr-only"> {title}</span>
-          </Button>
-        )}
-      </CardHeader>
-
-      <CardContent
-        id={contentId}
-        hidden={!open}
-        className={cn(
-          "flex flex-col gap-6",
-          horizontal && "[&>fieldset+fieldset]:border-t [&>fieldset+fieldset]:pt-5",
-        )}
-      >
+  const sections = (
+    <>
         <Section title="Image">
           <div className={FIELD_GRID}>
             <SelectField
@@ -325,6 +286,83 @@ export function GenerationSettingsPanel({
           )}
         </Section>
         {footer && <div className="col-span-full">{footer}</div>}
+    </>
+  )
+
+  const resetButton = (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      onClick={() => onChange(DEFAULT_GENERATION_SETTINGS)}
+      disabled={isDefault}
+      className="shrink-0"
+    >
+      <RotateCcw className="size-3.5" aria-hidden="true" />
+      Reset
+      <span className="sr-only"> settings to defaults</span>
+    </Button>
+  )
+
+  if (bare) {
+    return (
+      <div className="flex flex-col gap-5">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs text-muted-foreground">{description}</p>
+          {resetButton}
+        </div>
+        <div id={contentId} className="flex flex-col gap-6">
+          {sections}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <CardTitle className="text-base">{title}</CardTitle>
+          <CardDescription>{description}</CardDescription>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => onChange(DEFAULT_GENERATION_SETTINGS)}
+          disabled={isDefault}
+          className="shrink-0"
+        >
+          <RotateCcw className="size-3.5" aria-hidden="true" />
+          Reset
+          <span className="sr-only"> settings to defaults</span>
+        </Button>
+        {collapsible && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setOpen((o) => !o)}
+            aria-expanded={open}
+            aria-controls={contentId}
+            className="shrink-0"
+          >
+            <ChevronDown className={cn("size-4 transition-transform", open && "rotate-180")} aria-hidden="true" />
+            {open ? "Collapse" : "Expand"}
+            <span className="sr-only"> {title}</span>
+          </Button>
+        )}
+      </CardHeader>
+
+      <CardContent
+        id={contentId}
+        hidden={!open}
+        className={cn(
+          "flex flex-col gap-6",
+          horizontal && "[&>fieldset+fieldset]:border-t [&>fieldset+fieldset]:pt-5",
+        )}
+      >
+        {sections}
       </CardContent>
     </Card>
   )

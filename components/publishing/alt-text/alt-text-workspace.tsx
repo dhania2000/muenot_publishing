@@ -11,7 +11,9 @@
  */
 import { useEffect, useRef, useState } from "react"
 import { useSWRConfig } from "swr"
-import { FileText, History, ImagePlus, Layers, Settings2, Sparkles } from "lucide-react"
+import { FileText, History, ImagePlus, Layers, Settings2, SlidersHorizontal, Sparkles } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Workbench, WorkbenchDrawer, WorkbenchScroll, WorkbenchToolbar } from "./workbench"
 import { AccessibilitySettingsWorkspace } from "./accessibility-settings-workspace"
 import { BulkProcessingWorkspace } from "./bulk-processing-workspace"
 import { DocumentProcessingWorkspace } from "./document-processing-workspace"
@@ -26,11 +28,11 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ImageInputPanel, type SelectedImage } from "./image-input-panel"
 import {
   DEFAULT_GENERATION_SETTINGS,
+  DESCRIPTION_MODES,
   GENERATION_IMAGE_TYPES,
   IMAGE_CLASSIFICATIONS,
   LANGUAGES,
@@ -56,7 +58,7 @@ import {
 
 const SCAN_RETRY_DELAYS_MS = [1500, 2500, 4000, 6000, 8000]
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
-import { GenerationSettingsPanel } from "./generation-settings-panel"
+import { GenerationSettingsPanel, PURPOSE_LABELS } from "./generation-settings-panel"
 import {
   AltTextResultsPanel,
   type GeneratedOutput,
@@ -67,6 +69,35 @@ import {
 import { AltTextHistory, AssetImage, StatusBadge } from "./alt-text-history"
 
 type Drafts = { shortAlt?: string; longDescription?: string }
+
+function SettingsSummary({ settings, onEdit }: { settings: GenerationSettings; onEdit: () => void }) {
+  const items = [
+    { label: "Purpose", value: PURPOSE_LABELS[settings.imagePurpose] },
+    { label: "Image type", value: GENERATION_IMAGE_TYPES[settings.imageType] },
+    { label: "Output", value: DESCRIPTION_MODES[settings.descriptionMode] },
+    { label: "Language", value: LANGUAGES[settings.outputLanguage] },
+  ]
+  return (
+    <section aria-labelledby="gen-settings-summary" className="flex flex-col gap-2 rounded-lg border bg-card p-3">
+      <div className="flex items-center justify-between gap-2">
+        <h2 id="gen-settings-summary" className="text-sm font-semibold text-foreground">
+          Generation settings
+        </h2>
+        <Button variant="ghost" size="sm" onClick={onEdit} aria-haspopup="dialog">
+          <SlidersHorizontal aria-hidden="true" /> Edit
+        </Button>
+      </div>
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+        {items.map((item) => (
+          <div key={item.label} className="flex min-w-0 flex-col">
+            <dt className="text-muted-foreground">{item.label}</dt>
+            <dd className="truncate font-medium text-foreground">{item.value}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  )
+}
 
 function settingsForAsset(asset: AltTextAssetView, base: GenerationSettings): GenerationSettings {
   const imageType = asset.classification && asset.classification in GENERATION_IMAGE_TYPES ? (asset.classification as GenerationImageType) : "auto"
@@ -122,6 +153,7 @@ export function AltTextWorkspace() {
   const [dirtyFields, setDirtyFields] = useState({ shortAlt: false, longDescription: false })
   const [pendingOpen, setPendingOpen] = useState<AltTextAssetView | "new" | null>(null)
   const [editorKey, setEditorKey] = useState(0)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const drafts = useRef<Drafts>({})
   const dirty = dirtyFields.shortAlt || dirtyFields.longDescription
 
@@ -262,11 +294,14 @@ export function AltTextWorkspace() {
   }
 
   const generateBlockedReason: string | null = null
+  const customizedSettings = (Object.keys(DEFAULT_GENERATION_SETTINGS) as (keyof GenerationSettings)[]).filter(
+    (key) => settings[key] !== DEFAULT_GENERATION_SETTINGS[key],
+  ).length
 
   return (
     <>
-      <Tabs value={tab} onValueChange={changeTab} className="flex flex-col gap-4">
-        <TabsList className="w-full overflow-x-auto sm:w-fit">
+      <Tabs value={tab} onValueChange={changeTab} className="flex min-h-0 min-w-0 flex-col gap-3 lg:flex-1">
+        <TabsList className="w-full shrink-0 overflow-x-auto sm:w-fit">
           <TabsTrigger value="generate" className="flex-1 gap-2 sm:flex-none">
             <Sparkles className="size-4" aria-hidden="true" />
             Generate
@@ -289,37 +324,60 @@ export function AltTextWorkspace() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="generate" className="mt-0">
-          <div className="grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-            <div className="flex min-w-0 flex-col gap-6">
-              {savedAsset ? (
-                <Card>
-                  <CardHeader className="flex flex-row items-start justify-between gap-3">
-                    <div className="flex min-w-0 flex-col gap-1.5">
-                      <CardTitle className="truncate text-base" title={savedAsset.fileName}>
-                        {savedAsset.fileName}
-                      </CardTitle>
-                      <CardDescription>
-                        Saved asset <span className="font-mono tabular-nums">#{savedAsset.id}</span> opened from History
-                      </CardDescription>
-                    </div>
+        <TabsContent value="generate" className="mt-0 min-h-0 flex-1">
+          <Workbench>
+            <WorkbenchToolbar
+              label="Generate actions"
+              title={savedAsset ? <span title={savedAsset.fileName}>{savedAsset.fileName}</span> : image ? image.file.name : "New image"}
+              meta={
+                savedAsset ? (
+                  <>
+                    <span className="hidden font-mono text-xs tabular-nums text-muted-foreground sm:inline">#{savedAsset.id}</span>
                     <StatusBadge status={savedAsset.status} />
-                  </CardHeader>
-                  <CardContent className="flex flex-col gap-4">
-                    <div className="overflow-hidden rounded-lg border bg-muted/30">
-                      <AssetImage id={savedAsset.id} alt={savedAsset.shortAlt ?? `Preview of ${savedAsset.fileName}`} className="max-h-72 w-full !object-contain" />
+                  </>
+                ) : null
+              }
+            >
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => requestOpen("new")}
+                disabled={(!savedAsset && !image) || saving || status === "generating"}
+              >
+                <ImagePlus aria-hidden="true" /> New Image
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setSettingsOpen(true)} aria-haspopup="dialog">
+                <SlidersHorizontal aria-hidden="true" /> Configure
+                {customizedSettings > 0 ? (
+                  <Badge variant="secondary" className="ml-0.5 h-4 px-1.5 text-[10px] tabular-nums">
+                    {customizedSettings}
+                    <span className="sr-only"> customized</span>
+                  </Badge>
+                ) : null}
+              </Button>
+            </WorkbenchToolbar>
+
+            <div className="flex min-h-0 min-w-0 flex-col gap-3 lg:flex-1 lg:flex-row">
+              <WorkbenchScroll className="flex flex-col gap-3 lg:w-[42%] lg:max-w-xl lg:flex-none">
+                {savedAsset ? (
+                  <div className="flex flex-col gap-3 rounded-lg border bg-card p-3">
+                    <div className="flex items-center justify-center overflow-hidden rounded-md border bg-muted/30">
+                      <AssetImage
+                        id={savedAsset.id}
+                        alt={savedAsset.shortAlt ?? `Preview of ${savedAsset.fileName}`}
+                        className="max-h-[min(55dvh,28rem)] w-full !object-contain"
+                      />
                     </div>
-                    <Button variant="outline" size="sm" onClick={() => requestOpen("new")} disabled={saving || status === "generating"}>
-                      <ImagePlus aria-hidden="true" /> Start with a new image
-                    </Button>
-                  </CardContent>
-                </Card>
-              ) : (
-                <ImageInputPanel image={image} onImageChange={handleImageChange} />
-              )}
-              <GenerationSettingsPanel settings={settings} onChange={setSettings} />
-            </div>
-            <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground">
+                      Saved asset opened from History. Use New Image to start over with a different file.
+                    </p>
+                  </div>
+                ) : (
+                  <ImageInputPanel image={image} onImageChange={handleImageChange} />
+                )}
+                <SettingsSummary settings={settings} onEdit={() => setSettingsOpen(true)} />
+              </WorkbenchScroll>
+              <WorkbenchScroll className="lg:flex-1">
               <AltTextResultsPanel
                 key={`${savedAsset?.id ?? "local"}-${editorKey}`}
                 imageSelected={image !== null || savedAsset !== null}
@@ -346,15 +404,29 @@ export function AltTextWorkspace() {
                   canExport: savedAsset !== null,
                 }}
               />
-            </div>
+            </WorkbenchScroll>
           </div>
+          </Workbench>
+          <WorkbenchDrawer
+            open={settingsOpen}
+            onOpenChange={setSettingsOpen}
+            title="Generation Settings"
+            description="Applied to the next Generate or Regenerate. Changes are kept when you close this drawer."
+            footer={
+              <Button size="sm" onClick={() => setSettingsOpen(false)}>
+                Done
+              </Button>
+            }
+          >
+            <GenerationSettingsPanel bare settings={settings} onChange={setSettings} />
+          </WorkbenchDrawer>
         </TabsContent>
 
-        <TabsContent value="bulk" className="mt-0">
+        <TabsContent value="bulk" className="mt-0 min-h-0 flex-1">
           <BulkProcessingWorkspace onOpenInEditor={requestOpen} externalOpenRequest={batchRequest} />
         </TabsContent>
 
-        <TabsContent value="documents" className="mt-0">
+        <TabsContent value="documents" className="mt-0 min-h-0 flex-1">
           <DocumentProcessingWorkspace
             onOpenBatch={(id) => {
               setBatchRequest((prev) => ({ id, nonce: (prev?.nonce ?? 0) + 1 }))
@@ -363,12 +435,12 @@ export function AltTextWorkspace() {
           />
         </TabsContent>
 
-        <TabsContent value="history" className="mt-0">
+        <TabsContent value="history" className="mt-0 min-h-0 flex-1">
           <AltTextHistory onOpenInEditor={requestOpen} />
         </TabsContent>
 
-        <TabsContent value="settings" className="mt-0">
-          <AccessibilitySettingsWorkspace onDirtyChange={setSettingsDirty} />
+        <TabsContent value="settings" className="mt-0 min-h-0 flex-1">
+          <AccessibilitySettingsWorkspace key={settingsKey} onDirtyChange={setSettingsDirty} />
         </TabsContent>
       </Tabs>
 
