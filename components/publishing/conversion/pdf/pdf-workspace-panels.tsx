@@ -101,6 +101,24 @@ function toMetadataFields(file: PdfLocalFile): PdfFileMetadataFields {
 
 // ─── Collapse controls (panel container ≥ 56rem) ────────────────────────────
 
+/**
+ * The control that was activated disappears when a panel collapses or expands, so focus moves to its counterpart
+ * (rail expand button ↔ header collapse button) instead of falling back to the document body.
+ */
+function toggleKeepingFocus(regionId: string, onToggle: () => void, focusTarget: "rail" | "collapse") {
+  onToggle()
+  requestAnimationFrame(() =>
+    document.getElementById(regionId)?.querySelector<HTMLElement>(`[data-panel-toggle="${focusTarget}"]`)?.focus(),
+  )
+}
+
+/** Moves focus to an element inside a region, or to the region itself when the element is gone. */
+function focusWithin(regionId: string, selector: string) {
+  const region = document.getElementById(regionId)
+  const target = region?.querySelector<HTMLElement>(selector)
+  ;(target ?? region)?.focus()
+}
+
 function CollapseButton({
   side,
   expanded,
@@ -124,6 +142,7 @@ function CollapseButton({
       aria-controls={controls}
       aria-label={label}
       title={label}
+      data-panel-toggle="collapse"
       onClick={onToggle}
       className="hidden @4xl/pdf-panels:inline-flex"
     >
@@ -158,6 +177,7 @@ function CollapsedRail({
         aria-controls={controls}
         aria-label={`Expand ${label} panel`}
         title={`Expand ${label} panel`}
+        data-panel-toggle="rail"
         onClick={onExpand}
       >
         <ExpandIcon aria-hidden="true" />
@@ -210,6 +230,21 @@ export function PdfSourcePanel({
   const selected = files.find((f) => f.id === selectedId) ?? null
   const issueCount = files.filter((f) => f.issue).length
   const fileById = (id: string) => files.find((f) => f.id === id)!
+  // Where focus goes once the confirm dialog closes after a removal (its trigger no longer exists).
+  const focusAfterRemovalRef = useRef<string | null>(null)
+
+  const confirmRemoval = () => {
+    if (pendingConfirm?.kind === "remove") {
+      const index = files.findIndex((f) => f.id === pendingConfirm.file.id)
+      const neighbour = files[index + 1] ?? files[index - 1]
+      focusAfterRemovalRef.current = neighbour ? `[data-file-id="${neighbour.id}"] button[aria-pressed]` : "[data-add-files]"
+      onRemove(pendingConfirm.file.id)
+    } else if (pendingConfirm?.kind === "remove-all") {
+      focusAfterRemovalRef.current = "[data-add-files]"
+      onRemoveAll()
+    }
+    setPendingConfirm(null)
+  }
 
   const startReplace = (id: string) => {
     replaceTargetRef.current = id
@@ -218,14 +253,29 @@ export function PdfSourcePanel({
 
   return (
     <section id={regionId} tabIndex={-1} aria-labelledby={headingId} className={PANEL_SURFACE}>
-      {!expanded && <CollapsedRail side="left" label="Source Files" icon={FileText} controls={bodyId} count={files.length} onExpand={onToggle} />}
+      {!expanded && (
+        <CollapsedRail
+          side="left"
+          label="Source Files"
+          icon={FileText}
+          controls={bodyId}
+          count={files.length}
+          onExpand={() => toggleKeepingFocus(regionId, onToggle, "collapse")}
+        />
+      )}
       <div id={bodyId} className={cn("flex min-h-0 flex-1 flex-col", !expanded && "@4xl/pdf-panels:hidden")}>
         <PdfPanelHeader headingId={headingId} title="Source Files" meta={files.length > 0 && <Badge variant="secondary">{files.length}</Badge>}>
-          <Button variant="outline" size="sm" onClick={() => addInputRef.current?.click()}>
+          <Button variant="outline" size="sm" data-add-files onClick={() => addInputRef.current?.click()}>
             <Plus aria-hidden="true" />
             Add Files
           </Button>
-          <CollapseButton side="left" expanded={expanded} controls={bodyId} panelName="source files" onToggle={onToggle} />
+          <CollapseButton
+            side="left"
+            expanded={expanded}
+            controls={bodyId}
+            panelName="source files"
+            onToggle={() => toggleKeepingFocus(regionId, onToggle, "rail")}
+          />
         </PdfPanelHeader>
 
         <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
@@ -315,10 +365,13 @@ export function PdfSourcePanel({
             : `All ${files.length} files will be removed from this session. The original files on your device are not affected.`
         }
         confirmLabel={pendingConfirm?.kind === "remove-all" ? "Remove All" : "Remove File"}
-        onConfirm={() => {
-          if (pendingConfirm?.kind === "remove") onRemove(pendingConfirm.file.id)
-          else if (pendingConfirm?.kind === "remove-all") onRemoveAll()
-          setPendingConfirm(null)
+        onConfirm={confirmRemoval}
+        onCloseAutoFocus={(event) => {
+          const selector = focusAfterRemovalRef.current
+          if (!selector) return
+          event.preventDefault()
+          focusAfterRemovalRef.current = null
+          focusWithin(regionId, selector)
         }}
       />
     </section>
@@ -340,7 +393,18 @@ export function PdfPreviewPanel({ regionId, file, hasFiles, mode, onModeChange }
   return (
     <section id={regionId} tabIndex={-1} aria-labelledby={headingId} className={cn(PANEL_SURFACE, "min-h-[420px]")}>
       <Tabs value={mode} onValueChange={(value) => onModeChange(value as PdfPreviewMode)} className="flex min-h-0 flex-1 flex-col gap-0">
-        <PdfPanelHeader headingId={headingId} title={file ? file.name : "Document Preview"}>
+        <PdfPanelHeader
+          headingId={headingId}
+          title="Document Preview"
+          meta={
+            file && (
+              <span className="min-w-0 truncate text-xs text-muted-foreground" title={file.name}>
+                <span className="sr-only">Selected document: </span>
+                {file.name}
+              </span>
+            )
+          }
+        >
           <PdfPreviewModeSelector />
         </PdfPanelHeader>
         <PdfPreviewToolbar />
@@ -417,10 +481,24 @@ export function PdfSettingsPanel(props: PdfSettingsPanelProps) {
   const saveHintId = useId()
   return (
     <section id={regionId} tabIndex={-1} aria-labelledby={headingId} className={PANEL_SURFACE}>
-      {!expanded && <CollapsedRail side="right" label="Settings" icon={SlidersHorizontal} controls={bodyId} onExpand={onToggle} />}
+      {!expanded && (
+        <CollapsedRail
+          side="right"
+          label="Settings"
+          icon={SlidersHorizontal}
+          controls={bodyId}
+          onExpand={() => toggleKeepingFocus(regionId, onToggle, "collapse")}
+        />
+      )}
       <div id={bodyId} className={cn("flex min-h-0 flex-1 flex-col", !expanded && "@4xl/pdf-panels:hidden")}>
         <PdfPanelHeader headingId={headingId} title="Conversion Settings">
-          <CollapseButton side="right" expanded={expanded} controls={bodyId} panelName="settings" onToggle={onToggle} />
+          <CollapseButton
+            side="right"
+            expanded={expanded}
+            controls={bodyId}
+            panelName="settings"
+            onToggle={() => toggleKeepingFocus(regionId, onToggle, "rail")}
+          />
         </PdfPanelHeader>
         <div className="min-h-0 flex-1 overflow-y-auto">
           {PDF_SETTINGS_GROUPS.map((group) => (

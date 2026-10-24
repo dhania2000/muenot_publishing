@@ -215,6 +215,7 @@ export function PdfFileCard({ file, selected = false, onSelect, actions, density
 
   return (
     <Root
+      data-file-id={file.id}
       data-selected={selected || undefined}
       className={cn(
         "flex min-w-0 items-center gap-1 rounded-md border transition-colors",

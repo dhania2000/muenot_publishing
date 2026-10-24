@@ -77,7 +77,10 @@ export function PdfWorkspace({
   const [bottomOpen, setBottomOpen] = useState(false)
   const [panelTab, setPanelTab] = useState<PanelTab>("source")
   const [currentStep, setCurrentStep] = useState<PdfWorkflowStepId>("upload")
-  const [announcement, setAnnouncement] = useState("")
+  const [announcement, setAnnouncementText] = useState("")
+  // Live regions ignore an unchanged string, so an identical message (e.g. removing two same-named files) gets a
+  // trailing no-break space to make the second one announce too.
+  const setAnnouncement = (text: string) => setAnnouncementText((prev) => (prev === text ? `${text}\u00a0` : text))
   // Guidelines are optional. With no context the state is "not-provided" and the Standard Profile applies.
   const guidelineState: PdfGuidelineState = deriveGuidelineState(guidelineContext)
 
@@ -324,7 +327,7 @@ export function PdfWorkspaceToolbar({
       <dl className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 text-xs">
         <div className="flex min-w-0 items-center gap-1.5">
           <dt className="text-muted-foreground">Document</dt>
-          <dd className="truncate font-medium text-foreground">
+          <dd className="truncate font-medium text-foreground" title={file?.name}>
             {file ? `${file.name} · ${(file.extension || "?").toUpperCase()} · ${formatBytes(file.sizeBytes)}` : fileCount ? "None selected" : "No files"}
           </dd>
         </div>
