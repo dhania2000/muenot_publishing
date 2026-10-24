@@ -41,7 +41,7 @@ export const OUTPUT_VALIDATIONS_DDL = `CREATE TABLE IF NOT EXISTS alt_text_outpu
 const STALE_MINUTES = 15
 
 let schemaReady: Promise<void> | null = null
-function ensureSchema(): Promise<void> {
+export function ensureSchema(): Promise<void> {
   schemaReady ??= ensureAltTextSchema()
     .then(() => query(OUTPUT_VALIDATIONS_DDL))
     .then(() => undefined)

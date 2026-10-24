@@ -50,7 +50,7 @@ const STALE_MINUTES = 15
 
 let schemaReady: Promise<void> | null = null
 /** Base Alt Text schema first, then this table (kept here to avoid an import cycle with store.ts). */
-function ensureExportSchema(): Promise<void> {
+export function ensureExportSchema(): Promise<void> {
   schemaReady ??= ensureAltTextSchema()
     .then(() => query(DOCX_EXPORTS_DDL))
     .then(() => undefined)
