@@ -11,6 +11,7 @@ import {
   PlannedPage,
   PUBLISHING_CRUMBS,
 } from "@/components/publishing/conversion/conversion-nav"
+import { PdfOverview } from "@/components/publishing/conversion/pdf/pdf-overview"
 import { PdfSectionPage } from "@/components/publishing/conversion/pdf/pdf-section-page"
 import { CONVERSION_MODULES, CONVERSION_SHARED_PAGES, getConversionModule, getSharedPage } from "@/lib/conversion-modules"
 
@@ -65,7 +66,13 @@ export default async function ConversionSubmodulePage({ params }: { params: Prom
 
   const service = conversionModule!
 
-  if (service.slug === "pdf") return <PdfSectionPage module={service} icon={Icon} />
+  if (service.slug === "pdf") {
+    return (
+      <PdfSectionPage module={service} icon={Icon}>
+        <PdfOverview module={service} />
+      </PdfSectionPage>
+    )
+  }
 
   return (
     <div className="flex min-w-0 flex-col gap-6 p-4 sm:p-6 md:p-8">
