@@ -44,6 +44,12 @@ describe("self-hosted OCR engine", () => {
   }, 60_000)
 
   it("rejects bytes that are not an image", async () => {
-    await expect(recognizeImage({ bytes: new TextEncoder().encode("not an image") })).rejects.toThrow()
+    await expect(recognizeImage({ bytes: new TextEncoder().encode("not an image") })).rejects.toMatchObject({ category: "decode_failed" })
+  }, 60_000)
+
+  it("keeps serving requests after a malformed image", async () => {
+    await expect(recognizeImage({ bytes: new TextEncoder().encode("still not an image") })).rejects.toMatchObject({ category: "decode_failed" })
+    const r = await recognizeImage({ bytes: fixture("ocr-sentence.png") })
+    expect(normalizeOcrText(r.text)).toContain("quick brown fox")
   }, 60_000)
 })
