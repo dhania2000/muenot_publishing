@@ -33,6 +33,7 @@ import {
   PdfRecentActivityPanel,
   PdfSavedProfilesPanel,
 } from "@/components/publishing/conversion/pdf/pdf-overview-panels"
+import { PdfFormatMatrix, PdfFormatReference } from "@/components/publishing/conversion/pdf/pdf-format-matrix"
 import { conversionHref, type ConversionModule } from "@/lib/conversion-modules"
 
 const QUICK_START_STEPS: { label: string; optional?: boolean }[] = [
@@ -307,6 +308,22 @@ export function PdfOverview({ module }: { module: ConversionModule }) {
           <PdfFormatPanel direction="output" />
           <PdfAvailabilityLegend />
         </div>
+      </PdfSection>
+
+      <PdfSection
+        id="pdf-format-matrix"
+        title="Format compatibility matrix"
+        description="Every registered conversion direction and PDF operation, with requirements and documented limitations. Each direction is a separate capability; supporting one never enables the reverse."
+      >
+        <PdfFormatMatrix workspaceHref={workspaceHref} />
+      </PdfSection>
+
+      <PdfSection
+        id="pdf-format-reference"
+        title="Format reference"
+        description="Recognized formats, extensions and MIME types. Being listed here does not mean an operation supports the format."
+      >
+        <PdfFormatReference />
       </PdfSection>
 
       <PdfSection id="pdf-setup" title="Guidelines, profiles and processing">
