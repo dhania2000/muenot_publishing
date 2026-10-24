@@ -57,3 +57,54 @@ export type BatchCreditUsageResponse = {
 }
 
 export const documentTypeLabel = (t: DocumentType) => t.toUpperCase()
+
+/** Per-occurrence AI result filters for one document (server-side). */
+export const IMAGE_RESULT_FILTERS = {
+  all: "All images",
+  not_submitted: "Not submitted",
+  pending: "Pending",
+  processing: "Processing",
+  completed: "Completed",
+  failed: "Failed",
+  cancelled: "Cancelled",
+  context_review: "Context needs review",
+} as const
+export type ImageResultFilter = keyof typeof IMAGE_RESULT_FILTERS
+export const isImageResultFilter = (v: unknown): v is ImageResultFilter => typeof v === "string" && v in IMAGE_RESULT_FILTERS
+export const IMAGE_RESULTS_PAGE_SIZE = 20
+export const IMAGE_RESULTS_PAGE_MAX = 50
+
+export type ImageResultAiStatus = "not_submitted" | "pending" | "processing" | "completed" | "failed" | "cancelled"
+
+export type DocumentImageResultRow = {
+  imageId: number
+  assetId: number | null
+  occurrenceIndex: number
+  pageNumber: number | null
+  slideNumber: number | null
+  sourceLocator: string
+  contextState: "ready" | "unavailable" | "needs_review" | "not_analyzed"
+  aiStatus: ImageResultAiStatus
+  assetStatus: string | null
+  batchId: string | null
+  batchStatus: string | null
+  shortAltPreview: string | null
+  failureReason: string | null
+  /** Pending images held by credits/rate limits keep a reason without being failed. */
+  waitingReason: string | null
+  attempts: number
+  retryable: boolean
+  retryBlockedReason: string | null
+  updatedAt: string
+}
+
+export type DocumentImageResultsResponse = {
+  success: true
+  documentId: number
+  rows: DocumentImageResultRow[]
+  page: number
+  pageSize: number
+  total: number
+  /** True while any listed occurrence is pending/processing in an active batch (drives polling). */
+  active: boolean
+}
