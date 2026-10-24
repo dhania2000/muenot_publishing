@@ -5,7 +5,7 @@ import { cookies } from "next/headers"
 import { cache } from "react"
 import { query } from "@/lib/db"
 import { ensurePlatformSchema } from "@/lib/platform-schema"
-import { DEFAULT_TENANT_ID } from "@/lib/tenant-scope"
+import { DEFAULT_TENANT_ID, bindRequestTenant, enterRequestTenantScope } from "@/lib/tenant-scope"
 
 const scrypt = promisify(scryptCb) as (pw: string, salt: Buffer, keylen: number) => Promise<Buffer>
 
@@ -52,7 +52,18 @@ export async function destroySession(): Promise<void> {
   jar.delete(SESSION_COOKIE)
 }
 
-export const getSession = cache(async (): Promise<Session | null> => {
+/**
+ * Not wrapped in `cache` itself: each caller must enter the tenant scope synchronously in its own
+ * async context, otherwise cache hits leave later callers querying the default tenant.
+ */
+export async function getSession(): Promise<Session | null> {
+  const tenantScope = enterRequestTenantScope()
+  const session = await lookupSession()
+  if (session) bindRequestTenant(tenantScope, session.tenantId)
+  return session
+}
+
+const lookupSession = cache(async (): Promise<Session | null> => {
   const token = (await cookies()).get(SESSION_COOKIE)?.value
   if (!token) return null
   await ensurePlatformSchema()
