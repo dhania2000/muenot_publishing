@@ -4,6 +4,7 @@
  * @kind Pure domain logic (no I/O)
  * @summary Classifications, prompt builder, AI output parser, validation and export serializers.
  */
+import { documentContextRules, formatDocumentContextBlock, type DocumentPromptContext } from "./document-prompt"
 
 export const IMAGE_CLASSIFICATIONS = [
   "photograph",
@@ -374,6 +375,8 @@ export type PromptInput = {
   classificationHint?: ImageClassification | null
   /** Task 6 per-request settings. Fields present here take precedence over the legacy fields above. */
   generation?: Partial<GenerationSettings>
+  /** Server-resolved context of the specific document occurrence this image came from. Never client-supplied. */
+  document?: DocumentPromptContext | null
 }
 
 /** Strips characters that could close the untrusted-data fence early. */

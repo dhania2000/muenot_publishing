@@ -89,6 +89,8 @@ export type GenerateAltTextFromImageInput = {
   generation: GenerationSettings
   altTextSettings: AltTextSettings
   model: CatalogModel
+  /** Occurrence-specific document context resolved server-side; omitted for standalone images. */
+  document?: DocumentPromptContext | null
   timeoutMs?: number
   abortSignal?: AbortSignal
 }
@@ -131,6 +133,7 @@ export async function generateAltTextFromImage(input: GenerateAltTextFromImageIn
     context: generation.imageContext,
     shortMaxChars: altTextSettings.shortMaxChars,
     generation,
+    document: input.document ?? null,
   })
 
   const started = Date.now()
@@ -167,6 +170,10 @@ export async function generateAltTextFromImage(input: GenerateAltTextFromImageIn
       throw new AiError("provider_error", "The AI returned an invalid response. No alt text was saved.", { modelId: model.id, reason: "invalid_output", outputError: e.code, field: e.field })
     }
     throw e
+  }
+  if (input.document) {
+    const notices = documentContextNotices(input.document).filter((n) => !output.warnings.includes(n))
+    if (notices.length) output = { ...output, warnings: [...output.warnings, ...notices] }
   }
 
   const u = (result.usage ?? {}) as Record<string, unknown> & { inputTokenDetails?: { cacheReadTokens?: unknown } }
