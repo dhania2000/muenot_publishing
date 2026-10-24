@@ -19,6 +19,7 @@ import { useDocumentQueue } from "./use-document-queue"
 import { useDocumentUploads } from "./use-document-uploads"
 import { UploadedDocumentsCard } from "./uploaded-documents-card"
 import { ExtractedImagesPanel } from "./extracted-images-panel"
+import { DocumentLiveProcessing } from "./document-live-processing"
 
 const DOCUMENT_TYPES = {
   auto: "Detect from file",
@@ -94,7 +95,13 @@ export function DocumentProcessingWorkspace() {
 
       <UploadedDocumentsCard />
 
-      <ExtractedImagesPanel />
+      <DocumentLiveProcessing
+        onOpenImages={() => document.getElementById("extracted-images")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+      />
+
+      <div id="extracted-images" className="min-w-0 scroll-mt-4">
+        <ExtractedImagesPanel />
+      </div>
     </div>
   )
 }
