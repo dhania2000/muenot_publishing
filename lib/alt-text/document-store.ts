@@ -333,7 +333,7 @@ export async function findDocumentMediaStorageKey(documentId: number, mediaSha25
 // Image occurrence mappings (contracts for Tasks 5–8; nothing is pre-populated)
 // ---------------------------------------------------------------------------
 
-type ImageDbRow = RowDataPacket & {
+export type ImageDbRow = RowDataPacket & {
   id: number
   document_id: number
   alt_text_asset_id: number | null

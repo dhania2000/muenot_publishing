@@ -8,6 +8,7 @@
 import type { CreateBatchPayload } from "./bulk-upload"
 import type { AltTextResult, GenerationSettings } from "./core"
 import type { DocumentImageContext } from "./document-context"
+import { imageListSearchParams, type ImageListQuery, type ImageMutationRequest, type ImageMutationResponse } from "./document-image-review"
 import type { DocumentUploadReference } from "./document-upload-contract"
 import type { ExportFormat } from "./export"
 import type { AltTextAssetView } from "./history"
@@ -149,6 +150,20 @@ function xhrUpload<T>(
 
 export const documentImagesUrl = (documentId: number, limit = 200, offset = 0) =>
   `/api/alt-text/documents/${documentId}/images?${new URLSearchParams({ limit: String(limit), offset: String(offset) })}`
+
+export const documentReviewImagesUrl = (documentId: number, q: Partial<ImageListQuery>) =>
+  `/api/alt-text/documents/${documentId}/images?${imageListSearchParams(q)}`
+
+export const documentSelectionSnapshotUrl = (documentId: number) => `/api/alt-text/documents/${documentId}/images/selection`
+
+/** Persisted selection / source-review update. Resolves only with the server-confirmed outcome. */
+export function updateDocumentImages(documentId: number, body: ImageMutationRequest) {
+  return requestJson<ImageMutationResponse>(`/api/alt-text/documents/${documentId}/images`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  })
+}
 
 export function extractDocumentImages(documentId: number) {
   return requestJson<{ success: true; alreadyProcessed?: boolean; counts?: { total: number; extracted: number; failed: number; unsupported: number } }>(
