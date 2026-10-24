@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button"
 import { PdfStatusIndicator } from "@/components/publishing/conversion/pdf/pdf-capability-status"
 import {
   DEFAULT_EXPANDED_SETTINGS,
+  deriveGuidelineState,
   describeLocalFile,
   formatBytes,
   PDF_WORKFLOW_STEPS,
@@ -34,6 +35,7 @@ import {
   PdfSourcePanel,
   type PdfPreviewMode,
 } from "@/components/publishing/conversion/pdf/pdf-workspace-panels"
+import type { PdfGuidelineContext } from "@/components/publishing/conversion/pdf/pdf-status-model"
 import { PdfThreePanelContent } from "@/components/publishing/conversion/pdf/pdf-content"
 import { cn } from "@/lib/utils"
 
@@ -47,7 +49,14 @@ const PANEL_TABS: { id: PanelTab; label: string }[] = [
 
 let fileSeq = 0
 
-export function PdfWorkspace({ guidelinesHref = null }: { guidelinesHref?: string | null }) {
+export function PdfWorkspace({
+  guidelinesHref = null,
+  guidelineContext = null,
+}: {
+  guidelinesHref?: string | null
+  /** Integration point for the Phase 6 Guidelines section. Omitted today, so the Standard Profile applies. */
+  guidelineContext?: PdfGuidelineContext | null
+}) {
   const baseId = useId()
   const regionIds: Record<PdfWorkspaceRegion, string> = {
     source: `${baseId}-source`,
@@ -68,8 +77,8 @@ export function PdfWorkspace({ guidelinesHref = null }: { guidelinesHref?: strin
   const [panelTab, setPanelTab] = useState<PanelTab>("source")
   const [currentStep, setCurrentStep] = useState<PdfWorkflowStepId>("upload")
   const [announcement, setAnnouncement] = useState("")
-  // Guidelines are optional; until Phase 6 the workspace always runs on the Standard Profile.
-  const guidelineState: PdfGuidelineState = "not-provided"
+  // Guidelines are optional. With no context the state is "not-provided" and the Standard Profile applies.
+  const guidelineState: PdfGuidelineState = deriveGuidelineState(guidelineContext)
 
   const selectedFile = files.find((f) => f.id === selectedId) ?? null
 
@@ -222,6 +231,7 @@ export function PdfWorkspace({ guidelinesHref = null }: { guidelinesHref?: strin
             expandedGroups={expandedGroups}
             onToggleGroup={toggleGroup}
             guidelineState={guidelineState}
+            guidelineContext={guidelineContext}
             guidelinesHref={guidelinesHref}
             onReset={resetSettings}
           />

@@ -95,12 +95,27 @@ describe("PdfGuidelinesSummary", () => {
   it("renders supplied guideline details without claiming compliance", () => {
     const html = renderToStaticMarkup(
       h(PdfGuidelinesSummary, {
-        guidelines: [{ id: "g1", name: "House Style", company: "Acme Press", version: "2.1", format: "JATS", reviewStatus: "not-reviewed" }],
+        context: {
+          scope: { area: "conversion", service: "pdf" },
+          profile: {
+            id: "g1",
+            name: "House Style",
+            companyLabel: "Acme Press",
+            version: { profileId: "g1", versionId: "2.1" },
+            documentIds: [],
+            applicableFormats: ["JATS"],
+            reviewStatus: "pending-review",
+            availability: "available",
+          },
+          documents: [],
+          rules: [],
+        },
       }),
     )
     expect(html).toContain("House Style")
     expect(html).toContain("Acme Press")
-    expect(html).toContain("Not reviewed")
+    expect(html).toContain("2.1")
+    expect(html).toContain("Pending review")
     expect(html).not.toMatch(/compliant/i)
   })
 })

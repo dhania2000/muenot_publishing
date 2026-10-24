@@ -51,6 +51,7 @@ import {
   type PdfPreviewMode,
 } from "@/components/publishing/conversion/pdf/pdf-preview-components"
 import { PdfProcessingLog, PdfValidationSummary } from "@/components/publishing/conversion/pdf/pdf-processing-components"
+import type { PdfGuidelineContext } from "@/components/publishing/conversion/pdf/pdf-status-model"
 import {
   PdfFormatSelector,
   PdfPlannedSettingRow,
@@ -403,6 +404,8 @@ type PdfSettingsPanelProps = {
   expandedGroups: readonly PdfSettingsGroupId[]
   onToggleGroup: (id: PdfSettingsGroupId) => void
   guidelineState: PdfGuidelineState
+  /** Real guideline context for the job, when a source exists (Phase 6). Null means Standard Profile. */
+  guidelineContext?: PdfGuidelineContext | null
   guidelinesHref: string | null
   onReset: () => void
 }
@@ -442,7 +445,7 @@ export function PdfSettingsPanel(props: PdfSettingsPanelProps) {
                 </>
               )}
               {group.id === "guidelines" ? (
-                <GuidelinesBlock state={props.guidelineState} href={props.guidelinesHref} />
+                <GuidelinesBlock state={props.guidelineState} context={props.guidelineContext ?? null} href={props.guidelinesHref} />
               ) : (
                 group.plannedItems.length > 0 && (
                   <ul className="divide-y" aria-label={`${group.label} (planned)`}>
@@ -482,11 +485,11 @@ function SourceFormatField({ file }: { file: PdfLocalFile | null }) {
   )
 }
 
-function GuidelinesBlock({ state, href }: { state: PdfGuidelineState; href: string | null }) {
+function GuidelinesBlock({ state, context, href }: { state: PdfGuidelineState; context: PdfGuidelineContext | null; href: string | null }) {
   const actionsHintId = useId()
   return (
     <div className="flex flex-col gap-3">
-      <PdfGuidelinesStatus state={state} />
+      <PdfGuidelinesStatus state={state} context={context} />
       {href ? (
         <Button asChild variant="outline" size="sm" className="self-start">
           <Link href={href}>Manage Guidelines</Link>

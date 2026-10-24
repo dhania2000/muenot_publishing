@@ -4,13 +4,20 @@
  * @kind Pure configuration
  * @summary Workspace contracts: workflow steps, local source-file model, settings groups and the optional-guidelines state.
  * @exports PDF_WORKFLOW_STEPS, PDF_SETTINGS_GROUPS, PDF_GUIDELINE_STATES, PDF_GUIDELINE_PRIORITY, PDF_SOURCE_EXTENSIONS,
- *   describeLocalFile, formatBytes, getTargetFormatOptions, getWorkflowStepState, nextWorkflowStep, resolveSettingsProfile
+ *   describeLocalFile, formatBytes, getTargetFormatOptions, getWorkflowStepState, nextWorkflowStep, resolveSettingsProfile,
+ *   deriveGuidelineState
  * @see PDF_PHASE1_TASK2_UI_ARCHITECTURE.md §7
  *
  * Phase 1 Task 7 is a UI foundation. Nothing here talks to a server: files are held in browser memory only,
  * no step is ever reported as completed, and guideline states other than "not-provided" are contracts for Phase 6.
  */
 import { deriveFormatAvailability, type PdfCapabilityStatus } from "@/components/publishing/conversion/pdf/pdf-capabilities"
+import {
+  assessGuidelineCompliance,
+  GUIDELINE_PRIORITY_LEVELS,
+  hasGuidelines,
+  type GuidelineContext,
+} from "@/lib/guidelines/guideline-contracts"
 
 // ─── Workflow ────────────────────────────────────────────────────────────────
 
@@ -146,7 +153,7 @@ export function getTargetFormatOptions(): PdfTargetFormatOption[] {
   return deriveFormatAvailability("output")
 }
 
-// ─── Optional guidelines ─────────────────────────────��──────────────────────
+// ─── Optional guidelines ─────────────────────────────���──────────────────────
 
 export type PdfGuidelineState =
   | "not-provided"
@@ -173,15 +180,34 @@ export const PDF_GUIDELINE_STATES: Record<
   verified: { label: "Verified", tone: "success", description: "Output was checked against each applicable guideline rule." },
 }
 
-/** Highest priority first. Safety constraints and mandatory technical requirements sit above all of these. */
-export const PDF_GUIDELINE_PRIORITY = [
-  { id: "job", label: "Job-Specific Guidelines" },
-  { id: "company", label: "Company Guideline Profile" },
-  { id: "preset", label: "Conversion Preset" },
-  { id: "standard", label: "Standard Default Settings" },
-] as const
+/**
+ * Highest priority first, from the shared contract. Safety constraints and mandatory technical requirements
+ * sit above all of these.
+ */
+export const PDF_GUIDELINE_PRIORITY = GUIDELINE_PRIORITY_LEVELS
 
 export const STANDARD_PROFILE = { id: "standard", label: "Standard Profile" } as const
+
+/**
+ * One-word summary of a job's guideline context for compact UI. It is derived from the separate document,
+ * rule, application and verification records and never promotes a state: an upload alone stays
+ * "pending-review", and "verified" requires an evidenced compliance verdict.
+ */
+export function deriveGuidelineState(context: GuidelineContext | null | undefined): PdfGuidelineState {
+  if (!hasGuidelines(context)) return "not-provided"
+  const { verdict, counts } = assessGuidelineCompliance(context)
+  if (verdict === "compliant" || verdict === "compliant-with-exceptions") return "verified"
+  if (counts && counts.unresolvedConflicts > 0) return "conflict"
+  if (counts && counts.unsupported > 0 && verdict === "review-required") return "unsupported"
+  const awaitingReview =
+    verdict === "requirements-pending" ||
+    (counts !== null && counts.pendingReview > 0) ||
+    context.documents.some((d) => d.status === "uploaded" || d.status === "pending-review")
+  if (awaitingReview) return "pending-review"
+  if ((context.results ?? []).length > 0) return "verification-pending"
+  if (counts && counts.applied > 0) return "applied"
+  return "profile-selected"
+}
 
 /**
  * The settings profile in effect. Without guidelines the Standard Profile always applies, so processing
