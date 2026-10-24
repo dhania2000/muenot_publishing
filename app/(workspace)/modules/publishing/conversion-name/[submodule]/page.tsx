@@ -11,6 +11,7 @@ import {
   PlannedPage,
   PUBLISHING_CRUMBS,
 } from "@/components/publishing/conversion/conversion-nav"
+import { getPdfHeader } from "@/components/publishing/conversion/pdf/pdf-header-config"
 import { PdfOverview } from "@/components/publishing/conversion/pdf/pdf-overview"
 import { PdfSectionPage } from "@/components/publishing/conversion/pdf/pdf-section-page"
 import { CONVERSION_MODULES, CONVERSION_SHARED_PAGES, getConversionModule, getSharedPage } from "@/lib/conversion-modules"
@@ -27,6 +28,10 @@ export function generateStaticParams(): Params[] {
 export async function generateMetadata({ params }: { params: Promise<Params> }): Promise<Metadata> {
   const { submodule } = await params
   const conversionModule = getConversionModule(submodule)
+  if (conversionModule?.slug === "pdf") {
+    const header = getPdfHeader(conversionModule)
+    return { title: `${header.title} · Overview`, description: header.subtitle }
+  }
   if (conversionModule) return { title: `${conversionModule.label} · Conversion`, description: conversionModule.description }
   const shared = getSharedPage(submodule)
   if (shared) return { title: `${shared.label} · Conversion`, description: shared.description }
