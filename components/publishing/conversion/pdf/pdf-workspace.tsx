@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button"
 import { PdfStatusIndicator } from "@/components/publishing/conversion/pdf/pdf-capability-status"
 import {
   DEFAULT_EXPANDED_SETTINGS,
+  deriveGuidelineState,
   describeLocalFile,
   formatBytes,
   PDF_WORKFLOW_STEPS,
@@ -34,6 +35,7 @@ import {
   PdfSourcePanel,
   type PdfPreviewMode,
 } from "@/components/publishing/conversion/pdf/pdf-workspace-panels"
+import type { PdfGuidelineContext } from "@/components/publishing/conversion/pdf/pdf-status-model"
 import { PdfThreePanelContent } from "@/components/publishing/conversion/pdf/pdf-content"
 import { cn } from "@/lib/utils"
 
@@ -47,7 +49,14 @@ const PANEL_TABS: { id: PanelTab; label: string }[] = [
 
 let fileSeq = 0
 
-export function PdfWorkspace({ guidelinesHref = null }: { guidelinesHref?: string | null }) {
+export function PdfWorkspace({
+  guidelinesHref = null,
+  guidelineContext = null,
+}: {
+  guidelinesHref?: string | null
+  /** Integration point for the Phase 6 Guidelines section. Omitted today, so the Standard Profile applies. */
+  guidelineContext?: PdfGuidelineContext | null
+}) {
   const baseId = useId()
   const regionIds: Record<PdfWorkspaceRegion, string> = {
     source: `${baseId}-source`,
@@ -68,8 +77,8 @@ export function PdfWorkspace({ guidelinesHref = null }: { guidelinesHref?: strin
   const [panelTab, setPanelTab] = useState<PanelTab>("source")
   const [currentStep, setCurrentStep] = useState<PdfWorkflowStepId>("upload")
   const [announcement, setAnnouncement] = useState("")
-  // Guidelines are optional; until Phase 6 the workspace always runs on the Standard Profile.
-  const guidelineState: PdfGuidelineState = "not-provided"
+  // Guidelines are optional. With no context the state is "not-provided" and the Standard Profile applies.
+  const guidelineState: PdfGuidelineState = deriveGuidelineState(guidelineContext)
 
   const selectedFile = files.find((f) => f.id === selectedId) ?? null
 
@@ -145,7 +154,8 @@ export function PdfWorkspace({ guidelinesHref = null }: { guidelinesHref?: strin
     requestAnimationFrame(() => document.getElementById(regionIds[region])?.focus({ preventScroll: false }))
   }
 
-  const panelVisibility = (tab: PanelTab) => cn("min-h-0 min-w-0", panelTab !== tab && "md:max-xl:hidden")
+  // CSS-only visibility: every panel stays mounted, so files, selection and settings survive resizes and switching.
+  const panelVisibility = (tab: PanelTab) => cn("min-h-0 min-w-0", panelTab !== tab && "max-xl:hidden")
 
   return (
     <div data-slot="pdf-workspace" className="flex min-w-0 flex-col gap-3">
@@ -157,7 +167,11 @@ export function PdfWorkspace({ guidelinesHref = null }: { guidelinesHref?: strin
 
       <PdfWorkspaceToolbar file={selectedFile} fileCount={files.length} targetFormat={targetFormat} />
 
-      <div role="group" aria-label="Workspace panels" className="hidden gap-1 rounded-lg bg-muted p-1 md:flex xl:hidden">
+      <div
+        role="group"
+        aria-label="Workspace panels"
+        className="sticky top-0 z-10 flex gap-1 rounded-lg bg-muted p-1 shadow-sm xl:hidden"
+      >
         {PANEL_TABS.map((tab) => (
           <button
             key={tab.id}
@@ -166,7 +180,7 @@ export function PdfWorkspace({ guidelinesHref = null }: { guidelinesHref?: strin
             aria-controls={regionIds[tab.id]}
             onClick={() => setPanelTab(tab.id)}
             className={cn(
-              "flex-1 rounded-md px-3 py-1.5 text-sm font-medium outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50",
+              "inline-flex min-h-10 min-w-0 flex-1 items-center justify-center rounded-md px-2 py-1.5 text-sm font-medium outline-none sm:px-3 transition-colors focus-visible:ring-3 focus-visible:ring-ring/50",
               panelTab === tab.id ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
             )}
           >
@@ -183,7 +197,7 @@ export function PdfWorkspace({ guidelinesHref = null }: { guidelinesHref?: strin
         className="gap-3 xl:h-[min(80dvh,920px)] xl:min-h-[600px]"
         slotClassNames={{
           source: panelVisibility("source"),
-          preview: cn(panelVisibility("preview"), "md:max-xl:h-[70dvh]"),
+          preview: cn(panelVisibility("preview"), "max-xl:h-[min(70dvh,880px)]"),
           settings: panelVisibility("settings"),
         }}
         source={
@@ -222,6 +236,7 @@ export function PdfWorkspace({ guidelinesHref = null }: { guidelinesHref?: strin
             expandedGroups={expandedGroups}
             onToggleGroup={toggleGroup}
             guidelineState={guidelineState}
+            guidelineContext={guidelineContext}
             guidelinesHref={guidelinesHref}
             onReset={resetSettings}
           />
@@ -274,7 +289,7 @@ export function PdfWorkflowStepper({
                     {step.label}
                     {step.optional && <span className="text-xs font-normal text-muted-foreground">(Optional)</span>}
                   </span>
-                  <span className="truncate text-xs text-muted-foreground">{step.description}</span>
+                  <span className="line-clamp-2 text-xs text-muted-foreground">{step.description}</span>
                   {state === "planned" && <span className="text-xs text-muted-foreground">Planned</span>}
                 </span>
               </button>

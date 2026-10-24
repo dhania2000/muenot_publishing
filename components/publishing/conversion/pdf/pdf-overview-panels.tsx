@@ -3,7 +3,7 @@
  * @module Publishing › Conversion › PDF
  * @kind React server component
  * @summary Overview information panels: guidelines summary, saved profiles, processing information, recent activity, help.
- * @exports PdfGuidelinesSummary, PdfSavedProfilesPanel, PdfProcessingInfoPanel, PdfRecentActivityPanel, PdfHelpGuidance, PdfGuidelineSummaryItem
+ * @exports PdfGuidelinesSummary, PdfSavedProfilesPanel, PdfProcessingInfoPanel, PdfRecentActivityPanel, PdfHelpGuidance
  *
  * Every panel renders only real data. No guideline, profile, job or history store exists yet, so
  * the Overview passes none and each panel shows an accurate empty state.
@@ -13,39 +13,28 @@ import { ArrowRight, FileClock, History, SlidersHorizontal } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { PdfPanel } from "@/components/publishing/conversion/pdf/pdf-content"
+import { PdfStatusFromMeta } from "@/components/publishing/conversion/pdf/pdf-capability-status"
 import { PdfFeedbackState } from "@/components/publishing/conversion/pdf/pdf-feedback-state"
-
-/** Shape for Scenario B (client supplied guidelines). Populated once guideline storage exists. */
-export type PdfGuidelineSummaryItem = {
-  id: string
-  name: string
-  company: string
-  version: string
-  format: string
-  reviewStatus: "not-reviewed" | "in-review" | "reviewed"
-  profile?: string
-}
-
-const REVIEW_LABEL: Record<PdfGuidelineSummaryItem["reviewStatus"], string> = {
-  "not-reviewed": "Not reviewed",
-  "in-review": "In review",
-  reviewed: "Reviewed",
-}
+import { OPTIONAL_GUIDELINES_MESSAGE } from "@/components/publishing/conversion/pdf/pdf-guidelines-components"
+import { GUIDELINE_DOCUMENT_STATUS_META, hasGuidelines, type GuidelineContext } from "@/lib/guidelines/guideline-contracts"
 
 function MutedNote({ children }: { children: React.ReactNode }) {
   return <p className="text-xs leading-relaxed text-muted-foreground">{children}</p>
 }
 
-export function PdfGuidelinesSummary({ guidelines = [] }: { guidelines?: PdfGuidelineSummaryItem[] }) {
+/**
+ * Scenario A (no context) shows a neutral "Not Provided" state. Scenario B renders the supplied profile and
+ * documents from the shared guideline contracts; review status is reported, compliance is never claimed here.
+ */
+export function PdfGuidelinesSummary({ context = null }: { context?: GuidelineContext | null }) {
+  const provided = hasGuidelines(context)
   return (
     <PdfPanel title="Client Guidelines" actions={<Badge variant="outline">Optional</Badge>} className="h-full">
-      {guidelines.length === 0 ? (
+      {!provided ? (
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-1">
             <p className="text-sm font-medium">Guidelines: Not Provided</p>
-            <p className="text-sm leading-relaxed text-muted-foreground">
-              Company guidelines are optional. Standard conversion settings will be used.
-            </p>
+            <p className="text-sm leading-relaxed text-muted-foreground">{OPTIONAL_GUIDELINES_MESSAGE.overview}</p>
           </div>
           <ul className="flex flex-col gap-1.5 text-sm">
             <li>Continue without guidelines</li>
@@ -55,29 +44,45 @@ export function PdfGuidelinesSummary({ guidelines = [] }: { guidelines?: PdfGuid
           <MutedNote>Guideline upload is planned. Missing guidelines never block conversion work.</MutedNote>
         </div>
       ) : (
-        <ul className="flex flex-col divide-y">
-          {guidelines.map((g) => (
-            <li key={g.id} className="flex flex-col gap-1 py-2 first:pt-0 last:pb-0">
-              <p className="truncate text-sm font-medium">{g.name}</p>
+        <div className="flex flex-col gap-3">
+          {context.profile && (
+            <div className="flex flex-col gap-1">
+              <p className="truncate text-sm font-medium">{context.profile.name}</p>
               <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-0.5 text-xs">
-                <dt className="text-muted-foreground">Company</dt>
-                <dd className="truncate">{g.company}</dd>
-                <dt className="text-muted-foreground">Version</dt>
-                <dd>{g.version}</dd>
-                <dt className="text-muted-foreground">Format</dt>
-                <dd>{g.format}</dd>
-                <dt className="text-muted-foreground">Review</dt>
-                <dd>{REVIEW_LABEL[g.reviewStatus]}</dd>
-                {g.profile && (
+                {context.profile.companyLabel && (
                   <>
-                    <dt className="text-muted-foreground">Profile</dt>
-                    <dd className="truncate">{g.profile}</dd>
+                    <dt className="text-muted-foreground">Company</dt>
+                    <dd className="truncate">{context.profile.companyLabel}</dd>
                   </>
                 )}
+                <dt className="text-muted-foreground">Version</dt>
+                <dd>{context.profile.version?.versionId ?? context.versionRef?.versionId ?? "Not recorded"}</dd>
+                {context.profile.applicableFormats?.length ? (
+                  <>
+                    <dt className="text-muted-foreground">Formats</dt>
+                    <dd className="truncate">{context.profile.applicableFormats.join(", ")}</dd>
+                  </>
+                ) : null}
+                <dt className="text-muted-foreground">Review</dt>
+                <dd>{GUIDELINE_DOCUMENT_STATUS_META[context.profile.reviewStatus].label}</dd>
               </dl>
-            </li>
-          ))}
-        </ul>
+            </div>
+          )}
+          {context.documents.length > 0 && (
+            <ul className="flex flex-col divide-y" aria-label="Guideline documents">
+              {context.documents.map((d) => (
+                <li key={d.id} className="flex flex-wrap items-center justify-between gap-2 py-1.5 first:pt-0 last:pb-0">
+                  <span className="min-w-0 truncate text-sm">
+                    {d.title}
+                    {d.version ? <span className="text-muted-foreground"> · v{d.version}</span> : null}
+                  </span>
+                  <PdfStatusFromMeta meta={GUIDELINE_DOCUMENT_STATUS_META[d.status]} />
+                </li>
+              ))}
+            </ul>
+          )}
+          <MutedNote>Requirements are applied and verified separately; uploading a document does not apply it.</MutedNote>
+        </div>
       )}
     </PdfPanel>
   )
