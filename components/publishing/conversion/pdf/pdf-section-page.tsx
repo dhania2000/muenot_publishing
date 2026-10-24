@@ -8,7 +8,8 @@
  */
 import type { LucideIcon } from "lucide-react"
 import { PageHeader } from "@/components/enterprise/page-header"
-import { ConversionModuleTabs } from "@/components/publishing/conversion/conversion-nav"
+import { PdfSectionNavigation, type PdfNavItem } from "@/components/publishing/conversion/pdf/pdf-section-navigation"
+import { isPdfSectionNavigable, PDF_SECTIONS, pdfSectionHref } from "@/components/publishing/conversion/pdf/pdf-sections"
 import { PdfFeedbackState } from "@/components/publishing/conversion/pdf/pdf-feedback-state"
 import { PdfHeaderActions } from "@/components/publishing/conversion/pdf/pdf-header-actions"
 import { getPdfHeader } from "@/components/publishing/conversion/pdf/pdf-header-config"
@@ -27,6 +28,21 @@ type PdfSectionPageProps = {
   toolbar?: React.ReactNode
   /** Section body. Defaults to an honest "not built yet" state; never a simulated result. */
   children?: React.ReactNode
+}
+
+/** Serializable nav items for the client navigation; only routed sections get an href. */
+export function getPdfNavItems(module: ConversionModule, activeSlug: string): PdfNavItem[] {
+  return [...PDF_SECTIONS]
+    .sort((a, b) => a.order - b.order)
+    .map((section) => {
+      const navigable = isPdfSectionNavigable(section, module)
+      return {
+        id: section.id,
+        label: section.label,
+        href: navigable ? pdfSectionHref(module, section) : null,
+        active: navigable && section.slug === activeSlug,
+      }
+    })
 }
 
 export function PdfSectionPage({ module, page, icon, status, aside, asideLabel, toolbar, children }: PdfSectionPageProps) {
@@ -49,7 +65,7 @@ export function PdfSectionPage({ module, page, icon, status, aside, asideLabel, 
           actions={<PdfHeaderActions actions={pdfHeader.actions} />}
         />
       }
-      navigation={<ConversionModuleTabs module={module} activePage={page?.slug ?? ""} />}
+      navigation={<PdfSectionNavigation items={getPdfNavItems(module, page?.slug ?? "")} />}
       status={status}
       aside={aside}
       asideLabel={asideLabel}

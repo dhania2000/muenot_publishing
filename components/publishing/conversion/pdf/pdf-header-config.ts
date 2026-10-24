@@ -12,25 +12,8 @@
  */
 import type { Crumb } from "@/components/enterprise/page-header"
 import { CONVERSION_CRUMB, PUBLISHING_CRUMBS } from "@/components/publishing/conversion/conversion-nav"
+import { getPdfSection } from "@/components/publishing/conversion/pdf/pdf-sections"
 import { conversionHref, type ConversionModule, type ConversionPage } from "@/lib/conversion-modules"
-
-type SectionCopy = { title?: string; subtitle: string }
-
-/** Keyed by page slug; "" is the Overview. Unknown slugs fall back to the page label + module description. */
-export const PDF_SECTION_HEADERS: Record<string, SectionCopy> = {
-  "": { title: "PDF", subtitle: "Professional Document Conversion & Processing" },
-  workspace: { subtitle: "Configure and process your documents" },
-  guidelines: { subtitle: "Optional company-specific instructions" },
-  "output-settings": { subtitle: "Output format, quality and delivery options" },
-  "page-layout": { subtitle: "Page size, margins and layout rules" },
-  "content-extraction": { subtitle: "Extract text, images and structure from documents" },
-  "compliance-profiles": { subtitle: "PDF/A, PDF/UA and accessibility profiles" },
-  "preflight-and-validation": { title: "Preflight", subtitle: "Document quality and validation" },
-  "batch-processing": { subtitle: "Process multiple documents together" },
-  "output-preview": { subtitle: "Review converted output before delivery" },
-  "profiles-and-presets": { subtitle: "Reusable conversion profiles and presets" },
-  history: { subtitle: "Audit trail of completed PDF conversions" },
-}
 
 export type PdfHeaderAction =
   | { id: string; label: string; variant: "primary" | "secondary"; status: "link"; href: string }
@@ -53,12 +36,16 @@ function linkIfRegistered(module: ConversionModule, currentSlug: string, slug: s
 
 export function getPdfHeader(module: ConversionModule, page?: ConversionPage): PdfHeader {
   const slug = page?.slug ?? ""
-  const copy = PDF_SECTION_HEADERS[slug]
-  const title = copy?.title ?? page?.label ?? module.label
-  const subtitle = copy?.subtitle ?? module.description
+  const section = getPdfSection(slug)
+  const title = section?.headerTitle ?? section?.label ?? page?.label ?? module.label
+  const subtitle = section?.description ?? module.description
 
   const breadcrumbs: Crumb[] = page
-    ? [...PDF_ROOT_CRUMBS, { label: module.label, href: conversionHref(module.slug) }, { label: copy?.title ?? page.label }]
+    ? [
+        ...PDF_ROOT_CRUMBS,
+        { label: module.label, href: conversionHref(module.slug) },
+        { label: section?.breadcrumbLabel ?? page.label },
+      ]
     : [...PDF_ROOT_CRUMBS, { label: module.label }]
 
   // No PDF uploader exists yet (Phase 3). Show an honest unavailable state instead of a fake workflow.
