@@ -73,7 +73,15 @@ function getWorker(): Promise<Worker> {
   workerPromise ??= (async () => {
     await verifyModel()
     // cacheMethod "none": never write traineddata to the working directory.
-    const worker = await createWorker("eng", OEM.LSTM_ONLY, { langPath: ocrLanguageDir(), gzip: true, cacheMethod: "none" })
+    // errorHandler: without it tesseract.js rethrows every job rejection from the worker's message
+    // listener as an uncaught exception, so one malformed upload could take down the server process.
+    // The job promise still rejects and is classified below.
+    const worker = await createWorker("eng", OEM.LSTM_ONLY, {
+      langPath: ocrLanguageDir(),
+      gzip: true,
+      cacheMethod: "none",
+      errorHandler: () => undefined,
+    })
     await worker.setParameters({ preserve_interword_spaces: "1" })
     return worker
   })().catch((e) => {

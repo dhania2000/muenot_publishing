@@ -87,12 +87,12 @@ describe("region crop", () => {
 describe("region eligibility", () => {
   const upright = { orientation: 1, orientationUnknown: false }
   it("allows verified text regions on upright images", () => {
-    expect(regionIneligibility({ primaryType: "text_block", locationStatus: "verified_frame" } as never, upright)).toBeNull()
+    expect(regionIneligibility({ primaryType: "text_region", locationStatus: "verified_frame" } as never, upright)).toBeNull()
   })
   it("refuses non-text types, unverified frames and rotated images", () => {
     expect(regionIneligibility({ primaryType: "photograph", locationStatus: "verified_frame" } as never, upright)).toMatch(/text-bearing/)
-    expect(regionIneligibility({ primaryType: "text_block", locationStatus: "unverified" } as never, upright)).toMatch(/unverified/)
-    expect(regionIneligibility({ primaryType: "text_block", locationStatus: "verified_frame" } as never, { orientation: 6, orientationUnknown: false })).toMatch(/orientation/)
+    expect(regionIneligibility({ primaryType: "text_region", locationStatus: "unverified" } as never, upright)).toMatch(/unverified/)
+    expect(regionIneligibility({ primaryType: "text_region", locationStatus: "verified_frame" } as never, { orientation: 6, orientationUnknown: false })).toMatch(/orientation/)
   })
 })
 
