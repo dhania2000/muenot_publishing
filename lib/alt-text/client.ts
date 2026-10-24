@@ -17,6 +17,9 @@ import type { DocxExportRequest, DocxExportResponse } from "./docx-export-contra
 import type { ExportFormat } from "./export"
 import { outputValidationQueryUrl, type AcknowledgeRequest, type FindingsQuery, type ValidationResponse } from "./output-validation-contract"
 import type { AltTextAssetView } from "./history"
+import type { DetectRegionsResponse, RegionAnalysisResponse } from "./region-service"
+
+export type { DetectRegionsResponse, RegionAnalysisResponse }
 import type { UploadedAsset } from "./upload"
 
 export type ApiError = { status: number; code: string; message: string; details?: Record<string, unknown> }
@@ -387,6 +390,17 @@ export function saveClassificationCorrection(assetId: number, payload: Classific
 export function clearClassificationCorrection(assetId: number, occurrenceId?: number | null) {
   return requestJson<ClassificationResponse>(assetClassificationUrl(assetId, occurrenceId), { method: "DELETE" })
 }
+export const assetRegionsUrl = (id: number, occurrenceId?: number | null) => `/api/alt-text/assets/${id}/regions${occurrenceId ? `?occurrenceId=${occurrenceId}` : ""}`
+
+/** Retries of one click reuse the same requestId so a dropped response is never billed twice. */
+export function detectRegions(assetId: number, payload: { requestId: string; occurrenceId?: number | null }) {
+  return requestJson<DetectRegionsResponse>(`/api/alt-text/assets/${assetId}/regions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ requestId: payload.requestId, ...(payload.occurrenceId ? { occurrenceId: payload.occurrenceId } : {}) }),
+  })
+}
+
 /** SWR key matcher for every cached Alt Text asset request (list, detail, versions). */
 export const isAltTextAssetKey = (key: unknown) => typeof key === "string" && key.startsWith("/api/alt-text/assets")
 
