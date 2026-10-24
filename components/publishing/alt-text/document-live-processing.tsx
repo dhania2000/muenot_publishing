@@ -56,6 +56,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { EmptyState, ErrorState } from "@/components/enterprise/data-state"
 import { BatchProgressDashboard, type BatchOpenRequest } from "./batch-progress-dashboard"
 import { DocumentImageResults } from "./document-image-results"
+import { DocumentDescriptionReview } from "./document-description-review"
 import { DocumentPreparationStatus } from "./document-preparation-status"
 import { useDocumentPreparation } from "./use-document-preparation"
 import { formatDateTime } from "./alt-text-history"
@@ -456,6 +457,7 @@ function SelectedDocumentDetail({
           </p>
         )}
         {row.counts.extracted > 0 ? <DocumentImageResults documentId={doc.id} batchId={batch?.id ?? null} /> : null}
+        {row.counts.extracted > 0 && batch ? <DocumentDescriptionReview documentId={doc.id} /> : null}
       </section>
     </div>
   )
