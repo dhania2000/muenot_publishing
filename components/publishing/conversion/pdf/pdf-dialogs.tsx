@@ -118,7 +118,8 @@ export function PdfFileInfoDialog({
 }: DialogControl & { fields: PdfFileMetadataFields; unavailableNote?: string }) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
+      {/* Informational, not an alert: Radix spreads props after its default role, so this overrides "alertdialog". */}
+      <AlertDialogContent role="dialog">
         <AlertDialogHeader>
           <AlertDialogTitle className="truncate">{fields.filename ?? "File information"}</AlertDialogTitle>
           <AlertDialogDescription>Details reported for this file.</AlertDialogDescription>

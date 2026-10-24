@@ -34,13 +34,13 @@ describe("PdfModuleLayout", () => {
     expect(html).not.toContain('data-slot="pdf-navigation"')
     expect(html).not.toContain('data-slot="pdf-toolbar"')
     expect(html).not.toContain("<aside")
-    expect(html).not.toContain("lg:grid-cols")
+    expect(html).not.toContain("grid-cols")
   })
 
   it("adds a labelled contextual panel column only when an aside is supplied", () => {
     const html = render({ aside: h("div", null, "Guideline status"), asideLabel: "Guideline summary" })
     expect(html).toContain('<aside data-slot="pdf-context" aria-label="Guideline summary"')
-    expect(html).toContain("lg:grid-cols-[minmax(0,1fr)_minmax(280px,320px)]")
+    expect(html).toContain("@3xl/pdf-module:grid-cols-[minmax(0,1fr)_minmax(260px,320px)]")
   })
 
   it("renders navigation, a polite status region and a sticky toolbar when provided", () => {
@@ -73,7 +73,7 @@ describe("content primitives", () => {
     const html = renderToStaticMarkup(h(PdfThreePanelContent, { source: "s", preview: "p", settings: "c" }))
     const order = ["pdf-source", "pdf-preview", "pdf-settings"].map((slot) => html.indexOf(`data-slot="${slot}"`))
     expect(order.every((i, n) => i > -1 && (n === 0 || i > order[n - 1]))).toBe(true)
-    expect(html).toContain("xl:grid-cols-")
+    expect(html).toContain("@4xl/pdf-panels:grid-cols-")
     expect(html).not.toMatch(/\bh-\[|\bh-screen|\bh-dvh/)
   })
 })

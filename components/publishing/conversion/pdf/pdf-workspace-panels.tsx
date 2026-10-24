@@ -234,7 +234,7 @@ export function PdfSourcePanel({
             accept={PDF_SOURCE_EXTENSIONS}
             inputRef={addInputRef}
             onFiles={onAddFiles}
-            hint="PDF, Word, Excel, PowerPoint, HTML, XML or images. Files stay in this browser; server upload is planned."
+            hint="PDF, Word, Excel, PowerPoint, HTML, XML or images. Empty files are rejected; no size limit is applied locally. Files stay in this browser; server upload is planned."
           />
           <input
             ref={replaceInputRef}
@@ -386,7 +386,7 @@ function OriginalPreview({ file, hasFiles }: { file: PdfLocalFile | null; hasFil
     <PdfPreviewContainer
       state="unavailable"
       title="Document rendering is planned"
-      description={`${file.name} is selected. Page rendering arrives with the PDF viewer; its metadata is shown in Source Files.`}
+      description={`${file.name} is selected. Page rendering arrives with the PDF viewer; its metadata is shown in Source Files. A visual preview will not make the document's text available to screen readers.`}
     />
   )
 }

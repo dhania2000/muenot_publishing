@@ -133,9 +133,9 @@ export function PdfUploadDropzone({
               onClick={browse}
               disabled={disabled}
               aria-describedby={hintId}
-              className="font-medium text-primary underline-offset-4 hover:underline focus-visible:underline focus-visible:outline-none disabled:cursor-not-allowed disabled:no-underline"
+              className="inline-flex min-h-6 items-center rounded-sm px-0.5 font-medium text-primary underline underline-offset-4 disabled:cursor-not-allowed disabled:no-underline"
             >
-              browse
+              browse files
             </button>
           </p>
         )}
@@ -195,7 +195,15 @@ export function PdfFileCard({ file, selected = false, onSelect, actions, density
         <span className="truncate text-sm font-medium text-foreground" title={file.name}>
           {file.name}
         </span>
-        <span className="text-xs text-muted-foreground">{details.join(" · ")}</span>
+        <span className="text-xs text-muted-foreground">
+          {details.join(" · ")}
+          {/* Visible, non-colour selected cue; aria-pressed already announces it. */}
+          {selected && (
+            <span aria-hidden="true" className="font-medium text-primary">
+              {" · Selected"}
+            </span>
+          )}
+        </span>
         {density === "comfortable" && file.statusLabel && !file.issueMessage && (
           <span className="text-xs text-muted-foreground">{file.statusLabel}</span>
         )}

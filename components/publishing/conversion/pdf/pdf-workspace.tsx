@@ -20,6 +20,7 @@ import {
   deriveGuidelineState,
   describeLocalFile,
   formatBytes,
+  PDF_FILE_ISSUE_MESSAGES,
   PDF_WORKFLOW_STEPS,
   getWorkflowStepState,
   type PdfGuidelineState,
@@ -88,12 +89,11 @@ export function PdfWorkspace({
       const next = [...files]
       for (const file of incoming) next.push(describeLocalFile(file, next, `local-${++fileSeq}`))
       const added = next.slice(files.length)
-      const issues = added.filter((f) => f.issue).length
+      const issues = added.filter((f) => f.issue)
       setFiles(next)
       if (!selectedId) setSelectedId(added.find((f) => !f.issue)?.id ?? added[0].id)
-      setAnnouncement(
-        `${added.length} ${added.length === 1 ? "file" : "files"} added.${issues ? ` ${issues} with validation issues.` : ""}`,
-      )
+      const reasons = issues.map((f) => `${f.name}: ${PDF_FILE_ISSUE_MESSAGES[f.issue!]}`).join(" ")
+      setAnnouncement(`${added.length} ${added.length === 1 ? "file" : "files"} added.${reasons ? ` ${reasons}` : ""}`)
     },
     [files, selectedId],
   )

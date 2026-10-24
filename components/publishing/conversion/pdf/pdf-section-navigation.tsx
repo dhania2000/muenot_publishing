@@ -34,12 +34,12 @@ const itemClass = (active: boolean, disabled: boolean) =>
     "focus-visible:rounded-md focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
     active && "font-medium text-foreground after:bg-primary",
     !active && !disabled && "text-muted-foreground transition-colors hover:text-foreground hover:after:bg-border",
-    disabled && "cursor-not-allowed text-muted-foreground/70",
+    disabled && "cursor-not-allowed text-muted-foreground",
   )
 
 function PlannedTag() {
   return (
-    <span aria-hidden="true" className="text-[11px] font-normal uppercase tracking-wide text-muted-foreground/80">
+    <span aria-hidden="true" className="text-[11px] font-normal uppercase tracking-wide text-muted-foreground">
       Planned
     </span>
   )
