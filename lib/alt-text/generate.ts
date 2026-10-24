@@ -18,6 +18,7 @@ import { resolveTenantModels } from "@/lib/ai/model-catalog"
 import type { PermissionScope } from "@/lib/permission-model"
 import { normalizeGenerationSettings, validateGenerationSettings, type AltTextResult, type GenerationSettings } from "./core"
 import { altTextRequestId, getAltTextCreditUsage, runMeteredAltTextGeneration, type AltTextCreditUsage } from "./credit-service"
+import type { DocumentPromptContext } from "./document-prompt"
 import { withinScope } from "./history"
 import { openAltTextImage } from "./preview"
 import { claimForGeneration, getAsset, getSettings, markFailed, saveGeneration } from "./store"
@@ -26,7 +27,13 @@ import { selectVisionModel } from "./vision-service"
 const CLIENT_REQUEST_ID = /^[A-Za-z0-9_-]{8,48}$/
 const ALLOWED_KEYS = new Set(["assetId", "settings", "requestId"])
 
-export type GenerateRequest = { assetId: number; settings: GenerationSettings; requestId: string | null }
+export type GenerateRequest = {
+  assetId: number
+  settings: GenerationSettings
+  requestId: string | null
+  /** Set only by server code (the batch processor) from the persisted occurrence; never parsed from a request body. */
+  document?: DocumentPromptContext | null
+}
 export type GenerateActor = { userId: number; tenantId: number; role: "admin" | "employee"; viewScope: PermissionScope; updateScope: PermissionScope }
 
 export type GenerateFailure = { ok: false; status: number; code: string; error: string; details?: Record<string, unknown> }
@@ -193,7 +200,7 @@ export async function generateAltTextForAsset(
       tenantId: actor.tenantId,
       userId: actor.userId,
       operationId: requestId.slice("alttext:".length),
-      vision: { image: { bytes, mediaType: image.contentType }, generation: req.settings, altTextSettings, model },
+      vision: { image: { bytes, mediaType: image.contentType }, generation: req.settings, altTextSettings, model, document: req.document ?? null },
     })
   } catch (e) {
     const failure = e instanceof AiError ? aiErrorToFailure(e) : fail(500, "GENERATION_FAILED", "Alt text generation failed. Please try again.")
