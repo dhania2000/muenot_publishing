@@ -88,13 +88,15 @@ export function PdfModuleLayout({
       )}
 
       {aside ? (
-        <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(280px,320px)]">
-          <div data-slot="pdf-content" className="flex min-w-0 flex-col gap-6">
-            {children}
+        <div className="@container/pdf-module min-w-0">
+          <div className="grid min-w-0 gap-6 @3xl/pdf-module:grid-cols-[minmax(0,1fr)_minmax(260px,320px)]">
+            <div data-slot="pdf-content" className="flex min-w-0 flex-col gap-6">
+              {children}
+            </div>
+            <aside data-slot="pdf-context" aria-label={asideLabel} className="flex min-w-0 flex-col gap-4">
+              {aside}
+            </aside>
           </div>
-          <aside data-slot="pdf-context" aria-label={asideLabel} className="flex min-w-0 flex-col gap-4">
-            {aside}
-          </aside>
         </div>
       ) : (
         <div data-slot="pdf-content" className="flex min-w-0 flex-col gap-6">

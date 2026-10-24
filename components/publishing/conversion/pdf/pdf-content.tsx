@@ -276,17 +276,25 @@ export function PdfSplitContent({
   )
 }
 
-/** Column templates from xl. A collapsed side panel shrinks to a 48px rail; the preview always keeps the remaining width. */
+/**
+ * Column templates keyed to the panel container's own width (not the viewport), so the app sidebar is accounted for.
+ * ≥ 56rem: compact side panels (laptop). ≥ 72rem: full side panels (desktop). A collapsed side panel shrinks to a
+ * 48px rail; the preview always keeps the remaining width.
+ */
 const THREE_PANEL_COLUMNS = {
-  "open-open": "xl:grid-cols-[minmax(240px,280px)_minmax(0,1fr)_minmax(280px,320px)]",
-  "closed-open": "xl:grid-cols-[48px_minmax(0,1fr)_minmax(280px,320px)]",
-  "open-closed": "xl:grid-cols-[minmax(240px,280px)_minmax(0,1fr)_48px]",
-  "closed-closed": "xl:grid-cols-[48px_minmax(0,1fr)_48px]",
+  "open-open":
+    "@4xl/pdf-panels:grid-cols-[minmax(200px,240px)_minmax(0,1fr)_minmax(240px,280px)] @6xl/pdf-panels:grid-cols-[minmax(240px,280px)_minmax(0,1fr)_minmax(280px,320px)]",
+  "closed-open":
+    "@4xl/pdf-panels:grid-cols-[48px_minmax(0,1fr)_minmax(240px,280px)] @6xl/pdf-panels:grid-cols-[48px_minmax(0,1fr)_minmax(280px,320px)]",
+  "open-closed":
+    "@4xl/pdf-panels:grid-cols-[minmax(200px,240px)_minmax(0,1fr)_48px] @6xl/pdf-panels:grid-cols-[minmax(240px,280px)_minmax(0,1fr)_48px]",
+  "closed-closed": "@4xl/pdf-panels:grid-cols-[48px_minmax(0,1fr)_48px]",
 } as const
 
 /**
  * Three-panel composition: source · preview · settings.
- * Fixed default widths from xl; stacks in source → preview → settings order below xl.
+ * Wrapped in the `pdf-panels` container: descendants (slot classes, collapse rails) can use `@4xl/pdf-panels:` variants
+ * to match the column switch exactly. Stacks in source → preview → settings order below 56rem.
  * Height is left to the caller so document previews are not constrained here.
  */
 export function PdfThreePanelContent({
@@ -309,15 +317,17 @@ export function PdfThreePanelContent({
 } & Omit<React.ComponentProps<"div">, "children">) {
   const columns = THREE_PANEL_COLUMNS[`${sourceCollapsed ? "closed" : "open"}-${settingsCollapsed ? "closed" : "open"}`]
   return (
-    <div className={cn("grid min-w-0 gap-4", columns, className)} {...rest}>
-      <div data-slot="pdf-source" className={cn("flex min-h-0 min-w-0 flex-col", slotClassNames?.source)}>
-        {source}
-      </div>
-      <div data-slot="pdf-preview" className={cn("flex min-h-0 min-w-0 flex-col", slotClassNames?.preview)}>
-        {preview}
-      </div>
-      <div data-slot="pdf-settings" className={cn("flex min-h-0 min-w-0 flex-col", slotClassNames?.settings)}>
-        {settings}
+    <div className="@container/pdf-panels min-w-0">
+      <div className={cn("grid min-w-0 gap-4", columns, className)} {...rest}>
+        <div data-slot="pdf-source" className={cn("flex min-h-0 min-w-0 flex-col", slotClassNames?.source)}>
+          {source}
+        </div>
+        <div data-slot="pdf-preview" className={cn("flex min-h-0 min-w-0 flex-col", slotClassNames?.preview)}>
+          {preview}
+        </div>
+        <div data-slot="pdf-settings" className={cn("flex min-h-0 min-w-0 flex-col", slotClassNames?.settings)}>
+          {settings}
+        </div>
       </div>
     </div>
   )
