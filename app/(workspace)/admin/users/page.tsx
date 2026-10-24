@@ -4,7 +4,7 @@ import { UserManagement, type ManagedUser } from "@/components/admin/user-manage
 import { getSession } from "@/lib/auth"
 import { query } from "@/lib/db"
 
-export const metadata: Metadata = { title: "Users | Muenot Publishing" }
+export const metadata: Metadata = { title: "Users | Muenot Services" }
 
 export default async function AdminUsersPage() {
   const session = await getSession()

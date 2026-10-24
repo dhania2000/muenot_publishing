@@ -11,7 +11,7 @@ export default async function ResetPasswordPage({ searchParams }: { searchParams
       <div className="flex w-full max-w-sm flex-col gap-8">
         <div className="flex items-center gap-2 text-sm font-medium">
           <BookOpen className="size-5 text-primary" aria-hidden="true" />
-          Muenot Publishing
+          Muenot Services
         </div>
         <ResetPasswordForm token={typeof token === "string" ? token.slice(0, 200) : ""} />
       </div>

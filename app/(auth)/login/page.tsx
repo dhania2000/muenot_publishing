@@ -17,7 +17,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       <section className="hidden flex-1 flex-col justify-between bg-primary p-10 text-primary-foreground lg:flex">
         <div className="flex items-center gap-2 text-sm font-medium">
           <BookOpen className="size-5" aria-hidden="true" />
-          Muenot Publishing
+          Muenot Services
         </div>
         <div className="flex max-w-md flex-col gap-4">
           <p className="text-3xl font-semibold leading-tight text-balance">Accessible images, written at publishing scale.</p>
@@ -31,7 +31,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         <div className="flex w-full max-w-sm flex-col gap-8">
           <div className="flex items-center gap-2 text-sm font-medium lg:hidden">
             <BookOpen className="size-5 text-primary" aria-hidden="true" />
-            Muenot Publishing
+            Muenot Services
           </div>
           <AuthForm
             initialMode={initialMode}

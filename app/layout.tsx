@@ -7,7 +7,7 @@ const geistSans = Geist({ subsets: ["latin"], variable: "--font-geist-sans" })
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" })
 
 export const metadata: Metadata = {
-  title: { default: "Muenot Publishing", template: "%s · Muenot Publishing" },
+  title: { default: "Muenot Services", template: "%s · Muenot Services" },
   description: "Publishing workspace with an AI Alt Text Writer for accessible image descriptions.",
 }
 
