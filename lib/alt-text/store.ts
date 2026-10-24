@@ -46,6 +46,31 @@ export const ALT_TEXT_REGION_ANALYSES_DDL = `CREATE TABLE IF NOT EXISTS alt_text
     )`
 
 /**
+ * Phase 3 Task 5 (OCR). Append-only OCR attempts per asset / occurrence / scope. `scope_key` is
+ * "full" or a region id; `cache_key` binds the input bytes + engine config for safe reuse.
+ * Mirrors database/migrations/2026-10-24-alt-text-ocr-results.sql.
+ */
+export const ALT_TEXT_OCR_RESULTS_DDL = `CREATE TABLE IF NOT EXISTS alt_text_ocr_results (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      tenant_id INT NOT NULL,
+      asset_id INT NOT NULL,
+      occurrence_id INT NULL,
+      occurrence_key INT NOT NULL DEFAULT 0,
+      scope_key VARCHAR(48) NOT NULL,
+      version INT NOT NULL,
+      result_id VARCHAR(40) NOT NULL,
+      request_id VARCHAR(96) NULL,
+      status VARCHAR(32) NOT NULL,
+      cache_key CHAR(64) NOT NULL,
+      result_json JSON NOT NULL,
+      created_by INT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_alt_ocr_version (tenant_id, asset_id, occurrence_key, scope_key, version),
+      UNIQUE KEY uq_alt_ocr_request (tenant_id, request_id),
+      INDEX idx_alt_ocr_cache (tenant_id, asset_id, occurrence_key, scope_key, cache_key)
+    )`
+
+/**
  * Phase 3 Task 4. Bytes stay in private storage (file_objects); only the facade's
  * file_ref and file id are stored. Mirrors database/migrations/2026-10-14-alt-text-documents.sql.
  */
@@ -276,6 +301,8 @@ export function ensureAltTextSchema(): Promise<void> {
     }
     // Phase 3 Task 4 (image regions): versioned, append-only region analyses per asset / occurrence.
     await query(ALT_TEXT_REGION_ANALYSES_DDL)
+    // Phase 3 Task 5 (OCR): append-only OCR attempts; failures never overwrite earlier results.
+    await query(ALT_TEXT_OCR_RESULTS_DDL)
     // Phase 3 Task 11: durable document preparation state (the job itself lives in platform_background_jobs).
     for (const ddl of [
       "ALTER TABLE alt_text_documents ADD COLUMN preparation_stage VARCHAR(20) NULL",
@@ -1875,6 +1902,85 @@ export async function insertRegionAnalysis(input: {
   } catch (e) {
     if ((e as { code?: string })?.code === "ER_DUP_ENTRY" && input.requestId) {
       const existing = await getRegionAnalysisByRequest(input.requestId)
+      if (existing) return existing
+    }
+    throw e
+  }
+}
+
+/* ───────────── Phase 3 Task 5: OCR results ───────────── */
+
+export type StoredOcrRow = { version: number; scopeKey: string; resultId: string; requestId: string | null; status: string; result: unknown }
+
+const mapOcrRow = (r: RowDataPacket): StoredOcrRow => ({
+  version: Number(r.version),
+  scopeKey: String(r.scope_key),
+  resultId: String(r.result_id),
+  requestId: r.request_id ? String(r.request_id) : null,
+  status: String(r.status),
+  result: typeof r.result_json === "string" ? JSON.parse(r.result_json) : r.result_json,
+})
+
+const OCR_COLUMNS = "version, scope_key, result_id, request_id, status, result_json"
+
+/** Recent OCR attempts for an asset (occurrenceId null) or occurrence, newest first, bounded. */
+export async function listOcrResults(assetId: number, occurrenceId: number | null, limit = 200): Promise<StoredOcrRow[]> {
+  await ensureAltTextSchema()
+  const rows = await query<RowDataPacket[]>(
+    `SELECT ${OCR_COLUMNS} FROM alt_text_ocr_results WHERE tenant_id = ? AND asset_id = ? AND occurrence_key = ? ORDER BY id DESC LIMIT ?`,
+    [tid(), assetId, occurrenceId ?? 0, limit],
+  )
+  return rows.map(mapOcrRow)
+}
+
+export async function getOcrResultByRequest(requestId: string): Promise<StoredOcrRow | null> {
+  await ensureAltTextSchema()
+  const rows = await query<RowDataPacket[]>(`SELECT ${OCR_COLUMNS} FROM alt_text_ocr_results WHERE tenant_id = ? AND request_id = ? LIMIT 1`, [tid(), requestId])
+  return rows[0] ? mapOcrRow(rows[0]) : null
+}
+
+/** Newest successful attempt for identical input bytes + engine configuration. */
+export async function findReusableOcrResult(assetId: number, occurrenceId: number | null, scopeKey: string, cacheKey: string): Promise<StoredOcrRow | null> {
+  await ensureAltTextSchema()
+  const rows = await query<RowDataPacket[]>(
+    `SELECT ${OCR_COLUMNS} FROM alt_text_ocr_results
+      WHERE tenant_id = ? AND asset_id = ? AND occurrence_key = ? AND scope_key = ? AND cache_key = ? AND status <> 'failed'
+      ORDER BY version DESC LIMIT 1`,
+    [tid(), assetId, occurrenceId ?? 0, scopeKey, cacheKey],
+  )
+  return rows[0] ? mapOcrRow(rows[0]) : null
+}
+
+export async function insertOcrResult(input: {
+  assetId: number
+  occurrenceId: number | null
+  scopeKey: string
+  requestId: string | null
+  cacheKey: string
+  createdBy: number
+  build: (version: number) => { resultId: string; status: string; result: unknown }
+}): Promise<StoredOcrRow> {
+  await ensureAltTextSchema()
+  const tenantId = tid()
+  const key = input.occurrenceId ?? 0
+  try {
+    return await withTransaction(async (conn) => {
+      const [rows] = await conn.query<RowDataPacket[]>(
+        `SELECT COALESCE(MAX(version), 0) AS v FROM alt_text_ocr_results WHERE tenant_id = ? AND asset_id = ? AND occurrence_key = ? AND scope_key = ? FOR UPDATE`,
+        [tenantId, input.assetId, key, input.scopeKey],
+      )
+      const version = Number(rows[0]?.v ?? 0) + 1
+      const built = input.build(version)
+      await conn.query(
+        `INSERT INTO alt_text_ocr_results (tenant_id, asset_id, occurrence_id, occurrence_key, scope_key, version, result_id, request_id, status, cache_key, result_json, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [tenantId, input.assetId, input.occurrenceId, key, input.scopeKey, version, built.resultId, input.requestId, built.status, input.cacheKey, JSON.stringify(built.result), input.createdBy],
+      )
+      return { version, scopeKey: input.scopeKey, resultId: built.resultId, requestId: input.requestId, status: built.status, result: built.result }
+    })
+  } catch (e) {
+    if ((e as { code?: string })?.code === "ER_DUP_ENTRY" && input.requestId) {
+      const existing = await getOcrResultByRequest(input.requestId)
       if (existing) return existing
     }
     throw e

@@ -58,6 +58,7 @@ export const OCR_ERROR_CATEGORIES = {
   unsupported_format: "This image format is not supported for OCR.",
   image_too_large: "The image is too large for text recognition.",
   region_too_small: "The selected region is too small to read.",
+  region_unmappable: "The region position cannot be mapped to the stored image pixels.",
   engine_error: "The OCR engine reported an error.",
 } as const
 export type OcrErrorCategory = keyof typeof OCR_ERROR_CATEGORIES
@@ -128,7 +129,14 @@ export const OCR_LIMITS = {
   maxWordsPerLine: 120,
   minRegionPixels: 8,
   lowConfidence: 60,
+  /** Checked from the file header before any decode, so oversized images never reach the engine. */
+  maxPixels: 25_000_000,
+  maxSide: 10_000,
+  timeoutMs: 30_000,
 } as const
+
+/** Formats the self-hosted engine decodes, verified against fixtures in test/alt-text/alt-text-ocr-engine.test.ts. */
+export const OCR_SUPPORTED_MEDIA_TYPES = ["image/png", "image/jpeg", "image/webp"] as const
 
 /* ───────────────────────── Request parsing ───────────────────────── */
 
