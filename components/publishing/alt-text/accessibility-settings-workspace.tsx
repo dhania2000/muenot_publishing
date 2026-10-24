@@ -245,10 +245,10 @@ export function AccessibilitySettingsWorkspace({ onDirtyChange }: { onDirtyChang
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <header className="flex flex-col gap-1">
-        <h2 className="text-lg font-semibold text-balance">Accessibility Settings</h2>
-        <p className="text-sm leading-relaxed text-muted-foreground text-pretty">
+    <div className="flex min-w-0 flex-col gap-3 lg:h-full lg:min-h-0">
+      <header className="flex shrink-0 flex-col gap-0.5 rounded-lg border bg-card px-3 py-2 shadow-xs">
+        <h2 className="text-sm font-semibold text-balance">Accessibility Settings</h2>
+        <p className="text-xs leading-relaxed text-muted-foreground text-pretty">
           Tenant-wide preferences for advanced image accessibility. Capabilities marked as not yet implemented can&apos;t be switched on;
           their preferences are applied automatically once the engine is installed.
         </p>
@@ -262,7 +262,7 @@ export function AccessibilitySettingsWorkspace({ onDirtyChange }: { onDirtyChang
         </Alert>
       ) : null}
 
-      <Tabs value={section} onValueChange={(v) => setSection(v as SectionId)} orientation="vertical" className="flex flex-col gap-4 lg:flex-row lg:items-start">
+      <Tabs value={section} onValueChange={(v) => setSection(v as SectionId)} orientation="vertical" className="flex min-w-0 flex-col gap-4 lg:min-h-0 lg:flex-1 lg:flex-row lg:items-stretch">
         <div className="lg:hidden">
           <Label htmlFor="settings-section" className="sr-only">
             Settings section
@@ -296,7 +296,12 @@ export function AccessibilitySettingsWorkspace({ onDirtyChange }: { onDirtyChang
           })}
         </TabsList>
 
-        <div className="flex min-w-0 flex-1 flex-col gap-4">
+        <div
+          className="flex min-w-0 flex-1 flex-col gap-4 lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain lg:pr-1"
+          role="region"
+          aria-label={`${SECTION_META[section].label} settings`}
+          tabIndex={0}
+        >
           {ACCESSIBILITY_SECTION_IDS.map((s) => (
             <TabsContent key={s} value={s} className="mt-0 flex flex-col gap-4">
               <SchemaSection
@@ -322,7 +327,7 @@ export function AccessibilitySettingsWorkspace({ onDirtyChange }: { onDirtyChang
       </Tabs>
 
       <div
-        className="sticky bottom-0 z-10 -mx-1 flex flex-col gap-3 rounded-lg border bg-background/95 px-4 py-3 shadow-sm backdrop-blur sm:flex-row sm:items-center sm:justify-between"
+        className="sticky bottom-0 z-10 flex shrink-0 flex-col gap-3 lg:static rounded-lg border bg-background/95 px-4 py-3 shadow-sm backdrop-blur sm:flex-row sm:items-center sm:justify-between"
         aria-live="polite"
       >
         <div className="flex min-w-0 flex-col gap-0.5 text-sm">

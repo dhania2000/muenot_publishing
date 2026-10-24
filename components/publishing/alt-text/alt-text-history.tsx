@@ -41,6 +41,7 @@ import {
   type HistorySort,
 } from "@/lib/alt-text/client"
 import { AltTextAssetDrawer, type DrawerFocus } from "./alt-text-asset-drawer"
+import { Workbench, WorkbenchScroll } from "./workbench"
 
 export const STATUS_LABELS: Record<AssetStatus, string> = {
   uploaded: "Uploaded",
@@ -151,13 +152,13 @@ export function AltTextHistory({ onOpenInEditor }: { onOpenInEditor: (asset: Alt
   const apiError = error?.apiError
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Saved Generations</CardTitle>
-        <CardDescription>Browse, review, edit and export alt text saved for your organization.</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+    <Workbench>
+      <div role="toolbar" aria-label="History filters" className="flex min-w-0 shrink-0 flex-col gap-2 rounded-lg border bg-card px-3 py-2 shadow-xs xl:flex-row xl:items-center">
+        <div className="flex shrink-0 items-baseline gap-2">
+          <h2 className="text-sm font-semibold">Saved Generations</h2>
+          {data && <span className="text-xs tabular-nums text-muted-foreground">{total} total</span>}
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col gap-2 lg:flex-row lg:items-center">
           <div className="relative min-w-0 flex-1">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
             <Input
@@ -167,10 +168,10 @@ export function AltTextHistory({ onOpenInEditor }: { onOpenInEditor: (asset: Alt
               placeholder="Search by filename"
               aria-label="Search by filename"
               maxLength={200}
-              className="pl-8"
+              className="h-8 pl-8"
             />
           </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:flex">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 lg:flex">
             <Select value={classification} onValueChange={setClassification}>
               <SelectTrigger className="w-full lg:w-44" aria-label="Filter by classification">
                 <SelectValue />
@@ -208,7 +209,9 @@ export function AltTextHistory({ onOpenInEditor }: { onOpenInEditor: (asset: Alt
             </Select>
           </div>
         </div>
+      </div>
 
+      <WorkbenchScroll label="Saved generations" className="rounded-lg border bg-card">
         {apiError && !data ? (
           <ErrorState
             title={apiError.status === 401 ? "Session expired" : apiError.status === 403 ? "Access denied" : "Could not load history"}
@@ -216,13 +219,13 @@ export function AltTextHistory({ onOpenInEditor }: { onOpenInEditor: (asset: Alt
             onRetry={() => mutate()}
           />
         ) : isLoading && !data ? (
-          <div className="flex flex-col gap-2" aria-busy="true" aria-label="Loading history">
+          <div className="flex flex-col gap-2 p-3" aria-busy="true" aria-label="Loading history">
             {Array.from({ length: 5 }, (_, i) => (
               <Skeleton key={i} className="h-14 w-full" />
             ))}
           </div>
         ) : items.length === 0 ? (
-          <Empty className="border border-dashed bg-muted/20">
+          <Empty className="py-12">
             <EmptyHeader>
               <EmptyMedia variant="icon">
                 <History aria-hidden="true" />
@@ -234,9 +237,9 @@ export function AltTextHistory({ onOpenInEditor }: { onOpenInEditor: (asset: Alt
             </EmptyHeader>
           </Empty>
         ) : (
-          <div className="overflow-x-auto rounded-lg border" aria-busy={isValidating}>
+          <div aria-busy={isValidating}>
             <Table>
-              <TableHeader>
+              <TableHeader className="sticky top-0 z-10 bg-card">
                 <TableRow className="bg-muted/40">
                   <TableHead className="w-16">Image</TableHead>
                   <TableHead>Filename</TableHead>
@@ -320,11 +323,12 @@ export function AltTextHistory({ onOpenInEditor }: { onOpenInEditor: (asset: Alt
             </Table>
           </div>
         )}
+      </WorkbenchScroll>
 
-        {apiError && data && <p className="text-xs text-destructive" role="status">Refresh failed: {apiError.message}</p>}
+      {apiError && data && <p className="shrink-0 text-xs text-destructive" role="status">Refresh failed: {apiError.message}</p>}
 
-        {total > 0 && (
-          <nav aria-label="History pagination" className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
+      {total > 0 && (
+          <nav aria-label="History pagination" className="flex shrink-0 flex-wrap items-center justify-between gap-3 rounded-lg border bg-card px-3 py-2 text-xs text-muted-foreground">
             <div className="flex items-center gap-3">
               <span className="tabular-nums">
                 Showing {(page - 1) * pageSize + 1}–{Math.min(total, page * pageSize)} of {total} record{total === 1 ? "" : "s"}
@@ -354,8 +358,7 @@ export function AltTextHistory({ onOpenInEditor }: { onOpenInEditor: (asset: Alt
               </Button>
             </div>
           </nav>
-        )}
-      </CardContent>
+      )}
 
       <AltTextAssetDrawer
         assetId={drawer?.id ?? null}
@@ -366,6 +369,6 @@ export function AltTextHistory({ onOpenInEditor }: { onOpenInEditor: (asset: Alt
           onOpenInEditor(a)
         }}
       />
-    </Card>
+    </Workbench>
   )
 }
