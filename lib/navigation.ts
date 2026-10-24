@@ -1,9 +1,17 @@
+import { CONVERSION_MODULES, conversionHref } from "@/lib/conversion-modules"
+
 export type NavIcon = "alt-text" | "conversion-name" | "users"
+
+export type NavChild = {
+  href: string
+  label: string
+}
 
 export type NavItem = {
   href: string
   label: string
   icon: NavIcon
+  children?: NavChild[]
 }
 
 export type NavGroup = {
@@ -17,7 +25,12 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Publishing",
     items: [
       { href: "/modules/publishing/alt-text", label: "Alt Text", icon: "alt-text" },
-      { href: "/modules/publishing/conversion-name", label: "Conversion", icon: "conversion-name" },
+      {
+        href: "/modules/publishing/conversion-name",
+        label: "Conversion",
+        icon: "conversion-name",
+        children: CONVERSION_MODULES.map(({ slug, label }) => ({ href: conversionHref(slug), label })),
+      },
     ],
   },
   {

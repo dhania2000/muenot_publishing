@@ -23,13 +23,14 @@ export function SidebarNav({ isAdmin, pendingCount }: { isAdmin: boolean; pendin
           <p className="hidden px-2 pb-1 pt-3 text-xs font-medium uppercase tracking-wide text-muted-foreground md:block">
             {group.label}
           </p>
-          {group.items.map(({ href, label, icon }) => {
+          {group.items.map(({ href, label, icon, children }) => {
             const Icon = ICONS[icon]
-            const active = pathname === href || pathname.startsWith(`${href}/`)
+            const inSection = pathname === href || pathname.startsWith(`${href}/`)
+            const active = children?.length ? pathname === href : inSection
             const badge = href === "/admin/users" && pendingCount > 0 ? pendingCount : 0
             return (
+              <div key={href} className="flex gap-1 md:flex-col">
               <Link
-                key={href}
                 href={href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
@@ -48,6 +49,33 @@ export function SidebarNav({ isAdmin, pendingCount }: { isAdmin: boolean; pendin
                   </span>
                 ) : null}
               </Link>
+              {children?.length ? (
+                <ul
+                  aria-label={`${label} modules`}
+                  className="ml-4 hidden flex-col gap-0.5 border-l border-sidebar-border pl-2 md:flex"
+                >
+                  {children.map((child) => {
+                    const childActive = pathname === child.href || pathname.startsWith(`${child.href}/`)
+                    return (
+                      <li key={child.href}>
+                        <Link
+                          href={child.href}
+                          aria-current={childActive ? "page" : undefined}
+                          className={cn(
+                            "block rounded-md px-2 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                            childActive
+                              ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
+                              : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                          )}
+                        >
+                          {child.label}
+                        </Link>
+                      </li>
+                    )
+                  })}
+                </ul>
+              ) : null}
+              </div>
             )
           })}
         </div>
