@@ -387,6 +387,24 @@ export async function fetchAltTextExport(assetId: number, format: ExportFormat):
   return { ok: true, data: { blob, filename: filenameFrom(res.headers.get("content-disposition"), `alt-text-${assetId}.${format}`) } }
 }
 
+/**
+ * Fetches an authenticated, server-authorized file (original, output or report) and saves it only
+ * when the server returns 2xx — a rejected download surfaces its safe error instead of a saved file.
+ * Success means the browser received the bytes; no transfer-completion audit is implied.
+ */
+export async function downloadProtectedFile(url: string, fallbackName: string): Promise<ApiResult<{ filename: string }>> {
+  let res: Response
+  try {
+    res = await fetch(url, { credentials: "same-origin", cache: "no-store" })
+  } catch {
+    return { ok: false, error: toApiError(0, null) }
+  }
+  if (!res.ok) return { ok: false, error: toApiError(res.status, await readJson(res)) }
+  const filename = filenameFrom(res.headers.get("content-disposition"), fallbackName)
+  triggerDownload(await res.blob(), filename)
+  return { ok: true, data: { filename } }
+}
+
 export function triggerDownload(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob)
   const a = document.createElement("a")

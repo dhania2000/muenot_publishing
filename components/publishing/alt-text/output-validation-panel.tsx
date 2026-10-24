@@ -69,7 +69,7 @@ function Count({ label, value }: { label: string; value: number }) {
   )
 }
 
-function Finding({ check, acked, canAcknowledge, onAcknowledge }: { check: ValidationCheck; acked: { at: string; note: string | null } | undefined; canAcknowledge: boolean; onAcknowledge: (note: string) => Promise<boolean> }) {
+export function Finding({ check, acked, canAcknowledge, onAcknowledge }: { check: ValidationCheck; acked: { at: string; note: string | null } | undefined; canAcknowledge: boolean; onAcknowledge: (note: string) => Promise<boolean> }) {
   const [open, setOpen] = useState(false)
   const [note, setNote] = useState("")
   const [saving, setSaving] = useState(false)

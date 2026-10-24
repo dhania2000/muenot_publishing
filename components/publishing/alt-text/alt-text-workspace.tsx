@@ -99,6 +99,7 @@ function outputForAsset(asset: AltTextAssetView, settings: GenerationSettings): 
 export function AltTextWorkspace() {
   const { mutate } = useSWRConfig()
   const [tab, setTab] = useState("generate")
+  const [batchRequest, setBatchRequest] = useState<{ id: string; nonce: number } | null>(null)
   const [settings, setSettings] = useState<GenerationSettings>(DEFAULT_GENERATION_SETTINGS)
   const [image, setImage] = useState<SelectedImage | null>(null)
   const [savedAsset, setSavedAsset] = useState<AltTextAssetView | null>(null)
@@ -338,11 +339,16 @@ export function AltTextWorkspace() {
         </TabsContent>
 
         <TabsContent value="bulk" className="mt-0">
-          <BulkProcessingWorkspace onOpenInEditor={requestOpen} />
+          <BulkProcessingWorkspace onOpenInEditor={requestOpen} externalOpenRequest={batchRequest} />
         </TabsContent>
 
         <TabsContent value="documents" className="mt-0">
-          <DocumentProcessingWorkspace />
+          <DocumentProcessingWorkspace
+            onOpenBatch={(id) => {
+              setBatchRequest((prev) => ({ id, nonce: (prev?.nonce ?? 0) + 1 }))
+              setTab("bulk")
+            }}
+          />
         </TabsContent>
 
         <TabsContent value="history" className="mt-0">
