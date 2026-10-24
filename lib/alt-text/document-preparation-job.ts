@@ -11,6 +11,7 @@
 import "server-only"
 import {
   enqueueBackgroundJobInTransaction,
+  ensureBackgroundJobSchema,
   getBackgroundJob,
   isBackgroundJobCancelRequested,
   recordBackgroundJobEvent,
@@ -100,6 +101,7 @@ export async function startDocumentPreparation(doc: StoredDocument, userId: numb
     if (prior && prior.tenant_id === tenantId && ACTIVE_QUEUE_STATUSES.has(prior.status)) return { ok: true, jobId: prior.id, created: false }
   }
 
+  await ensureBackgroundJobSchema()
   try {
     return await withTransaction(async (conn) => {
       const { jobId, created } = await enqueueBackgroundJobInTransaction(conn, {
@@ -111,7 +113,7 @@ export async function startDocumentPreparation(doc: StoredDocument, userId: numb
         concurrencyLimit: documentPreparationTenantCap(),
         ...PREPARATION_JOB_LIMITS,
         createdBy: userId,
-        triggerSource: "user",
+        triggerSource: "user_request",
       })
       // Compare-and-set on the previous pointer: a concurrent submit that already advanced it loses.
       const [res] = await conn.query<any>(
@@ -149,7 +151,8 @@ export async function cancelDocumentPreparation(documentId: number): Promise<{ r
 const stageIndex = (s: PreparationStage | null) => (s && (WORK_STAGES as readonly string[]).includes(s) ? WORK_STAGES.indexOf(s as WorkStage) : 0)
 
 function failureToError(f: { status: number; code: string; error: string }): Error {
-  if (f.code === "CONFLICT") return new JobDeferredError("EXTRACTION_IN_PROGRESS", 60)
+  // Another extraction holds the document's lock: wait for it instead of failing permanently on a 409.
+  if (f.code === "EXTRACTION_IN_PROGRESS" || f.code === "CONFLICT") return new JobDeferredError("EXTRACTION_IN_PROGRESS", 60)
   return new PreparationStageError(f.status, f.code, f.error)
 }
 
