@@ -19,6 +19,30 @@ import { XMLValidator } from "fast-xml-parser"
 import { DOCX_LOCATOR_PARTS, docxPartRegion, parseDocxLocator, type DocxLocator } from "./docx-locator"
 import { asValidationRejection, readZipDirectory, readZipEntryBytes, resolvePartTarget, validateDocumentBytes, type ZipEntry } from "./document-validation"
 import { rawEntryMap, rewriteZipEntries } from "./ooxml-zip-rewrite"
+import {
+  alt,
+  applyEdits,
+  attrs,
+  collectPrefixes,
+  decodeXml,
+  decorativeOn,
+  elementSpans,
+  maskNonMarkup,
+  normalizeAltText,
+  nvPropsEdit,
+  prefixesFor,
+  readNvProps,
+  setAttr,
+  tagRe,
+  tagsIn,
+  within,
+  type Edit,
+  type NvProps,
+  type Span,
+  type Tag,
+} from "./ooxml-xml-splice"
+
+export { normalizeAltText }
 
 export type DocxInsertInstruction = { occurrenceId: number; sourceLocator: string; text: string; decorative: boolean }
 
@@ -69,108 +93,8 @@ const NS = {
   pic: "http://schemas.openxmlformats.org/drawingml/2006/picture",
   r: "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
 } as const
-const ADEC = "http://schemas.microsoft.com/office/drawing/2017/decorative"
-const DECORATIVE_URI = "{C183D7F6-B498-43B3-948B-1728B52AA6E4}"
 const IMAGE_REL = /\/relationships\/image$/
 const PART_REL = /\/relationships\/(header|footer|footnotes|endnotes)$/
-
-/* ---------- XML primitives ---------- */
-
-type Span = { start: number; end: number }
-type Tag = Span & { text: string; selfClosing: boolean; name: string }
-
-const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\-]/g, "\\$&")
-const NEVER = "(?!)"
-const alt = (prefixes: string[]) => (prefixes.length ? prefixes.map(escapeRe).join("|") : NEVER)
-
-/** Blank comments, CDATA and PIs (same length) so tag scanning never matches inside them. */
-const maskNonMarkup = (xml: string) => xml.replace(/<!--[\s\S]*?-->|<!\[CDATA\[[\s\S]*?\]\]>|<\?[\s\S]*?\?>/g, (m) => " ".repeat(m.length))
-
-/** prefix → namespace URI across the whole part, or null when a prefix is bound to two URIs. */
-function collectPrefixes(masked: string): Map<string, string> | null {
-  const map = new Map<string, string>()
-  for (const m of masked.matchAll(/xmlns:([\w.-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g)) {
-    const uri = m[2] ?? m[3] ?? ""
-    const prev = map.get(m[1])
-    if (prev !== undefined && prev !== uri) return null
-    map.set(m[1], uri)
-  }
-  return map
-}
-
-const prefixesFor = (map: Map<string, string>, uri: string) => [...map].filter(([, u]) => u === uri).map(([p]) => p)
-
-function tagRe(prefixes: string[], local: string, closing = false) {
-  return new RegExp(`<${closing ? "\\/" : ""}(${alt(prefixes)}):${local}(?=[\\s/>])[^>]*?(\\/?)>`, "g")
-}
-
-/** Element spans for a (possibly nested) element type, in document order of start tags. */
-function elementSpans(masked: string, prefixes: string[], local: string): Span[] {
-  const re = new RegExp(`<(\\/?)(?:${alt(prefixes)}):${local}(?=[\\s/>])[^>]*?(\\/?)>`, "g")
-  const stack: number[] = []
-  const spans: Span[] = []
-  for (const m of masked.matchAll(re)) {
-    const at = m.index ?? 0
-    if (m[1]) {
-      const start = stack.pop()
-      if (start === undefined) throw new Error("unbalanced")
-      spans.push({ start, end: at + m[0].length })
-    } else if (m[2]) spans.push({ start: at, end: at + m[0].length })
-    else stack.push(at)
-  }
-  if (stack.length) throw new Error("unbalanced")
-  return spans.sort((x, y) => x.start - y.start)
-}
-
-const within = (pos: number, spans: Span[]) => spans.some((s) => pos >= s.start && pos < s.end)
-
-function tagsIn(xml: string, masked: string, re: RegExp, region: Span, exclude: Span[]): Tag[] {
-  const out: Tag[] = []
-  re.lastIndex = region.start
-  for (let m = re.exec(masked); m && m.index < region.end; m = re.exec(masked)) {
-    if (within(m.index, exclude)) continue
-    const text = xml.slice(m.index, m.index + m[0].length)
-    out.push({ start: m.index, end: m.index + m[0].length, text, selfClosing: m[2] === "/", name: `${m[1]}:` })
-  }
-  return out
-}
-
-function attrs(tagText: string): Map<string, string> {
-  const out = new Map<string, string>()
-  for (const a of tagText.matchAll(/\s([\w:.-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g)) out.set(a[1], a[2] ?? a[3] ?? "")
-  return out
-}
-
-function decodeXml(v: string): string {
-  return v.replace(/&(#x[0-9a-f]+|#\d+|lt|gt|amp|quot|apos);/gi, (_, e: string) => {
-    const k = e.toLowerCase()
-    if (k === "lt") return "<"
-    if (k === "gt") return ">"
-    if (k === "amp") return "&"
-    if (k === "quot") return '"'
-    if (k === "apos") return "'"
-    const code = k.startsWith("#x") ? parseInt(k.slice(2), 16) : parseInt(k.slice(1), 10)
-    return Number.isFinite(code) && code <= 0x10ffff ? String.fromCodePoint(code) : ""
-  })
-}
-
-const escapeAttr = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
-
-/** Set (or remove with null) an unprefixed attribute, touching nothing else in the start tag. */
-function setAttr(tagText: string, name: string, value: string | null): string {
-  const re = new RegExp(`(\\s)${escapeRe(name)}\\s*=\\s*(?:"[^"]*"|'[^']*')`)
-  if (re.test(tagText)) return value === null ? tagText.replace(new RegExp(`\\s+${escapeRe(name)}\\s*=\\s*(?:"[^"]*"|'[^']*')`), "") : tagText.replace(re, `$1${name}="${escapeAttr(value)}"`)
-  if (value === null) return tagText
-  return tagText.replace(/\s*(\/?)>$/, ` ${name}="${escapeAttr(value)}"$1>`)
-}
-
-export function normalizeAltText(text: string): string {
-  return text
-    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g, "")
-    .replace(/\s+/g, " ")
-    .trim()
-}
-
 /* ---------- Package model ---------- */
 
 type Drawing = {
@@ -179,12 +103,10 @@ type Drawing = {
   nested: boolean
   placement: "inline" | "floating" | null
   docPr: Tag | null
-  docPrEnd: number
-  docPrInner: Span | null
+  props: NvProps | null
   docPrId: string | null
   descr: string | null
   decorativeTag: Tag | null
-  extLstClose: Tag | null
   cNvPr: Tag | null
   isPicture: boolean
   blipEmbed: string | null
@@ -272,23 +194,8 @@ function modelPart(name: string, xml: string, relsXml: string | null): PartModel
       break
     }
     const docPr = tagsIn(xml, masked, docPrRe, span, children)[0] ?? null
-    let docPrEnd = docPr?.end ?? 0
-    let docPrInner: Span | null = null
-    let decorativeTag: Tag | null = null
-    let extLstClose: Tag | null = null
-    if (docPr && !docPr.selfClosing) {
-      const close = masked.indexOf(`</${docPr.name}docPr>`, docPr.end)
-      if (close < 0 || close > span.end) throw new PartError("INVALID_XML", "A drawing's properties are not well formed.")
-      docPrInner = { start: docPr.end, end: close }
-      docPrEnd = close + `</${docPr.name}docPr>`.length
-      const inner = masked.slice(docPrInner.start, docPrInner.end)
-      if (inner.includes(DECORATIVE_URI)) {
-        const m = /<([\w.-]+:)?decorative(?=[\s/>])[^>]*>/.exec(inner)
-        if (m) decorativeTag = { start: docPrInner.start + m.index, end: docPrInner.start + m.index + m[0].length, text: m[0], selfClosing: m[0].endsWith("/>"), name: m[1] ?? "" }
-      }
-      const lst = /<\/([\w.-]+:)?extLst>/.exec(inner)
-      if (lst) extLstClose = { start: docPrInner.start + lst.index, end: docPrInner.start + lst.index + lst[0].length, text: lst[0], selfClosing: false, name: lst[1] ?? "" }
-    }
+    const props = docPr ? readNvProps(xml, masked, docPr, "docPr", span.end) : null
+    if (docPr && !props) throw new PartError("INVALID_XML", "A drawing's properties are not well formed.")
     const blips = tagsIn(xml, masked, blipRe, span, children)
     const blipAttrs = blips[0] ? attrs(blips[0].text) : new Map<string, string>()
     const docAttrs = docPr ? attrs(docPr.text) : new Map<string, string>()
@@ -298,12 +205,10 @@ function modelPart(name: string, xml: string, relsXml: string | null): PartModel
       nested,
       placement,
       docPr,
-      docPrEnd,
-      docPrInner,
+      props,
       docPrId: docAttrs.get("id") ?? null,
       descr: docAttrs.has("descr") ? decodeXml(docAttrs.get("descr") ?? "") : null,
-      decorativeTag,
-      extLstClose,
+      decorativeTag: props?.decorativeTag ?? null,
       cNvPr: tagsIn(xml, masked, cNvPrRe, span, children)[0] ?? null,
       isPicture: tagsIn(xml, masked, picRe, span, children).length > 0,
       blipEmbed: embedAttr(blipAttrs, "embed"),
@@ -318,49 +223,10 @@ function modelPart(name: string, xml: string, relsXml: string | null): PartModel
   return { name, xml, drawings, rels: parseRels(relsXml, baseDir), legacyVml }
 }
 
-const decorativeOn = (d: Drawing) => (d.decorativeTag ? /\bval\s*=\s*["'](1|true|on)["']/i.test(d.decorativeTag.text) : false)
-
 const isSupportedPicture = (d: Drawing, part: PartModel) => {
   if (d.ordinal === null || d.nested || !d.isPicture || d.blipCount !== 1 || !d.blipEmbed || !d.docPr) return false
   const rel = part.rels.get(d.blipEmbed)
   return !!rel && !rel.external && IMAGE_REL.test(rel.type)
-}
-
-/* ---------- Edits ---------- */
-
-type Edit = Span & { text: string }
-
-function decorativeExt(val: "1" | "0") {
-  return `<a:ext xmlns:a="${NS.a}" uri="${DECORATIVE_URI}"><adec:decorative xmlns:adec="${ADEC}" val="${val}"/></a:ext>`
-}
-
-function docPrEdit(part: PartModel, d: Drawing, text: string, decorative: boolean): Edit {
-  const docPr = d.docPr as Tag
-  const startTag = setAttr(docPr.text, "descr", decorative ? null : text)
-  if (decorative) {
-    if (d.decorativeTag) {
-      const inner = part.xml.slice(docPr.end, d.decorativeTag.start) + setAttr(d.decorativeTag.text, "val", "1") + part.xml.slice(d.decorativeTag.end, d.docPrEnd)
-      return { start: docPr.start, end: d.docPrEnd, text: startTag + inner }
-    }
-    if (d.extLstClose) {
-      return { start: docPr.start, end: d.docPrEnd, text: startTag + part.xml.slice(docPr.end, d.extLstClose.start) + decorativeExt("1") + part.xml.slice(d.extLstClose.start, d.docPrEnd) }
-    }
-    const extLst = `<a:extLst xmlns:a="${NS.a}">${decorativeExt("1")}</a:extLst>`
-    if (docPr.selfClosing) return { start: docPr.start, end: d.docPrEnd, text: `${startTag.replace(/\s*\/>$/, ">")}${extLst}</${docPr.name}docPr>` }
-    const closeAt = (d.docPrInner as Span).end
-    return { start: docPr.start, end: d.docPrEnd, text: startTag + part.xml.slice(docPr.end, closeAt) + extLst + part.xml.slice(closeAt, d.docPrEnd) }
-  }
-  if (d.decorativeTag && decorativeOn(d)) {
-    const inner = part.xml.slice(docPr.end, d.decorativeTag.start) + setAttr(d.decorativeTag.text, "val", "0") + part.xml.slice(d.decorativeTag.end, d.docPrEnd)
-    return { start: docPr.start, end: d.docPrEnd, text: startTag + inner }
-  }
-  return { start: docPr.start, end: docPr.end, text: startTag }
-}
-
-function applyEdits(xml: string, edits: Edit[]): string {
-  let out = xml
-  for (const e of [...edits].sort((x, y) => y.start - x.start)) out = out.slice(0, e.start) + e.text + out.slice(e.end)
-  return out
 }
 
 /* ---------- Entry point ---------- */
@@ -447,6 +313,9 @@ export function insertDocxAltText(source: Buffer, instructions: DocxInsertInstru
     if (value.length > DOCX_INSERT_LIMITS.maxTextChars) return { item: item(ins, "failed", "TEXT_TOO_LONG", "The approved description is too long to insert.", base) }
     const current = ins.decorative ? d.descr === null && decorativeOn(d) : d.descr === value && !decorativeOn(d)
     if (current) return { item: item(ins, "unchanged", "ALREADY_CURRENT", "The document already contains this approved alt text.", base), part, drawing: d }
+    if (ins.decorative && !d.decorativeTag && d.props?.extLstMisplaced) {
+      return { item: item(ins, "unsupported", "DECORATIVE_METADATA_UNSUPPORTED", "The picture's extension list cannot safely receive the decorative flag.", base) }
+    }
     return { item: item(ins, "updated", "UPDATED", ins.decorative ? "Marked as decorative." : "Alt text inserted.", base), part, drawing: d, text: value }
   })
 
@@ -466,7 +335,7 @@ export function insertDocxAltText(source: Buffer, instructions: DocxInsertInstru
     if (p.item.status !== "updated" || !p.part || !p.drawing || p.text === undefined) continue
     const d = p.drawing
     const list = editsByPart.get(p.part.name) ?? []
-    list.push(docPrEdit(p.part, d, p.text, p.item.decorative))
+    list.push(nvPropsEdit(p.part.xml, d.props as NvProps, p.text, p.item.decorative))
     if (d.cNvPr) list.push({ start: d.cNvPr.start, end: d.cNvPr.end, text: setAttr(d.cNvPr.text, "descr", p.item.decorative ? null : p.text) })
     if (!p.item.decorative && decorativeOn(d)) warnings.push({ code: "DECORATIVE_FLAG_CLEARED", message: `Occurrence ${p.item.occurrenceId} was marked decorative in the source; the flag was cleared for its approved description.` })
     editsByPart.set(p.part.name, list)
