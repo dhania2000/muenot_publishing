@@ -11,8 +11,7 @@ import {
   PlannedPage,
   PUBLISHING_CRUMBS,
 } from "@/components/publishing/conversion/conversion-nav"
-import { PdfFeedbackState } from "@/components/publishing/conversion/pdf/pdf-feedback-state"
-import { getPdfSectionLayout, PdfModuleLayout } from "@/components/publishing/conversion/pdf/pdf-module-layout"
+import { PdfSectionPage } from "@/components/publishing/conversion/pdf/pdf-section-page"
 import { CONVERSION_MODULES, CONVERSION_SHARED_PAGES, getConversionModule, getSharedPage } from "@/lib/conversion-modules"
 
 type Params = { submodule: string }
@@ -66,30 +65,7 @@ export default async function ConversionSubmodulePage({ params }: { params: Prom
 
   const service = conversionModule!
 
-  if (service.slug === "pdf") {
-    const layout = getPdfSectionLayout("")
-    return (
-      <PdfModuleLayout
-        width={layout.width}
-        spacing={layout.spacing}
-        header={
-          <PageHeader
-            title={service.label}
-            description={service.description}
-            icon={Icon}
-            breadcrumbs={[...PUBLISHING_CRUMBS, CONVERSION_CRUMB, { label: service.label }]}
-          />
-        }
-        navigation={<ConversionModuleTabs module={service} activePage="" />}
-      >
-        <PdfFeedbackState
-          kind="unavailable"
-          icon={service.icon}
-          description={`${service.label} is set up. Its tools will appear here once they are built.`}
-        />
-      </PdfModuleLayout>
-    )
-  }
+  if (service.slug === "pdf") return <PdfSectionPage module={service} icon={Icon} />
 
   return (
     <div className="flex min-w-0 flex-col gap-6 p-4 sm:p-6 md:p-8">
