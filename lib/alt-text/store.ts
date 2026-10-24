@@ -251,9 +251,30 @@ export function ensureAltTextSchema(): Promise<void> {
         if (e?.code !== "ER_DUP_FIELDNAME") throw e
       })
     }
+    // Phase 3 Task 14: per-occurrence description review + approval of one immutable saved version.
+    // Mirrors database/migrations/2026-10-24-alt-text-description-review.sql.
+    for (const ddl of [
+      "ALTER TABLE alt_text_document_images ADD COLUMN alt_review_status VARCHAR(20) NOT NULL DEFAULT 'not_reviewed'",
+      "ALTER TABLE alt_text_document_images ADD COLUMN alt_review_version INT NULL",
+      "ALTER TABLE alt_text_document_images ADD COLUMN alt_review_comment VARCHAR(500) NULL",
+      "ALTER TABLE alt_text_document_images ADD COLUMN alt_review_category VARCHAR(40) NULL",
+      "ALTER TABLE alt_text_document_images ADD COLUMN alt_reviewed_by INT NULL",
+      "ALTER TABLE alt_text_document_images ADD COLUMN alt_reviewed_at TIMESTAMP NULL",
+      "ALTER TABLE alt_text_document_images ADD COLUMN approved_version_id BIGINT UNSIGNED NULL",
+      "ALTER TABLE alt_text_document_images ADD COLUMN approved_version INT NULL",
+      "ALTER TABLE alt_text_document_images ADD COLUMN approved_by INT NULL",
+      "ALTER TABLE alt_text_document_images ADD COLUMN approved_at TIMESTAMP NULL",
+      "ALTER TABLE alt_text_document_images ADD COLUMN approved_decorative TINYINT(1) NOT NULL DEFAULT 0",
+      "ALTER TABLE alt_text_document_images ADD COLUMN decorative_justification VARCHAR(500) NULL",
+    ]) {
+      await query(ddl).catch((e: { code?: string }) => {
+        if (e?.code !== "ER_DUP_FIELDNAME") throw e
+      })
+    }
     for (const ddl of [
       "ALTER TABLE alt_text_document_images ADD INDEX idx_alt_doc_images_selected (tenant_id, document_id, selected_for_processing)",
       "ALTER TABLE alt_text_document_images ADD INDEX idx_alt_doc_images_hash (tenant_id, document_id, media_sha256)",
+      "ALTER TABLE alt_text_document_images ADD INDEX idx_alt_doc_images_alt_review (tenant_id, document_id, alt_review_status)",
     ]) {
       await query(ddl).catch((e: { code?: string }) => {
         if (e?.code !== "ER_DUP_KEYNAME") throw e
