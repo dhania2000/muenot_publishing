@@ -138,7 +138,7 @@ export function BulkImagePicker({ queue }: { queue: BulkImageQueue }) {
         </div>
       </div>
 
-      <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-5 lg:grid-cols-3 xl:grid-cols-5">
+      <dl className="alt-stat-grid text-sm">
         <SummaryStat label="Total selected" value={summary.total} hint={formatBytes(totalBytes)} />
         <SummaryStat label="Valid" value={summary.valid} />
         <SummaryStat label="Invalid" value={summary.invalid} />

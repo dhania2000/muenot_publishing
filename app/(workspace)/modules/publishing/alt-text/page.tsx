@@ -19,7 +19,10 @@ export default async function AltTextPage() {
   const { Icon } = await guardBusinessLine("publishing", "publishing.view_alt_text")
 
   return (
-    <div className="flex min-w-0 flex-col gap-6 p-4 sm:p-6 md:p-8">
+    <div
+      data-alt-text-layout
+      className="mx-auto flex w-full min-w-0 max-w-[1440px] flex-col gap-6 bg-background p-4 sm:p-6 lg:px-8"
+    >
       <PageHeader
         title="AI Alt Text Writer"
         description="Generate accurate, accessible image descriptions using artificial intelligence."

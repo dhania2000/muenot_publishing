@@ -290,8 +290,8 @@ export function AltTextWorkspace() {
         </TabsList>
 
         <TabsContent value="generate" className="mt-0">
-          <div className="grid min-w-0 gap-6 lg:grid-cols-5">
-            <div className="flex min-w-0 flex-col gap-6 lg:col-span-2">
+          <div className="grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+            <div className="flex min-w-0 flex-col gap-6">
               {savedAsset ? (
                 <Card>
                   <CardHeader className="flex flex-row items-start justify-between gap-3">
@@ -319,7 +319,7 @@ export function AltTextWorkspace() {
               )}
               <GenerationSettingsPanel settings={settings} onChange={setSettings} />
             </div>
-            <div className="min-w-0 lg:col-span-3">
+            <div className="min-w-0">
               <AltTextResultsPanel
                 key={`${savedAsset?.id ?? "local"}-${editorKey}`}
                 imageSelected={image !== null || savedAsset !== null}

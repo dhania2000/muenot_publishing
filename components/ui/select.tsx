@@ -28,14 +28,39 @@ type SelectProps = Omit<
   onValueChange?: (value: string) => void
 }
 
-function Select({ value, defaultValue, onValueChange, ...props }: SelectProps) {
+// Base UI's <Select.Value> renders the raw value (e.g. "auto") unless the Root
+// receives an `items` map, and items rendered in a closed popup are not
+// registered yet. Collect value→label pairs from inline <SelectItem> children
+// so the trigger shows the human label without every caller passing `items`.
+function collectItemLabels(node: React.ReactNode, labels: Record<string, React.ReactNode>) {
+  React.Children.forEach(node, (child) => {
+    if (!React.isValidElement(child)) return
+    const childProps = child.props as { value?: unknown; children?: React.ReactNode }
+    if (child.type === SelectItem) {
+      if (typeof childProps.value === "string") labels[childProps.value] = childProps.children
+      return
+    }
+    if (childProps.children) collectItemLabels(childProps.children, labels)
+  })
+}
+
+function Select({ value, defaultValue, onValueChange, items, children, ...props }: SelectProps) {
+  let resolvedItems = items
+  if (resolvedItems === undefined) {
+    const labels: Record<string, React.ReactNode> = {}
+    collectItemLabels(children as React.ReactNode, labels)
+    if (Object.keys(labels).length > 0) resolvedItems = labels as never
+  }
   return (
     <SelectPrimitive.Root
       value={value as never}
       defaultValue={defaultValue as never}
       onValueChange={((v: string | null) => onValueChange?.(v ?? "")) as never}
+      items={resolvedItems}
       {...props}
-    />
+    >
+      {children}
+    </SelectPrimitive.Root>
   )
 }
 
