@@ -5,6 +5,7 @@ import { useState } from "react"
 import { usePathname } from "next/navigation"
 import { ChevronDown, FileType, ImageIcon, Users, type LucideIcon } from "lucide-react"
 import { NAV_GROUPS, type NavIcon } from "@/lib/navigation"
+import { SidebarMenuPanel, SidebarMenuToggle } from "@/components/shell/sidebar-menu"
 import { cn } from "@/lib/utils"
 
 const ICONS: Record<NavIcon, LucideIcon> = {
@@ -16,9 +17,12 @@ const ICONS: Record<NavIcon, LucideIcon> = {
 export function SidebarNav({ isAdmin, pendingCount }: { isAdmin: boolean; pendingCount: number }) {
   const pathname = usePathname()
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({})
+  const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({})
   const groups = NAV_GROUPS.filter((group) => !group.adminOnly || isAdmin)
+  const mobileMenus = groups.flatMap((group) => group.menus ?? []).filter((menu) => openMenus[menu.id])
 
   return (
+    <>
     <nav aria-label="Primary" className="flex gap-1 overflow-x-auto px-2 pb-2 md:flex-1 md:flex-col md:overflow-y-auto md:pb-0">
       {groups.map((group) => (
         <div key={group.label} role="group" aria-label={group.label} className="flex gap-1 md:flex-col">
@@ -121,8 +125,33 @@ export function SidebarNav({ isAdmin, pendingCount }: { isAdmin: boolean; pendin
               </div>
             )
           })}
+          {group.menus?.map((menu) => {
+            const open = openMenus[menu.id] ?? false
+            return (
+              <div key={menu.id} className="flex gap-1 md:flex-col">
+                <SidebarMenuToggle
+                  menu={menu}
+                  open={open}
+                  onToggle={() => setOpenMenus((prev) => ({ ...prev, [menu.id]: !open }))}
+                />
+                <SidebarMenuPanel
+                  menu={menu}
+                  id={`nav-menu-${menu.id}`}
+                  className={cn("ml-4 hidden border-l border-sidebar-border pl-2", open && "md:flex")}
+                />
+              </div>
+            )
+          })}
         </div>
       ))}
     </nav>
+    {mobileMenus.map((menu) => (
+      <SidebarMenuPanel
+        key={menu.id}
+        menu={menu}
+        className="max-h-[60dvh] overflow-y-auto border-t border-sidebar-border px-2 py-2 md:hidden"
+      />
+    ))}
+    </>
   )
 }
