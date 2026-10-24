@@ -1,0 +1,277 @@
+{
+  "font": "Noto Sans Devanagari (SIL OFL 1.1)",
+  "renderer": "@resvg/resvg-js@2.6.2",
+  "samples": [
+    {
+      "id": "hin-01",
+      "file": "hin-01.png",
+      "category": "clean_hindi",
+      "mode": "hin",
+      "expected": "नमस्ते दुनिया"
+    },
+    {
+      "id": "hin-02",
+      "file": "hin-02.png",
+      "category": "clean_hindi",
+      "mode": "hin",
+      "expected": "हिंदी भाषा"
+    },
+    {
+      "id": "hin-03",
+      "file": "hin-03.png",
+      "category": "clean_hindi",
+      "mode": "hin",
+      "expected": "कक्षा दस"
+    },
+    {
+      "id": "hin-04",
+      "file": "hin-04.png",
+      "category": "clean_hindi",
+      "mode": "hin",
+      "expected": "विज्ञान की पुस्तक"
+    },
+    {
+      "id": "hin-05",
+      "file": "hin-05.png",
+      "category": "clean_hindi",
+      "mode": "hin",
+      "expected": "गणित के महत्वपूर्ण प्रश्न"
+    },
+    {
+      "id": "hin-06",
+      "file": "hin-06.png",
+      "category": "clean_hindi",
+      "mode": "hin",
+      "expected": "प्रकाश का परावर्तन"
+    },
+    {
+      "id": "hin-07",
+      "file": "hin-07.png",
+      "category": "clean_hindi",
+      "mode": "hin",
+      "expected": "न्यूटन का प्रथम नियम"
+    },
+    {
+      "id": "hin-08",
+      "file": "hin-08.png",
+      "category": "clean_hindi",
+      "mode": "hin",
+      "expected": "त्रिभुज का क्षेत्रफल"
+    },
+    {
+      "id": "hin-09",
+      "file": "hin-09.png",
+      "category": "clean_hindi",
+      "mode": "hin",
+      "expected": "कोशिका की संरचना"
+    },
+    {
+      "id": "hin-10",
+      "file": "hin-10.png",
+      "category": "clean_hindi",
+      "mode": "hin",
+      "expected": "विद्युत धारा"
+    },
+    {
+      "id": "hin-11",
+      "file": "hin-11.png",
+      "category": "clean_hindi",
+      "mode": "hin",
+      "expected": "प्रश्न संख्या १२"
+    },
+    {
+      "id": "hin-12",
+      "file": "hin-12.png",
+      "category": "clean_hindi",
+      "mode": "hin",
+      "expected": "शिक्षा और विकास"
+    },
+    {
+      "id": "hin-feature-matras",
+      "file": "hin-feature-matras.png",
+      "category": "hindi_features",
+      "mode": "hin",
+      "expected": "किताब दीपक गुलाब फूल मेला पैसा मोर कौआ"
+    },
+    {
+      "id": "hin-feature-nukta",
+      "file": "hin-feature-nukta.png",
+      "category": "hindi_features",
+      "mode": "hin",
+      "expected": "ज़मीन फ़ोन क़लम"
+    },
+    {
+      "id": "hin-feature-anusvara_chandrabindu",
+      "file": "hin-feature-anusvara_chandrabindu.png",
+      "category": "hindi_features",
+      "mode": "hin",
+      "expected": "संख्या हँसना चाँद"
+    },
+    {
+      "id": "hin-feature-visarga",
+      "file": "hin-feature-visarga.png",
+      "category": "hindi_features",
+      "mode": "hin",
+      "expected": "दुःख अतः"
+    },
+    {
+      "id": "hin-feature-virama_conjuncts",
+      "file": "hin-feature-virama_conjuncts.png",
+      "category": "hindi_features",
+      "mode": "hin",
+      "expected": "क्षेत्र त्रिभुज ज्ञान श्रम प्रकाश क्रम स्तर विद्या"
+    },
+    {
+      "id": "hin-feature-danda_digits",
+      "file": "hin-feature-danda_digits.png",
+      "category": "hindi_features",
+      "mode": "hin",
+      "expected": "यह सही है। वर्ष २०२६ है॥"
+    },
+    {
+      "id": "hin-feature-ri_matra",
+      "file": "hin-feature-ri_matra.png",
+      "category": "hindi_features",
+      "mode": "hin",
+      "expected": "कृषि हृदय"
+    },
+    {
+      "id": "bi-01",
+      "file": "bi-01.png",
+      "category": "mixed",
+      "mode": "eng_hin",
+      "expected": "कक्षा 10 Science"
+    },
+    {
+      "id": "bi-02",
+      "file": "bi-02.png",
+      "category": "mixed",
+      "mode": "eng_hin",
+      "expected": "Chapter 5 — मानव शरीर"
+    },
+    {
+      "id": "bi-03",
+      "file": "bi-03.png",
+      "category": "mixed",
+      "mode": "eng_hin",
+      "expected": "Physics के महत्वपूर्ण प्रश्न"
+    },
+    {
+      "id": "bi-04",
+      "file": "bi-04.png",
+      "category": "mixed",
+      "mode": "eng_hin",
+      "expected": "Class 12 गणित"
+    },
+    {
+      "id": "bi-05",
+      "file": "bi-05.png",
+      "category": "mixed",
+      "mode": "eng_hin",
+      "expected": "Newton's First Law — न्यूटन का प्रथम नियम"
+    },
+    {
+      "id": "bi-06",
+      "file": "bi-06.png",
+      "category": "mixed",
+      "mode": "eng_hin",
+      "expected": "Human Heart — मानव हृदय"
+    },
+    {
+      "id": "bi-07",
+      "file": "bi-07.png",
+      "category": "mixed",
+      "mode": "eng_hin",
+      "expected": "Force = Mass × Acceleration"
+    },
+    {
+      "id": "bi-08",
+      "file": "bi-08.png",
+      "category": "mixed",
+      "mode": "eng_hin",
+      "expected": "Biology Chapter 3 — कोशिका"
+    },
+    {
+      "id": "bi-09",
+      "file": "bi-09.png",
+      "category": "mixed",
+      "mode": "eng_hin",
+      "expected": "Question No. 15 — सही उत्तर चुनिए"
+    },
+    {
+      "id": "bi-10",
+      "file": "bi-10.png",
+      "category": "mixed",
+      "mode": "eng_hin",
+      "expected": "NaCl — सोडियम क्लोराइड"
+    },
+    {
+      "id": "eng-clean",
+      "file": "eng-clean.png",
+      "category": "clean_english",
+      "mode": "eng",
+      "expected": "The quick brown fox jumps over the lazy dog 123"
+    },
+    {
+      "id": "hin-low-res",
+      "file": "hin-low-res.png",
+      "category": "low_resolution_hindi",
+      "mode": "hin",
+      "expected": "प्रकाश का परावर्तन"
+    },
+    {
+      "id": "hin-small-font",
+      "file": "hin-small-font.png",
+      "category": "small_font",
+      "mode": "hin",
+      "expected": "विज्ञान की पुस्तक"
+    },
+    {
+      "id": "hin-bold-heading",
+      "file": "hin-bold-heading.png",
+      "category": "bold_heading",
+      "mode": "hin",
+      "expected": "अध्याय पाँच"
+    },
+    {
+      "id": "hin-paragraph",
+      "file": "hin-paragraph.png",
+      "category": "multi_line",
+      "mode": "hin",
+      "expected": "प्रकाश एक प्रकार की ऊर्जा है।\nयह सीधी रेखा में चलता है।\nदर्पण प्रकाश को परावर्तित करता है।"
+    },
+    {
+      "id": "bi-two-columns",
+      "file": "bi-two-columns.png",
+      "category": "multi_column",
+      "mode": "eng_hin",
+      "expected": "भौतिक विज्ञान\nबल और गति\nऊर्जा\nChemistry\nAtoms and Molecules\nAcids",
+      "columns": [
+        [
+          "भौतिक विज्ञान",
+          "बल और गति",
+          "ऊर्जा"
+        ],
+        [
+          "Chemistry",
+          "Atoms and Molecules",
+          "Acids"
+        ]
+      ]
+    },
+    {
+      "id": "bi-scientific",
+      "file": "bi-scientific.png",
+      "category": "scientific_labels",
+      "mode": "eng_hin",
+      "expected": "विद्युत धारा (Current)\nSodium Chloride (NaCl)\nकोशिका झिल्ली\nHuman Digestive System"
+    },
+    {
+      "id": "num-punct",
+      "file": "num-punct.png",
+      "category": "numbers_punctuation",
+      "mode": "eng_hin",
+      "expected": "मूल्य: 3.14, -5; ०१२३४५६७८९ (सही?)"
+    }
+  ]
+}
