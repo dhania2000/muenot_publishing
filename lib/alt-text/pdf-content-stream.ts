@@ -89,7 +89,15 @@ export type ContentHandlers = {
   resolveProperties?(name: string): PDict | null
   /** Inline image data length when it can be computed exactly (unfiltered images). */
   inlineImageLength?(dict: PDict): number | null
+  /**
+   * Phase 3 Task 9: text shows, only when context analysis asks for them. Returns the number of
+   * glyphs decoded so the interpreter can approximate the text-position advance (no font metrics).
+   */
+  onText?(show: TextShow): number
 }
+
+/** One text-showing operator. `trm` maps text space (font units × size) to page user space. */
+export type TextShow = { font: string | null; parts: (Uint8Array | number)[]; trm: Matrix; size: number; marked: readonly MarkedContent[] }
 
 export type ContentStats = { pathPaints: number; textShows: number; doCalls: number; inlineImages: number; inlineUnreadable: number }
 
@@ -310,6 +318,27 @@ export function interpretContentStream(
   const marked: MarkedContent[] = [...initial.marked]
   const inheritedDepth = initial.marked.length
   const state = (): ContentState => ({ ctm, marked: [...marked], clip })
+  // Text state (only maintained when a text handler is present).
+  let tm: Matrix = IDENTITY
+  let tlm: Matrix = IDENTITY
+  let font: string | null = null
+  let fontSize = 0
+  let leading = 0
+  let hScale = 1
+  let rise = 0
+  const num = (v: PValue | undefined) => (typeof v === "number" && Number.isFinite(v) ? v : null)
+  const nextLine = (tx: number, ty: number) => {
+    tlm = multiply([1, 0, 0, 1, tx, ty], tlm)
+    tm = tlm
+  }
+  const showText = (parts: (Uint8Array | number)[]) => {
+    if (!handlers.onText) return
+    const trm = multiply([fontSize * hScale, 0, 0, fontSize, 0, rise], multiply(tm, ctm))
+    const glyphs = handlers.onText({ font, parts, trm, size: Math.hypot(trm[2], trm[3]), marked: [...marked] })
+    const kern = parts.reduce<number>((s, p) => (typeof p === "number" ? s + p : s), 0)
+    // Approximate advance: 0.5 em per glyph (no font metrics are read), minus TJ kerning.
+    tm = multiply([1, 0, 0, 1, (glyphs * 0.5 - kern / 1000) * fontSize * hScale, 0], tm)
+  }
   const endPath = () => {
     if (pendingClip) clip = intersectClip(clip, pathSegments === 1 && pathRect ? pathRect : "complex")
     pathRect = null
@@ -433,11 +462,56 @@ export function interpretContentStream(
         handlers.onInlineImage(dict, bytes.subarray(start, dataEnd), state())
         break
       }
+      case "BT":
+        tm = IDENTITY
+        tlm = IDENTITY
+        break
+      case "Tf": {
+        const f = operands[operands.length - 2]
+        font = f instanceof PName ? f.v : null
+        fontSize = num(operands[operands.length - 1]) ?? fontSize
+        break
+      }
+      case "TL":
+        leading = num(operands[operands.length - 1]) ?? leading
+        break
+      case "Tz":
+        hScale = (num(operands[operands.length - 1]) ?? 100) / 100
+        break
+      case "Ts":
+        rise = num(operands[operands.length - 1]) ?? 0
+        break
+      case "Td":
+      case "TD": {
+        const tx = num(operands[operands.length - 2])
+        const ty = num(operands[operands.length - 1])
+        if (tx != null && ty != null) {
+          if (op === "TD") leading = -ty
+          nextLine(tx, ty)
+        }
+        break
+      }
+      case "Tm": {
+        const m = toMatrix(operands.slice(-6))
+        if (m && operands.length >= 6) tlm = tm = m
+        break
+      }
+      case "T*":
+        nextLine(0, -leading)
+        break
       default:
         if (PATH_PAINT.has(op)) {
           stats.pathPaints++
           if (op !== "sh") endPath()
-        } else if (TEXT_SHOW.has(op)) stats.textShows++
+        } else if (TEXT_SHOW.has(op)) {
+          stats.textShows++
+          if (!handlers.onText) break
+          if (op === "'" || op === '"') nextLine(0, -leading)
+          const last = operands[operands.length - 1]
+          if (op === "TJ" && Array.isArray(last)) {
+            showText(last.flatMap((p) => (p instanceof PStr ? [p.bytes] : typeof p === "number" ? [p] : [])))
+          } else if (last instanceof PStr) showText([last.bytes])
+        }
     }
     operands.length = 0
   }
