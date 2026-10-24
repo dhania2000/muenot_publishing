@@ -109,8 +109,19 @@ describe("PdfHeaderActions", () => {
     expect(link).toContain(`href="${conversionHref("pdf", "workspace")}"`)
     expect(link).toContain('aria-describedby="pdf-action-open-workspace-hint"')
     expect(html).toContain('id="pdf-action-open-workspace-hint"')
-    expect(html).toContain('aria-label="More PDF actions"')
+    expect(html).toMatch(/<button[^>]*aria-haspopup="menu"[^>]*>[\s\S]*?More actions[\s\S]*?<\/button>/)
+    expect(html).not.toContain('aria-label="More PDF actions"')
     expect(html).not.toContain("<button disabled")
+  })
+
+  it("renders no primary button on the Workspace, only the secondary menu", () => {
+    const html = renderToStaticMarkup(h(PdfHeaderActions, { actions: getPdfHeader(pdf, page("workspace")).actions }))
+    expect(html).not.toContain("<a ")
+    expect(html).toContain("More actions")
+  })
+
+  it("renders nothing when there are no actions", () => {
+    expect(renderToStaticMarkup(h(PdfHeaderActions, { actions: [] }))).toBe("")
   })
 })
 

@@ -7,8 +7,10 @@
  * @summary Accessible "More actions" overflow menu for secondary PDF header actions.
  * @exports PdfHeaderMoreMenu
  *
- * Linked items navigate with next/link. Unavailable items are disabled and show their reason as
- * visible text inside the item, so the explanation never depends on hover.
+ * Linked items navigate with next/link. Unavailable items show their reason as visible text inside
+ * the item, so the explanation never depends on hover. They use aria-disabled (not Radix `disabled`)
+ * so keyboard and screen-reader users can still reach and read the reason; selecting one does nothing.
+ * The trigger's accessible name is its visible text ("More actions") at every width (WCAG 2.5.3).
  */
 import Link from "next/link"
 import { BookOpen, ChevronDown, Layers, MoreHorizontal, Upload, type LucideIcon } from "lucide-react"
@@ -60,9 +62,9 @@ export function PdfHeaderMoreMenu({ actions }: { actions: PdfHeaderAction[] }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className="min-h-9 min-w-9" aria-label="More PDF actions">
+        <Button variant="outline" size="sm" className="min-h-9 min-w-9">
           <MoreHorizontal aria-hidden="true" className="sm:hidden" />
-          <span className="hidden sm:inline">More actions</span>
+          <span className="sr-only sm:not-sr-only">More actions</span>
           <ChevronDown aria-hidden="true" className="hidden sm:inline" />
         </Button>
       </DropdownMenuTrigger>
@@ -79,7 +81,13 @@ export function PdfHeaderMoreMenu({ actions }: { actions: PdfHeaderAction[] }) {
         {links.length > 0 && unavailable.length > 0 && <DropdownMenuSeparator />}
         {unavailable.length > 0 && <DropdownMenuLabel>Not available yet</DropdownMenuLabel>}
         {unavailable.map((action) => (
-          <DropdownMenuItem key={action.id} disabled className="min-h-11 py-2 data-disabled:opacity-100">
+          <DropdownMenuItem
+            key={action.id}
+            aria-disabled="true"
+            data-unavailable=""
+            onSelect={(event) => event.preventDefault()}
+            className="min-h-11 cursor-default py-2"
+          >
             <ItemBody action={action} />
           </DropdownMenuItem>
         ))}
