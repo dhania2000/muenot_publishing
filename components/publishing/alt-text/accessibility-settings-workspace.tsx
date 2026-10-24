@@ -281,11 +281,11 @@ export function AccessibilitySettingsWorkspace({ onDirtyChange }: { onDirtyChang
             </SelectContent>
           </Select>
         </div>
-        <TabsList className="hidden w-56 shrink-0 gap-0.5 bg-transparent p-0 lg:flex" aria-label="Settings sections">
+        <TabsList className="hidden h-fit w-56 shrink-0 flex-col items-stretch justify-start gap-0.5 bg-transparent p-0 lg:flex" aria-label="Settings sections">
           {SECTION_ORDER.map((s) => {
             const Icon = SECTION_META[s].icon
             return (
-              <TabsTrigger key={s} value={s} className="h-9 w-full justify-start gap-2 px-3 data-active:bg-muted">
+              <TabsTrigger key={s} value={s} className="h-9 w-full flex-none justify-start gap-2 px-3 data-active:bg-muted">
                 <Icon aria-hidden="true" />
                 <span className="flex-1 truncate text-left">{SECTION_META[s].label}</span>
                 {counts[s] ? (
