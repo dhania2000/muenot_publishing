@@ -350,9 +350,16 @@ type ImageDbRow = RowDataPacket & {
   extraction_status: string
   extraction_error_code: string | null
   extraction_error_message: string | null
+  context_status?: string | null
+  context_confidence?: string | null
+  context_analyzed_at?: Date | string | null
   created_at: Date | string
   updated_at: Date | string
 }
+
+const CONTEXT_STATUS_VALUES = ["analyzed", "unavailable", "failed"] as const
+const CONTEXT_CONFIDENCE_VALUES = ["high", "medium", "low", "unavailable"] as const
+const oneOf = <T extends string>(values: readonly T[], v: unknown): T | null => (typeof v === "string" && (values as readonly string[]).includes(v) ? (v as T) : null)
 
 function parsePosition(v: unknown): Record<string, unknown> | null {
   if (v == null) return null
@@ -383,6 +390,9 @@ export function toDocumentImageRecord(row: ImageDbRow): DocumentImageRecord {
     extractionStatus: isExtractionStatus(row.extraction_status) ? row.extraction_status : "failed",
     extractionErrorCode: row.extraction_error_code,
     extractionErrorMessage: row.extraction_error_message,
+    contextStatus: oneOf(CONTEXT_STATUS_VALUES, row.context_status),
+    contextConfidence: oneOf(CONTEXT_CONFIDENCE_VALUES, row.context_confidence),
+    contextAnalyzedAt: row.context_analyzed_at ? toIso(row.context_analyzed_at) : null,
     createdAt: toIso(row.created_at),
     updatedAt: toIso(row.updated_at),
   }
@@ -390,7 +400,8 @@ export function toDocumentImageRecord(row: ImageDbRow): DocumentImageRecord {
 
 const IMAGE_SELECT = `SELECT i.id, i.document_id, i.alt_text_asset_id, a.status AS asset_status, i.source_locator, i.occurrence_index,
        i.page_number, i.slide_number, i.image_relationship_id, i.image_position_json, i.is_decorative, i.media_sha256,
-       i.source_metadata_json, i.extraction_status, i.extraction_error_code, i.extraction_error_message, i.created_at, i.updated_at
+       i.source_metadata_json, i.extraction_status, i.extraction_error_code, i.extraction_error_message,
+       i.context_status, i.context_confidence, i.context_analyzed_at, i.created_at, i.updated_at
   FROM alt_text_document_images i
   LEFT JOIN alt_text_assets a ON a.tenant_id = i.tenant_id AND a.id = i.alt_text_asset_id`
 
@@ -569,4 +580,89 @@ export async function updateDocumentImageMapping(
   const rows = await query<ImageDbRow[]>(`${IMAGE_SELECT} WHERE i.tenant_id = ? AND i.document_id = ? AND i.id = ? LIMIT 1`, [tenantId, documentId, imageId])
   if (!rows[0]) return fail("NOT_FOUND", "The image mapping could not be found.")
   return { ok: true, image: toDocumentImageRecord(rows[0]) }
+}
+
+// ---------------------------------------------------------------------------
+// Phase 3 Task 9: per-occurrence document context (stored on the mapping row)
+// ---------------------------------------------------------------------------
+
+/** Generous ceiling over CONTEXT_LIMITS.maxJsonBytes; the builder already enforces its own budget. */
+export const CONTEXT_MAX_JSON = 24_576
+
+export type StoredImageContext = {
+  imageId: number
+  status: "analyzed" | "unavailable" | "failed" | null
+  confidence: "high" | "medium" | "low" | "unavailable" | null
+  version: number | null
+  analyzedAt: string | null
+  context: unknown
+}
+
+/** One occurrence (by id) of an already-authorized document. */
+export async function getDocumentImage(documentId: number, imageId: number): Promise<DocumentImageRecord | null> {
+  if (!isPositiveId(documentId) || !isPositiveId(imageId)) return null
+  await ensureAltTextSchema()
+  const rows = await query<ImageDbRow[]>(`${IMAGE_SELECT} WHERE i.tenant_id = ? AND i.document_id = ? AND i.id = ? LIMIT 1`, [tid(), documentId, imageId])
+  return rows[0] ? toDocumentImageRecord(rows[0]) : null
+}
+
+export async function getDocumentImageContext(documentId: number, imageId: number): Promise<StoredImageContext | null> {
+  if (!isPositiveId(documentId) || !isPositiveId(imageId)) return null
+  await ensureAltTextSchema()
+  const rows = await query<(RowDataPacket & { id: number; context_json: unknown; context_status: string | null; context_confidence: string | null; context_version: number | null; context_analyzed_at: Date | string | null })[]>(
+    `SELECT id, context_json, context_status, context_confidence, context_version, context_analyzed_at
+       FROM alt_text_document_images WHERE tenant_id = ? AND document_id = ? AND id = ? LIMIT 1`,
+    [tid(), documentId, imageId],
+  )
+  const r = rows[0]
+  if (!r) return null
+  return {
+    imageId: Number(r.id),
+    status: oneOf(CONTEXT_STATUS_VALUES, r.context_status),
+    confidence: oneOf(CONTEXT_CONFIDENCE_VALUES, r.context_confidence),
+    version: r.context_version == null ? null : Number(r.context_version),
+    analyzedAt: r.context_analyzed_at ? toIso(r.context_analyzed_at) : null,
+    context: parsePosition(r.context_json),
+  }
+}
+
+export type SaveImageContextInput = {
+  imageId: number
+  status: "analyzed" | "unavailable" | "failed"
+  confidence: "high" | "medium" | "low" | "unavailable"
+  version: number
+  context: Record<string, unknown> | null
+}
+
+/**
+ * Overwrite the context of the given occurrences in one transaction. Keyed on
+ * (tenant, document, image) so a re-analysis replaces — never duplicates — a context, and never
+ * touches extraction state, source metadata (existing alt text) or the linked AI asset.
+ */
+export async function saveDocumentImageContexts(documentId: number, entries: SaveImageContextInput[]): Promise<{ ok: true; saved: number } | StoreFailure> {
+  if (!isPositiveId(documentId)) return fail("NOT_FOUND", "The document could not be found.")
+  const prepared: { id: number; json: string | null; status: string; confidence: string; version: number }[] = []
+  for (const e of entries) {
+    if (!isPositiveId(e.imageId) || !oneOf(CONTEXT_STATUS_VALUES, e.status) || !oneOf(CONTEXT_CONFIDENCE_VALUES, e.confidence)) return fail("INVALID_INPUT", "Invalid context entry.")
+    const json = e.context == null ? null : JSON.stringify(e.context)
+    if (json && json.length > CONTEXT_MAX_JSON) return fail("INVALID_INPUT", "Context is too large.")
+    prepared.push({ id: e.imageId, json, status: e.status, confidence: e.confidence, version: e.version })
+  }
+  if (prepared.length === 0) return { ok: true, saved: 0 }
+  await ensureAltTextSchema()
+  const tenantId = tid()
+  const saved = await withTransaction(async (conn) => {
+    let n = 0
+    for (const p of prepared) {
+      const [res] = await conn.query<ResultSetHeader>(
+        `UPDATE alt_text_document_images
+            SET context_json = ?, context_status = ?, context_confidence = ?, context_version = ?, context_analyzed_at = CURRENT_TIMESTAMP
+          WHERE tenant_id = ? AND document_id = ? AND id = ?`,
+        [p.json, p.status, p.confidence, p.version, tenantId, documentId, p.id],
+      )
+      n += res.affectedRows
+    }
+    return n
+  })
+  return { ok: true, saved }
 }

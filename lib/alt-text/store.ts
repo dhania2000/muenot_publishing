@@ -220,6 +220,18 @@ export function ensureAltTextSchema(): Promise<void> {
     await query("ALTER TABLE alt_text_document_images ADD COLUMN source_metadata_json JSON NULL").catch((e: { code?: string }) => {
       if (e?.code !== "ER_DUP_FIELDNAME") throw e
     })
+    // Phase 3 Task 9: bounded, untrusted document context per occurrence (one row = one context; no separate table).
+    for (const ddl of [
+      "ALTER TABLE alt_text_document_images ADD COLUMN context_json JSON NULL",
+      "ALTER TABLE alt_text_document_images ADD COLUMN context_status VARCHAR(20) NULL",
+      "ALTER TABLE alt_text_document_images ADD COLUMN context_confidence VARCHAR(12) NULL",
+      "ALTER TABLE alt_text_document_images ADD COLUMN context_version INT NULL",
+      "ALTER TABLE alt_text_document_images ADD COLUMN context_analyzed_at TIMESTAMP NULL",
+    ]) {
+      await query(ddl).catch((e: { code?: string }) => {
+        if (e?.code !== "ER_DUP_FIELDNAME") throw e
+      })
+    }
   })().catch((e) => {
     schemaReady = null
     throw e
@@ -723,7 +735,7 @@ export async function saveSettings(settings: AltTextSettings, actorId: number) {
   )
 }
 
-// ── Bulk processing batches ────────���───────────────────────────────────────
+// ── Bulk processing batches ────────�����───────────────────────────────────────
 // Counts are always derived from alt_text_assets (never stored) so they cannot
 // drift from the per-asset generation status.
 

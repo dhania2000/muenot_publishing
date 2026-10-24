@@ -152,6 +152,30 @@ export async function openDocumentForExtraction(
   return { ok: true, kind: "claimed", doc, bytes }
 }
 
+/**
+ * Phase 3 Task 9: read the verified private original without claiming the extraction lock
+ * (context analysis only reads; it never changes document or occurrence extraction state).
+ */
+export async function readVerifiedOriginal(doc: StoredDocument, maxDocumentBytes: number): Promise<{ ok: true; bytes: Buffer } | ExtractionFailure> {
+  if (doc.size > maxDocumentBytes) return fail(413, "REQUIRES_BACKGROUND_PROCESSING", "This document is too large to analyze now.")
+  const file = await getFileById(doc.fileObjectId)
+  if (!file || file.fileRef !== doc.storageReferenceId || file.uploadStatus === "deleted" || !keyBelongsToTenant(file.objectKey, currentTenantId())) return NOT_FOUND()
+  if (deriveDocumentSecurity(await getScanForFile(file.id)).securityStatus !== "clean") return NOT_CLEAN()
+  let object: Awaited<ReturnType<typeof downloadFile>>
+  try {
+    object = await downloadFile(file.objectKey)
+  } catch (err) {
+    console.error("[alt-text/context] storage read failed", logName(err))
+    return fail(503, "STORAGE_UNAVAILABLE", "Document storage is temporarily unavailable. Please try again.")
+  }
+  const bytes = await readBody(object?.body, maxDocumentBytes).catch(() => null)
+  if (!bytes || bytes.length !== doc.size) return fail(422, "INVALID_DOCUMENT", "The stored document could not be read.")
+  if (file.checksum && createHash("sha256").update(bytes).digest("hex") !== file.checksum) {
+    return fail(422, "INTEGRITY_MISMATCH", "The stored document does not match the uploaded original.")
+  }
+  return { ok: true, bytes }
+}
+
 export type RunSettings = {
   doc: StoredDocument
   maxImageBytes: number

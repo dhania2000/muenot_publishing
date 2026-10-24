@@ -156,6 +156,19 @@ export function extractDocumentImages(documentId: number) {
   )
 }
 
+export const documentImageContextUrl = (documentId: number, imageId: number) =>
+  `/api/alt-text/documents/${documentId}/context?${new URLSearchParams({ imageId: String(imageId) })}`
+
+export type ContextAnalysisResponse = { success: true; summary: { analyzed: number; unavailable: number; failed: number; total: number } }
+
+export function analyzeDocumentContext(documentId: number, imageId?: number) {
+  return requestJson<ContextAnalysisResponse>(`/api/alt-text/documents/${documentId}/context`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(imageId != null ? { imageId } : {}),
+  })
+}
+
 export function newRequestId() {
   return `alt-${crypto.randomUUID().replace(/-/g, "")}`.slice(0, 40)
 }
