@@ -146,17 +146,31 @@ export function getTargetFormatOptions(): PdfTargetFormatOption[] {
   return deriveFormatAvailability("output")
 }
 
-// ─── Optional guidelines ────────────────────────────────────────────────────
+// ─── Optional guidelines ─────────────────────────────��──────────────────────
 
-export type PdfGuidelineState = "not-provided" | "profile-selected" | "pending-review" | "applied" | "conflict" | "verification-pending"
+export type PdfGuidelineState =
+  | "not-provided"
+  | "profile-selected"
+  | "pending-review"
+  | "applied"
+  | "conflict"
+  | "unsupported"
+  | "verification-pending"
+  | "verified"
 
-export const PDF_GUIDELINE_STATES: Record<PdfGuidelineState, { label: string; description: string }> = {
-  "not-provided": { label: "Not provided", description: "Company guidelines are optional. Standard settings will be used." },
-  "profile-selected": { label: "Profile selected", description: "A company guideline profile is selected for this job." },
-  "pending-review": { label: "Pending review", description: "Guidelines were supplied and are awaiting review." },
-  applied: { label: "Applied", description: "Applicable guideline rules are mapped to this job's settings." },
-  conflict: { label: "Conflict", description: "Some guideline rules conflict and need review before processing." },
-  "verification-pending": { label: "Verification pending", description: "Output has not yet been verified against the guidelines." },
+/** `tone` follows the shared status scale in pdf-status-model.ts. "not-provided" is neutral, never an error. */
+export const PDF_GUIDELINE_STATES: Record<
+  PdfGuidelineState,
+  { label: string; description: string; tone: "neutral" | "info" | "success" | "warning" }
+> = {
+  "not-provided": { label: "Not provided", tone: "neutral", description: "Company guidelines are optional. Standard settings will be used." },
+  "profile-selected": { label: "Guidelines selected", tone: "info", description: "A company guideline profile is selected for this job." },
+  "pending-review": { label: "Pending review", tone: "info", description: "Guidelines were supplied and are awaiting review." },
+  applied: { label: "Applied", tone: "info", description: "Applicable guideline rules are mapped to this job's settings. Output is not yet verified." },
+  conflict: { label: "Conflict", tone: "warning", description: "Some guideline rules conflict and need review before processing." },
+  unsupported: { label: "Unsupported", tone: "neutral", description: "Some requirements cannot be applied by this module. Standard settings cover the rest." },
+  "verification-pending": { label: "Verification pending", tone: "info", description: "Output has not yet been verified against the guidelines." },
+  verified: { label: "Verified", tone: "success", description: "Output was checked against each applicable guideline rule." },
 }
 
 /** Highest priority first. Safety constraints and mandatory technical requirements sit above all of these. */
