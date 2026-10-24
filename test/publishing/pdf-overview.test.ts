@@ -3,9 +3,11 @@ import { renderToStaticMarkup } from "react-dom/server"
 import { describe, expect, it } from "vitest"
 import {
   capabilitiesByCategory,
+  categoryFormats,
   deriveFormatAvailability,
   PDF_CAPABILITIES,
   PDF_CAPABILITY_CATEGORIES,
+  summarizeCategoryAvailability,
 } from "@/components/publishing/conversion/pdf/pdf-capabilities"
 import { PdfOverview } from "@/components/publishing/conversion/pdf/pdf-overview"
 import { PdfGuidelinesSummary } from "@/components/publishing/conversion/pdf/pdf-overview-panels"
@@ -81,6 +83,55 @@ describe("PdfOverview", () => {
 
   it("keeps the guidelines step optional", () => {
     expect(html).toMatch(/Add guidelines<\/span><span class="text-xs text-muted-foreground">Optional/)
+  })
+})
+
+describe("PDF conversion category cards (Phase 2 Task 3)", () => {
+  const html = renderToStaticMarkup(h(PdfOverview, { module: pdf }))
+
+  it("orders the five categories and covers all 36 operations once", () => {
+    const groups = capabilitiesByCategory()
+    expect(groups.map((g) => g.order)).toEqual([1, 2, 3, 4, 5])
+    expect(groups.flatMap((g) => g.capabilities)).toHaveLength(36)
+    expect(PDF_CAPABILITIES).toHaveLength(36)
+  })
+
+  it("uses the standardized format labels", () => {
+    const outputs = deriveFormatAvailability("output").map((f) => f.format)
+    expect(outputs).toEqual(expect.arrayContaining(["MD", "JATS XML", "PDF/A", "PDF/UA", "PDF/X"]))
+    expect(outputs).not.toContain("Markdown")
+    expect(outputs).not.toContain("JATS")
+  })
+
+  it("derives category formats from the format axis", () => {
+    const [docs, , , toPdf, advanced] = capabilitiesByCategory()
+    expect(categoryFormats(docs, docs.capabilities)).toEqual(["DOCX", "XLSX", "PPTX", "TXT", "MD", "RTF"])
+    expect(categoryFormats(toPdf, toPdf.capabilities)).toEqual(expect.arrayContaining(["DOCX", "HTML", "XML", "PNG"]))
+    expect(categoryFormats(advanced, advanced.capabilities)).toEqual(["PDF"])
+  })
+
+  it("never treats a category as runnable unless a capability is available", () => {
+    for (const { capabilities } of capabilitiesByCategory()) {
+      expect(summarizeCategoryAvailability(capabilities).runnable).toBe(false)
+    }
+    const partial = summarizeCategoryAvailability([
+      { id: "a", label: "A", category: "advanced-pdf", inputFormats: ["PDF"], outputFormats: ["PDF"], status: "available" },
+      { id: "b", label: "B", category: "advanced-pdf", inputFormats: ["PDF"], outputFormats: ["PDF"], status: "planned" },
+    ])
+    expect(partial).toEqual({ runnable: true, summary: "1 of 2 operations can run." })
+  })
+
+  it("renders five headed cards with accessible overflow disclosure", () => {
+    expect(html.match(/<h3 id="pdf-category-/g)).toHaveLength(5)
+    expect(html.match(/<details/g)).toHaveLength(1)
+    expect(html).toContain("Show all 13 operations")
+    expect(html.match(/No operations in this category can run yet\./g)).toHaveLength(5)
+  })
+
+  it("exposes no run action or guideline requirement for planned operations", () => {
+    expect(html).not.toMatch(/Convert Now|>Start</)
+    expect(html).not.toContain("Open Workspace<span class=\"sr-only\"> for")
+    expect(html).not.toMatch(/guideline(s)? required|upload guidelines/i)
   })
 })
 

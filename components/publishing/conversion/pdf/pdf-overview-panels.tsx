@@ -157,7 +157,7 @@ const HELP_TOPICS: { title: string; body: React.ReactNode }[] = [
   },
   {
     title: "Output format guidance",
-    body: "Choose DOCX for editing, JATS or XML for structured publishing, ePub for reflowable reading, and PDF for fixed layout.",
+    body: "Choose DOCX for editing, JATS XML or XML for structured publishing, ePub for reflowable reading, and PDF for fixed layout.",
   },
   {
     title: "Layout preservation",
