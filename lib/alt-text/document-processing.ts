@@ -18,10 +18,17 @@ import { BATCH_ID_PATTERN, readBatchProgress } from "./batch-progress"
 import { toPublicDocument } from "./document-service"
 import { toDocumentRecord, type DocumentOwnerScope } from "./document-store"
 import type { DocumentType } from "./document-records"
+import { contextState } from "./document-image-review"
+import { RETRY_BLOCKER_MESSAGES, maxImageAttemptsFromEnv, retryBlocker } from "./retry-policy"
+import { BATCH_COMPLETED_ASSET_STATUSES } from "./store"
 import type {
   BatchCreditUsageResponse,
+  DocumentImageResultRow,
+  DocumentImageResultsResponse,
   DocumentProcessingListResponse,
   DocumentProcessingRow,
+  ImageResultAiStatus,
+  ImageResultFilter,
   OccurrenceProcessingCounts,
 } from "./document-processing-contract"
 
@@ -129,6 +136,91 @@ export async function listDocumentProcessing(
     return [{ document, counts: toCounts(c), latestBatch: batches.get(id) ?? null, lastUpdatedAt: last && last > document.updatedAt ? last : document.updatedAt }]
   })
   return { rows, totals, page: filter.page, pageSize, total: totals.documents }
+}
+
+/** Constant SQL per filter — no user input is interpolated. Mirrors contextState() for context_review. */
+const RESULT_FILTER_SQL: Record<ImageResultFilter, string> = {
+  all: "",
+  not_submitted: " AND (a.id IS NULL OR a.batch_id IS NULL)",
+  pending: " AND a.batch_id IS NOT NULL AND a.status = 'uploaded'",
+  processing: " AND a.batch_id IS NOT NULL AND a.status = 'processing'",
+  completed: ` AND a.batch_id IS NOT NULL AND a.status IN (${COMPLETED})`,
+  failed: " AND a.batch_id IS NOT NULL AND a.status = 'failed'",
+  cancelled: " AND a.batch_id IS NOT NULL AND a.status = 'cancelled'",
+  context_review:
+    " AND (i.context_status = 'failed' OR (i.context_status = 'analyzed' AND (i.context_confidence = 'low' OR i.context_confidence IS NULL)))",
+}
+
+const ACTIVE_BATCH_SQL = new Set(["queued", "processing", "pause_requested", "cancel_requested"])
+
+function aiStatusOf(batchId: string | null, status: string | null): ImageResultAiStatus {
+  if (!batchId || !status) return "not_submitted"
+  if (status === "uploaded") return "pending"
+  if (status === "processing" || status === "failed" || status === "cancelled") return status
+  return BATCH_COMPLETED_ASSET_STATUSES.includes(status) ? "completed" : "pending"
+}
+
+/**
+ * Per-occurrence AI results for one document the caller already owns (checked by the route).
+ * Read-only: one bounded page query plus a count; never enqueues, retries or bills.
+ */
+export async function listDocumentImageResults(
+  documentId: number,
+  q: { page: number; pageSize: number; filter: ImageResultFilter },
+): Promise<Omit<DocumentImageResultsResponse, "success" | "documentId">> {
+  const tenantId = currentTenantId()
+  const where = `i.tenant_id = ? AND i.document_id = ? AND i.extraction_status = 'extracted'${RESULT_FILTER_SQL[q.filter]}`
+  const from = `FROM alt_text_document_images i ${ASSET_JOIN} LEFT JOIN alt_text_batches b ON b.tenant_id = a.tenant_id AND b.id = a.batch_id`
+  const params = [tenantId, documentId]
+  const [rows, count] = await Promise.all([
+    query<any[]>(
+      `SELECT i.id, i.alt_text_asset_id, i.occurrence_index, i.page_number, i.slide_number, i.source_locator, i.context_status, i.context_confidence,
+              a.status AS asset_status, a.batch_id, b.status AS batch_status, LEFT(a.short_alt, 200) AS short_alt_preview,
+              a.error_message, a.error_code, a.attempts, a.current_version,
+              GREATEST(i.updated_at, COALESCE(a.updated_at, i.updated_at)) AS last_updated
+         ${from} WHERE ${where}
+        ORDER BY i.occurrence_index ASC, i.id ASC LIMIT ? OFFSET ?`,
+      [...params, q.pageSize, (q.page - 1) * q.pageSize],
+    ),
+    query<any[]>(`SELECT COUNT(*) AS n ${from} WHERE ${where}`, params),
+  ])
+  const maxAttempts = maxImageAttemptsFromEnv()
+  let active = false
+  const out: DocumentImageResultRow[] = rows.map((r) => {
+    const batchId = r.batch_id == null ? null : String(r.batch_id)
+    const assetStatus = r.asset_status == null ? null : String(r.asset_status)
+    const aiStatus = aiStatusOf(batchId, assetStatus)
+    const batchStatus = r.batch_status == null ? null : String(r.batch_status)
+    if ((aiStatus === "pending" || aiStatus === "processing") && batchStatus && ACTIVE_BATCH_SQL.has(batchStatus)) active = true
+    const blocker =
+      aiStatus === "failed"
+        ? retryBlocker(
+            { status: "failed", currentVersion: Number(r.current_version ?? 0), errorCode: r.error_code ?? null, attempts: Number(r.attempts ?? 0) },
+            maxAttempts,
+          )
+        : null
+    return {
+      imageId: Number(r.id),
+      assetId: r.alt_text_asset_id == null ? null : Number(r.alt_text_asset_id),
+      occurrenceIndex: Number(r.occurrence_index ?? 0),
+      pageNumber: r.page_number == null ? null : Number(r.page_number),
+      slideNumber: r.slide_number == null ? null : Number(r.slide_number),
+      sourceLocator: String(r.source_locator ?? ""),
+      contextState: contextState(r.context_status ?? null, r.context_confidence ?? null),
+      aiStatus,
+      assetStatus,
+      batchId,
+      batchStatus,
+      shortAltPreview: aiStatus === "completed" ? (r.short_alt_preview ?? null) : null,
+      failureReason: aiStatus === "failed" ? (r.error_message ?? null) : null,
+      waitingReason: aiStatus === "pending" ? (r.error_message ?? null) : null,
+      attempts: Number(r.attempts ?? 0),
+      retryable: aiStatus === "failed" && blocker === null && batchId != null,
+      retryBlockedReason: blocker ? RETRY_BLOCKER_MESSAGES[blocker] : null,
+      updatedAt: toIso(r.last_updated) ?? new Date(0).toISOString(),
+    }
+  })
+  return { rows: out, page: q.page, pageSize: q.pageSize, total: Number(count[0]?.n ?? 0), active }
 }
 
 /**

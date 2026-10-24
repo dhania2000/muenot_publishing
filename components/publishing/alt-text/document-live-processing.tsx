@@ -44,7 +44,6 @@ import {
   type DocumentProcessingRow,
   type ProcessingTypeFilter,
 } from "@/lib/alt-text/document-processing-contract"
-import type { BatchStatus } from "@/lib/alt-text/batch-records"
 import { cancelDocumentPreparation } from "@/lib/alt-text/client"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -56,6 +55,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { EmptyState, ErrorState } from "@/components/enterprise/data-state"
 import { BatchProgressDashboard, type BatchOpenRequest } from "./batch-progress-dashboard"
+import { DocumentImageResults } from "./document-image-results"
 import { DocumentPreparationStatus } from "./document-preparation-status"
 import { useDocumentPreparation } from "./use-document-preparation"
 import { formatDateTime } from "./alt-text-history"
@@ -95,13 +95,14 @@ const swrRetry = {
 const rowIsActive = (r: DocumentProcessingRow) =>
   r.counts.processing > 0 ||
   (r.latestBatch != null && ACTIVE_BATCH.has(r.latestBatch.status)) ||
-  r.document.processingStatus === "queued" ||
-  r.document.processingStatus === "processing"
+  r.document.processingStatus === "extracting"
+
+type BatchStatus = BatchProgressView["status"]
 
 function processingStatus(r: DocumentProcessingRow): { label: string; className: string } {
   if (r.latestBatch) {
     const s = r.latestBatch.status as BatchStatus
-    const label = BATCH_STATUS_LABELS[s] ?? r.latestBatch.status
+    const label = (BATCH_STATUS_LABELS as Record<string, string>)[s] ?? r.latestBatch.status
     const className =
       s === "completed"
         ? "border-emerald-200 bg-emerald-50 text-emerald-800"
@@ -117,7 +118,7 @@ function processingStatus(r: DocumentProcessingRow): { label: string; className:
   const p = r.document.processingStatus
   if (r.document.extractionReady && r.counts.extracted > 0) return { label: "Ready for AI", className: "border-slate-200 bg-slate-50 text-slate-700" }
   if (p === "failed") return { label: "Preparation failed", className: "border-red-200 bg-red-50 text-red-800" }
-  if (p === "queued" || p === "processing") return { label: "Preparing", className: "border-sky-200 bg-sky-50 text-sky-800" }
+  if (p === "extracting") return { label: "Preparing", className: "border-sky-200 bg-sky-50 text-sky-800" }
   return { label: "Not prepared", className: "border-slate-200 bg-slate-50 text-slate-700" }
 }
 
@@ -224,7 +225,7 @@ export function DocumentLiveProcessing({ onOpenImages }: { onOpenImages?: () => 
               <OverviewCard label="Failed Images" value={totals.failed} icon={XCircle} hint="Currently failed" />
             </div>
           ) : list.error ? (
-            <ErrorState title="Could not load processing data" description={list.error.message} onRetry={() => void list.mutate()} />
+            <ErrorState title="Could not load processing data" message={list.error.message} onRetry={() => void list.mutate()} />
           ) : (
             <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
               {Array.from({ length: 6 }, (_, i) => (
@@ -427,7 +428,7 @@ function SelectedDocumentDetail({
         ) : prep.isLoading ? (
           <Skeleton className="h-24" />
         ) : prep.error ? (
-          <ErrorState title="Could not load preparation status" description={prep.error.message} onRetry={() => void prep.mutate()} />
+          <ErrorState title="Could not load preparation status" message={prep.error.message} onRetry={() => void prep.mutate()} />
         ) : (
           <p className="rounded-md border px-3 py-3 text-sm text-muted-foreground">
             {doc.extractionReady ? "Preparation has not been started for this document." : "Document is awaiting security scan before preparation can start."}
@@ -454,6 +455,7 @@ function SelectedDocumentDetail({
             AI generation has not been submitted for this document. Select images and use Generate Alt Text in Extracted Images below.
           </p>
         )}
+        {row.counts.extracted > 0 ? <DocumentImageResults documentId={doc.id} batchId={batch?.id ?? null} /> : null}
       </section>
     </div>
   )
