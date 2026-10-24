@@ -12,6 +12,7 @@ import { imageListSearchParams, type ImageListQuery, type ImageMutationRequest, 
 import type { DocumentPreparationProgress } from "./document-preparation-contract"
 import type { DocumentRecord } from "./document-records"
 import type { DocumentUploadReference } from "./document-upload-contract"
+import type { DocxExportRequest, DocxExportResponse } from "./docx-export-contract"
 import type { ExportFormat } from "./export"
 import type { AltTextAssetView } from "./history"
 import type { UploadedAsset } from "./upload"
@@ -272,6 +273,16 @@ export function generateDocumentAltText(documentId: number, idempotencyKey: stri
     method: "POST",
     headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
     body: JSON.stringify(settings ? { settings } : {}),
+  })
+}
+
+export const docxExportPreflightUrl = (documentId: number) => `/api/alt-text/documents/${documentId}/export`
+
+export function exportAccessibleDocx(documentId: number, request: DocxExportRequest) {
+  return requestJson<DocxExportResponse>(docxExportPreflightUrl(documentId), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request),
   })
 }
 

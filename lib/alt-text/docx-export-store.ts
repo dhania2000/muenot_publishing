@@ -47,6 +47,19 @@ export const DOCX_EXPORTS_DDL = `CREATE TABLE IF NOT EXISTS alt_text_document_ex
 )`
 
 const STALE_MINUTES = 15
+
+let schemaReady: Promise<void> | null = null
+/** Base Alt Text schema first, then this table (kept here to avoid an import cycle with store.ts). */
+function ensureExportSchema(): Promise<void> {
+  schemaReady ??= ensureAltTextSchema()
+    .then(() => query(DOCX_EXPORTS_DDL))
+    .then(() => undefined)
+    .catch((e) => {
+      schemaReady = null
+      throw e
+    })
+  return schemaReady
+}
 const tid = () => currentTenantId()
 
 type Row = RowDataPacket & {
@@ -97,19 +110,19 @@ const COLUMNS =
   "document_id, output_ref, policy, status, output_filename, output_size_bytes, output_object_key, updated_count, skipped_count, unsupported_count, failed_count, error_code, report, created_at, completed_at"
 
 export async function getExportByKey(documentId: number, key: string): Promise<StoredDocxExport | null> {
-  await ensureAltTextSchema()
+  await ensureExportSchema()
   const rows = await query<Row[]>(`SELECT ${COLUMNS} FROM alt_text_document_exports WHERE tenant_id = ? AND document_id = ? AND idempotency_key = ? LIMIT 1`, [tid(), documentId, key])
   return rows[0] ? toRecord(rows[0]) : null
 }
 
 export async function getExportByRef(documentId: number, ref: string): Promise<StoredDocxExport | null> {
-  await ensureAltTextSchema()
+  await ensureExportSchema()
   const rows = await query<Row[]>(`SELECT ${COLUMNS} FROM alt_text_document_exports WHERE tenant_id = ? AND document_id = ? AND output_ref = ? LIMIT 1`, [tid(), documentId, ref])
   return rows[0] ? toRecord(rows[0]) : null
 }
 
 export async function listExports(documentId: number, limit = 5): Promise<DocxExportRecord[]> {
-  await ensureAltTextSchema()
+  await ensureExportSchema()
   const rows = await query<Row[]>(`SELECT ${COLUMNS} FROM alt_text_document_exports WHERE tenant_id = ? AND document_id = ? ORDER BY id DESC LIMIT ?`, [tid(), documentId, limit])
   return rows.map((r) => {
     const { objectKey: _k, report: _r, ...rec } = toRecord(r)
@@ -121,7 +134,7 @@ export type ClaimInput = { documentId: number; outputRef: string; idempotencyKey
 
 /** Claim the per-document export slot. Stale processing rows (crashed runs) are released first. */
 export async function claimExport(input: ClaimInput): Promise<"claimed" | "duplicate_key" | "in_progress"> {
-  await ensureAltTextSchema()
+  await ensureExportSchema()
   await query(
     `UPDATE alt_text_document_exports SET status = 'failed', error_code = 'STALE_RUN', active_lock = NULL
      WHERE tenant_id = ? AND document_id = ? AND active_lock = 1 AND created_at < (NOW() - INTERVAL ${STALE_MINUTES} MINUTE)`,
