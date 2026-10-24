@@ -19,8 +19,17 @@ import { listInsertionReadiness } from "./document-approval-store"
 import { readVerifiedOriginal, readBody, logName } from "./document-extraction-run"
 import { ownerScopeFor } from "./document-service"
 import { getDocument, type StoredDocument } from "./document-store"
-import { insertDocxAltText } from "./docx-alt-text-inserter"
-import type { DocxExportPreflight, DocxExportRecord, DocxExportRequest, DocxExportResponse } from "./docx-export-contract"
+import { insertDocxAltText, type DocxInsertInstruction } from "./docx-alt-text-inserter"
+import {
+  ACCESSIBLE_EXPORT_MIME,
+  isAccessibleExportFormat,
+  type AccessibleExportFormat,
+  type DocxExportPreflight,
+  type DocxExportRecord,
+  type DocxExportRequest,
+  type DocxExportResponse,
+} from "./docx-export-contract"
+import { insertPptxAltText } from "./pptx-alt-text-inserter"
 import {
   approvalSnapshot,
   DOCX_EXPORT_MAX_OCCURRENCES,
@@ -35,7 +44,11 @@ import type { HistoryActor } from "./history"
 import { getSettings } from "./store"
 import { ALT_TEXT_UPLOAD_MAX_MB } from "./upload"
 
-const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+const isExportable = (t: string): t is AccessibleExportFormat => isAccessibleExportFormat(t)
+
+function insertAltText(format: AccessibleExportFormat, source: Buffer, instructions: DocxInsertInstruction[], opts: { maxOutputBytes: number; dryRun?: boolean }) {
+  return format === "pptx" ? insertPptxAltText(source, instructions, opts) : insertDocxAltText(source, instructions, opts)
+}
 const MAX_SOURCE_BYTES = ALT_TEXT_UPLOAD_MAX_MB * 1024 * 1024
 /** Alt text adds a few attributes; headroom covers re-deflated XML parts. */
 const MAX_OUTPUT_BYTES = MAX_SOURCE_BYTES + 4 * 1024 * 1024
@@ -46,7 +59,7 @@ const fail = (status: ExportFailure["status"], code: string, error: string, deta
 const sha256 = (b: Buffer) => createHash("sha256").update(b).digest("hex")
 
 function unavailableReason(doc: StoredDocument): string | null {
-  if (doc.documentType !== "docx") return "Accessible document download is currently available for Word (DOCX) documents only."
+  if (!isExportable(doc.documentType)) return "Accessible document download is available for Word (DOCX) and PowerPoint (PPTX) documents."
   if (doc.securityStatus !== "clean") return "The document has not passed the security scan."
   return null
 }
@@ -75,7 +88,7 @@ export async function getDocxExportPreflight(documentId: number, actor: HistoryA
     const original = await readVerifiedOriginal(doc, MAX_SOURCE_BYTES)
     if (!original.ok) reason = original.error
     else {
-      const result = insertDocxAltText(original.bytes, plan.instructions, { maxOutputBytes: MAX_OUTPUT_BYTES, dryRun: true })
+      const result = insertAltText(doc.documentType as AccessibleExportFormat, original.bytes, plan.instructions, { maxOutputBytes: MAX_OUTPUT_BYTES, dryRun: true })
       if (!result.ok) reason = result.message
       else {
         const merged = mergeExportReport(result.report, plan)
@@ -112,7 +125,9 @@ function replay(existing: StoredDocxExport): { ok: true; response: DocxExportRes
 export async function runDocxExport(documentId: number, actor: HistoryActor, request: DocxExportRequest): Promise<{ ok: true; response: DocxExportResponse } | ExportFailure> {
   const doc = await loadOwnedDocument(documentId, actor)
   if (!doc) return fail(404, "NOT_FOUND", "The document could not be found.")
-  if (doc.documentType !== "docx") return fail(415, "UNSUPPORTED_DOCUMENT_TYPE", "Accessible document download is available for DOCX documents only.")
+  if (!isExportable(doc.documentType)) return fail(415, "UNSUPPORTED_DOCUMENT_TYPE", "Accessible document download is available for DOCX and PPTX documents only.")
+  const format = doc.documentType
+  if (request.format !== format) return fail(422, "FORMAT_MISMATCH", `This document is a ${format.toUpperCase()} file; request ${format.toUpperCase()} output.`)
   if (doc.securityStatus !== "clean") return fail(409, "DOCUMENT_NOT_CLEAN", "The document has not passed the security scan.")
 
   const existing = await getExportByKey(doc.id, request.idempotencyKey)
@@ -134,8 +149,8 @@ export async function runDocxExport(documentId: number, actor: HistoryActor, req
   if (plan.instructions.length === 0) return fail(422, "NO_APPROVED_DESCRIPTIONS", "No image in this document has an approved description yet.", { totals: plan.totals })
 
   const outputRef = randomUUID()
-  const filename = exportFilename(doc.filename)
-  const claim = await claimExport({ documentId: doc.id, outputRef, idempotencyKey: request.idempotencyKey, policy: request.policy, snapshot, filename, createdBy: actor.userId })
+  const filename = exportFilename(doc.filename, format)
+  const claim = await claimExport({ documentId: doc.id, outputRef, idempotencyKey: request.idempotencyKey, format, policy: request.policy, snapshot, filename, createdBy: actor.userId })
   if (claim === "duplicate_key") {
     const again = await getExportByKey(doc.id, request.idempotencyKey)
     return again ? replay(again) : fail(409, "EXPORT_IN_PROGRESS", "Another export of this document is in progress.")
@@ -153,7 +168,7 @@ export async function runDocxExport(documentId: number, actor: HistoryActor, req
     const source = original.bytes
     const sourceChecksum = sha256(source)
 
-    const result = insertDocxAltText(source, plan.instructions, { maxOutputBytes: MAX_OUTPUT_BYTES })
+    const result = insertAltText(format, source, plan.instructions, { maxOutputBytes: MAX_OUTPUT_BYTES })
     if (!result.ok) {
       await failExport(doc.id, outputRef, result.code)
       const status = result.code === "SIGNED_DOCUMENT" ? 409 : result.code === "OUTPUT_TOO_LARGE" ? 413 : 422
@@ -184,7 +199,7 @@ export async function runDocxExport(documentId: number, actor: HistoryActor, req
       await failExport(doc.id, outputRef, "STORAGE_QUOTA_EXCEEDED", report)
       return fail(507, "STORAGE_QUOTA_EXCEEDED", quota.reason || "Your organisation has reached its storage quota.")
     }
-    const upload = await uploadFile(`alt-text/exports/${doc.id}/${outputRef}.docx`, new File([new Uint8Array(output)], filename, { type: DOCX_MIME }), {
+    const upload = await uploadFile(`alt-text/exports/${doc.id}/${outputRef}.${format}`, new File([new Uint8Array(output)], filename, { type: ACCESSIBLE_EXPORT_MIME[format] }), {
       metadata: { module: "publishing", entityType: "alt_text_document_export", entityId: doc.id, ownerId: actor.userId, classification: "confidential" },
     })
     if (!upload.ok) {
@@ -219,7 +234,7 @@ export async function readDocxExportFile(
   documentId: number,
   outputRef: string,
   actor: HistoryActor,
-): Promise<{ ok: true; body: Buffer; filename: string } | ExportFailure> {
+): Promise<{ ok: true; body: Buffer; filename: string; mimeType: string } | ExportFailure> {
   const doc = await loadOwnedDocument(documentId, actor)
   if (!doc) return fail(404, "NOT_FOUND", "The document could not be found.")
   const record = await getExportByRef(doc.id, outputRef)
@@ -234,5 +249,5 @@ export async function readDocxExportFile(
   }
   const body = await readBody(object.body, MAX_OUTPUT_BYTES).catch(() => null)
   if (!body || (record.sizeBytes != null && body.length !== record.sizeBytes)) return fail(422, "INVALID_EXPORT", "The exported document could not be read.")
-  return { ok: true, body, filename: record.filename }
+  return { ok: true, body, filename: record.filename, mimeType: ACCESSIBLE_EXPORT_MIME[record.format] }
 }

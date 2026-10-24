@@ -10,6 +10,7 @@
 import { createHash } from "node:crypto"
 import type { InsertionBlocker, InsertionReadinessRow } from "./document-approval-contract"
 import type { DocxInsertInstruction, DocxInsertReport } from "./docx-alt-text-inserter"
+import type { PptxInsertReport } from "./pptx-alt-text-inserter"
 import type { DocxExportItem, DocxExportPolicy, DocxExportSummary } from "./docx-export-contract"
 
 /** Upper bound of occurrences handled by one synchronous export run. */
@@ -90,16 +91,18 @@ export function strictPreconditionFailure(totals: DocxExportTotals): string | nu
   return null
 }
 
-export function mergeExportReport(report: DocxInsertReport | null, plan: DocxExportPlan): { summary: DocxExportSummary; items: DocxExportItem[] } {
-  const inserted: DocxExportItem[] = (report?.items ?? []).map((i) => ({
+export function mergeExportReport(report: DocxInsertReport | PptxInsertReport | null, plan: DocxExportPlan): { summary: DocxExportSummary; items: DocxExportItem[] } {
+  const inserted: DocxExportItem[] = (report?.items ?? []).map((i: DocxInsertReport["items"][number] | PptxInsertReport["items"][number]) => ({
     occurrenceId: i.occurrenceId,
     status: i.status,
     code: i.code,
     message: i.message,
-    region: i.region,
-    placement: i.placement,
+    region: "region" in i ? i.region : null,
+    placement: "placement" in i ? i.placement : null,
     decorative: i.decorative,
+    ...("slideNumber" in i ? { slideNumber: i.slideNumber, grouped: i.grouped } : {}),
   }))
+  const slides = report && "slideCount" in report ? { slideCount: report.slideCount, groupedPictureCount: report.groupedPictureCount } : {}
   const items = [...inserted, ...plan.skipped].sort((a, b) => a.occurrenceId - b.occurrenceId)
   const warnings = [...(report?.warnings ?? [])]
   if (plan.totals.unmapped > 0) {
@@ -119,6 +122,7 @@ export function mergeExportReport(report: DocxInsertReport | null, plan: DocxExp
       existingAltTextPreserved: report?.existingAltTextPreserved ?? 0,
       pictureCount: report?.pictureCount ?? 0,
       uniqueMediaCount: report?.uniqueMediaCount ?? 0,
+      ...slides,
       warnings,
     },
   }
@@ -137,7 +141,7 @@ export function exportPolicyFailure(policy: DocxExportPolicy, summary: DocxExpor
 
 const SAFE = /[^A-Za-z0-9._ -]+/g
 
-export function exportFilename(original: string): string {
-  const base = original.replace(/\.docx$/i, "").replace(SAFE, "_").replace(/\s+/g, " ").trim().slice(0, 120) || "document"
-  return `${base}-alt-text.docx`
+export function exportFilename(original: string, ext: "docx" | "pptx" = "docx"): string {
+  const base = original.replace(/\.(?:docx|pptx)$/i, "").replace(SAFE, "_").replace(/\s+/g, " ").trim().slice(0, 120) || "document"
+  return `${base}-alt-text.${ext}`
 }

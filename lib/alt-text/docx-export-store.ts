@@ -11,7 +11,7 @@ import "server-only"
 import type { RowDataPacket } from "mysql2"
 import { query } from "@/lib/db"
 import { currentTenantId } from "@/lib/tenant-scope"
-import { docxExportDownloadUrl, type DocxExportItem, type DocxExportPolicy, type DocxExportRecord, type DocxExportStatus, type DocxExportSummary } from "./docx-export-contract"
+import { docxExportDownloadUrl, type AccessibleExportFormat, type DocxExportItem, type DocxExportPolicy, type DocxExportRecord, type DocxExportStatus, type DocxExportSummary } from "./docx-export-contract"
 import { ensureAltTextSchema } from "./store"
 
 export const DOCX_EXPORTS_DDL = `CREATE TABLE IF NOT EXISTS alt_text_document_exports (
@@ -65,6 +65,7 @@ const tid = () => currentTenantId()
 type Row = RowDataPacket & {
   document_id: number
   output_ref: string
+  format: string
   policy: string
   status: string
   output_filename: string
@@ -89,6 +90,7 @@ function toRecord(r: Row): StoredDocxExport {
   const report = typeof r.report === "string" ? JSON.parse(r.report) : (r.report ?? null)
   return {
     outputId: r.output_ref,
+    format: r.format === "pptx" ? "pptx" : "docx",
     status,
     policy: (r.policy === "strict" ? "strict" : "approved_only") as DocxExportPolicy,
     filename: r.output_filename,
@@ -107,7 +109,7 @@ function toRecord(r: Row): StoredDocxExport {
 }
 
 const COLUMNS =
-  "document_id, output_ref, policy, status, output_filename, output_size_bytes, output_object_key, updated_count, skipped_count, unsupported_count, failed_count, error_code, report, created_at, completed_at"
+  "document_id, output_ref, format, policy, status, output_filename, output_size_bytes, output_object_key, updated_count, skipped_count, unsupported_count, failed_count, error_code, report, created_at, completed_at"
 
 export async function getExportByKey(documentId: number, key: string): Promise<StoredDocxExport | null> {
   await ensureExportSchema()
@@ -130,7 +132,7 @@ export async function listExports(documentId: number, limit = 5): Promise<DocxEx
   })
 }
 
-export type ClaimInput = { documentId: number; outputRef: string; idempotencyKey: string; policy: DocxExportPolicy; snapshot: string; filename: string; createdBy: number }
+export type ClaimInput = { documentId: number; outputRef: string; idempotencyKey: string; format: AccessibleExportFormat; policy: DocxExportPolicy; snapshot: string; filename: string; createdBy: number }
 
 /** Claim the per-document export slot. Stale processing rows (crashed runs) are released first. */
 export async function claimExport(input: ClaimInput): Promise<"claimed" | "duplicate_key" | "in_progress"> {
@@ -142,9 +144,9 @@ export async function claimExport(input: ClaimInput): Promise<"claimed" | "dupli
   )
   try {
     await query(
-      `INSERT INTO alt_text_document_exports (tenant_id, document_id, output_ref, idempotency_key, policy, snapshot_hash, output_filename, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [tid(), input.documentId, input.outputRef, input.idempotencyKey, input.policy, input.snapshot, input.filename, input.createdBy],
+      `INSERT INTO alt_text_document_exports (tenant_id, document_id, output_ref, idempotency_key, format, policy, snapshot_hash, output_filename, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [tid(), input.documentId, input.outputRef, input.idempotencyKey, input.format, input.policy, input.snapshot, input.filename, input.createdBy],
     )
     return "claimed"
   } catch (e) {
