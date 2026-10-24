@@ -23,6 +23,7 @@ import {
   type GenerationSettings,
   type SupportedImageType,
 } from "./core"
+import { documentContextNotices, type DocumentPromptContext } from "./document-prompt"
 
 const DEFAULT_TIMEOUT_MS = 90_000
 
