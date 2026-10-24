@@ -18,6 +18,37 @@ import {
   validateDocumentBytes,
   type ZipEntry,
 } from "./document-validation"
+import { normalizePptxImageBounds, type OoxmlGroupXfrm, type OoxmlXfrm } from "./image-location"
+
+/** Phase 3 Task 9: normalized (0–1, slide top-left) box, or null when geometry is inherited/unknown. */
+export type PptxBox = { x0: number; y0: number; x1: number; y1: number }
+
+export type PptxTextShape = {
+  shapeId: string | null
+  name: string | null
+  /** `p:ph/@type` (`title`, `ctrTitle`, `subTitle`, `body`, …); `body` for typeless placeholders; null when not a placeholder. */
+  placeholder: string | null
+  /** Shape-tree order on the slide (z-order — NOT verified reading order). */
+  order: number
+  box: PptxBox | null
+  groupPath: string[]
+  paragraphs: string[]
+}
+
+export type PptxSlideText = {
+  slideNumber: number
+  slidePart: string
+  section: string | null
+  shapes: PptxTextShape[]
+  /** Picture geometry keyed by occurrence sourceLocator. */
+  pictures: Map<string, { box: PptxBox | null; order: number }>
+  /** Presenter notes body text. Never displayed slide content. */
+  notes: string | null
+}
+
+export type PptxTextLayout = { title: string | null; slides: PptxSlideText[] }
+
+export const PPTX_TEXT_LIMITS = { maxShapesPerSlide: 200, maxShapeChars: 2000, maxNotesChars: 2000 } as const
 
 export const PPTX_EXTRACTION_LIMITS = {
   maxSlides: 1000,
@@ -77,6 +108,8 @@ export type PptxPackage = {
   notExtracted: PptxNotExtracted
   /** Bounded media read (inflate capped at `maxBytes`); throws PptxPackageError("MEDIA_TOO_LARGE") above it. */
   readMedia(part: string, maxBytes: number): Buffer
+  /** Present only with `collectText` (Task 9 context analysis). */
+  text?: PptxTextLayout
 }
 
 type XNode = Record<string, unknown>
@@ -244,6 +277,88 @@ type SlideContext = {
   out: PptxOccurrence[]
   notExtracted: PptxNotExtracted
   nextIndex: () => number
+  text?: { slide: PptxSlideText; slideSize: { cx: number; cy: number } | null; groups: OoxmlGroupXfrm[]; order: { n: number } }
+}
+
+const num = (v: string | null) => (v == null || !/^-?\d+$/.test(v) ? null : Number(v))
+
+function readXfrm(xfrm: XNode | null): OoxmlXfrm | null {
+  if (!xfrm) return null
+  const off = child(xfrm, "off")
+  const ext = child(xfrm, "ext")
+  const x = off ? num(attr(off, "x")) : null
+  const y = off ? num(attr(off, "y")) : null
+  const cx = ext ? num(attr(ext, "cx")) : null
+  const cy = ext ? num(attr(ext, "cy")) : null
+  if (x == null || y == null || cx == null || cy == null) return null
+  return { x, y, cx, cy, rot: (num(attr(xfrm, "rot")) ?? 0) / 60000, flipH: truthy(attr(xfrm, "flipH")), flipV: truthy(attr(xfrm, "flipV")) }
+}
+
+function readGroupXfrm(xfrm: XNode | null): OoxmlGroupXfrm | null {
+  const base = readXfrm(xfrm)
+  if (!base || !xfrm) return null
+  const chOff = child(xfrm, "chOff")
+  const chExt = child(xfrm, "chExt")
+  const chX = chOff ? num(attr(chOff, "x")) : null
+  const chY = chOff ? num(attr(chOff, "y")) : null
+  const chCx = chExt ? num(attr(chExt, "cx")) : null
+  const chCy = chExt ? num(attr(chExt, "cy")) : null
+  if (chX == null || chY == null || chCx == null || chCy == null) return null
+  return { ...base, chX, chY, chCx, chCy }
+}
+
+function boxFor(xfrm: OoxmlXfrm | null, t: NonNullable<SlideContext["text"]>): PptxBox | null {
+  if (!xfrm || !t.slideSize) return null
+  const g = normalizePptxImageBounds({ slideSize: t.slideSize, xfrm, groups: t.groups, srcRect: null })
+  const b = g.fullBounds ?? g.bounds
+  return b ? { x0: b.x, y0: b.y, x1: b.x + b.width, y1: b.y + b.height } : null
+}
+
+/** Visible run text per `a:p`, in source order. `a:br` becomes a newline. No layout inference. */
+function paragraphsOf(txBody: XNode | null, maxChars: number): string[] {
+  if (!txBody) return []
+  const out: string[] = []
+  let total = 0
+  for (const p of childrenOf(txBody).filter((n) => is(n, "p"))) {
+    let s = ""
+    for (const c of childrenOf(p)) {
+      if (is(c, "br")) s += "\n"
+      else if (is(c, "r") || is(c, "fld")) for (const t of childrenOf(c).filter((n) => is(n, "t"))) s += textValue(t)
+    }
+    s = s.trim()
+    if (!s) continue
+    if (total + s.length > maxChars) {
+      out.push(s.slice(0, Math.max(0, maxChars - total)))
+      break
+    }
+    total += s.length
+    out.push(s)
+  }
+  return out
+}
+
+function textValue(node: XNode): string {
+  return childrenOf(node)
+    .map((c) => (typeof c["#text"] === "string" || typeof c["#text"] === "number" ? String(c["#text"]) : ""))
+    .join("")
+}
+
+function readTextShape(sp: XNode, groupPath: string[], t: NonNullable<SlideContext["text"]>) {
+  const order = t.order.n++
+  if (t.slide.shapes.length >= PPTX_TEXT_LIMITS.maxShapesPerSlide) return
+  const paragraphs = paragraphsOf(child(sp, "txBody"), PPTX_TEXT_LIMITS.maxShapeChars)
+  if (!paragraphs.length) return
+  const cNvPr = path(sp, "nvSpPr", "cNvPr")
+  const ph = path(sp, "nvSpPr", "nvPr", "ph")
+  t.slide.shapes.push({
+    shapeId: clip(cNvPr ? attr(cNvPr, "id") : null, 32),
+    name: clip(cNvPr ? attr(cNvPr, "name") : null, 255),
+    placeholder: ph ? (attr(ph, "type") ?? "body") : null,
+    order,
+    box: boxFor(readXfrm(path(sp, "spPr", "xfrm")), t),
+    groupPath,
+    paragraphs,
+  })
 }
 
 function readPicture(pic: XNode, groupPath: string[], ctx: SlideContext) {
@@ -303,18 +418,71 @@ function readPicture(pic: XNode, groupPath: string[], ctx: SlideContext) {
 function walkShapes(nodes: XNode[], groupPath: string[], depth: number, ctx: SlideContext) {
   if (depth > PPTX_EXTRACTION_LIMITS.maxShapeDepth) throw new PptxPackageError("UNSUPPORTED_STRUCTURE", "The presentation nests shapes too deeply to process.")
   for (const node of nodes) {
-    if (is(node, "pic")) readPicture(node, groupPath, ctx)
-    else if (is(node, "grpSp")) {
+    if (is(node, "pic")) {
+      readPicture(node, groupPath, ctx)
+      if (ctx.text) {
+        const occ = ctx.out[ctx.out.length - 1]
+        ctx.text.slide.pictures.set(occ.sourceLocator, { box: boxFor(readXfrm(path(node, "spPr", "xfrm")), ctx.text), order: ctx.text.order.n++ })
+      }
+    } else if (is(node, "grpSp")) {
       const id = path(node, "nvGrpSpPr", "cNvPr")
+      const gx = ctx.text ? readGroupXfrm(path(node, "grpSpPr", "xfrm")) : null
+      if (ctx.text && gx) ctx.text.groups.unshift(gx)
       walkShapes(childrenOf(node), [...groupPath, (id && attr(id, "id")) || "?"].slice(-16), depth + 1, ctx)
+      if (ctx.text && gx) ctx.text.groups.shift()
     } else if (is(node, "AlternateContent")) {
       // Prefer the Fallback branch: it is what every consumer renders, and taking one branch avoids double counting.
       const branch = child(node, "Fallback") ?? child(node, "Choice")
       if (branch) walkShapes(childrenOf(branch), groupPath, depth + 1, ctx)
     } else if (is(node, "sp")) {
       if (path(node, "spPr", "blipFill")) ctx.notExtracted.shapePictureFills++
+      if (ctx.text) readTextShape(node, groupPath, ctx.text)
     } else if (is(node, "graphicFrame")) ctx.notExtracted.graphicFrames++
   }
+}
+
+function readCoreTitle(reader: PackageReader): string | null {
+  if (!reader.names().some((n) => n.toLowerCase() === "docprops/core.xml")) return null
+  const core = reader.xml("docProps/core.xml")?.find((n) => is(n, "coreProperties"))
+  const title = core ? child(core, "title") : null
+  const text = title ? textValue(title).trim() : ""
+  return text ? text.slice(0, 500) : null
+}
+
+/** PowerPoint 2010 sections (`p14:sectionLst`), keyed by the slide's presentation relationship id. */
+function readSections(root: XNode, slideIds: XNode | null): Map<string, string> {
+  const relById = new Map<string, string>()
+  for (const s of slideIds ? childrenOf(slideIds).filter((n) => is(n, "sldId")) : []) {
+    const id = attr(s, "id")
+    const rel = attr(s, "id", true)
+    if (id && rel) relById.set(id, rel)
+  }
+  const out = new Map<string, string>()
+  for (const section of descendants(root, "section")) {
+    const name = attr(section, "name")
+    if (!name) continue
+    for (const ref of descendants(section, "sldId")) {
+      const rel = relById.get(attr(ref, "id") ?? "")
+      if (rel && !out.has(rel)) out.set(rel, name.slice(0, 255))
+    }
+  }
+  return out
+}
+
+function readNotes(reader: PackageReader, slidePart: string, rels: Map<string, Rel>): string | null {
+  const rel = [...rels.values()].find((r) => r.type === "notesslide" && !r.external)
+  const part = rel ? reader.resolve(slidePart, rel) : null
+  if (!part) return null
+  const tree = path(reader.xml(part)?.find((n) => is(n, "notes")) ?? null, "cSld", "spTree")
+  if (!tree) return null
+  const parts: string[] = []
+  for (const sp of descendants(tree, "sp")) {
+    const ph = path(sp, "nvSpPr", "nvPr", "ph")
+    if (!ph || attr(ph, "type") !== "body") continue
+    parts.push(...paragraphsOf(child(sp, "txBody"), PPTX_TEXT_LIMITS.maxNotesChars))
+  }
+  const text = parts.join("\n").trim()
+  return text ? text.slice(0, PPTX_TEXT_LIMITS.maxNotesChars) : null
 }
 
 function countLayoutAndMasterImages(reader: PackageReader): number {
@@ -333,7 +501,7 @@ function countLayoutAndMasterImages(reader: PackageReader): number {
  * Throws PptxPackageError for document-level problems; per-picture problems are returned
  * on the occurrence instead.
  */
-export function readPptxPackage(buf: Buffer): PptxPackage {
+export function readPptxPackage(buf: Buffer, options: { collectText?: boolean } = {}): PptxPackage {
   const validation = validateDocumentBytes(buf, "pptx")
   if (!validation.ok) throw new PptxPackageError(validation.code, validation.message)
 
@@ -366,14 +534,25 @@ export function readPptxPackage(buf: Buffer): PptxPackage {
     const used = new Set<string>()
     let index = 0
 
+    const textLayout: PptxTextLayout | null = options.collectText ? { title: readCoreTitle(reader), slides: [] } : null
+    const sldSz = path(root, "sldSz")
+    const slideSize = sldSz && num(attr(sldSz, "cx")) && num(attr(sldSz, "cy")) ? { cx: num(attr(sldSz, "cx"))!, cy: num(attr(sldSz, "cy"))! } : null
+    const sectionBySlideRel = textLayout ? readSections(root, slideIds) : new Map<string, string>()
+
     slides.forEach(({ part, relId }, i) => {
       const slide = reader.xml(part)?.find((n) => is(n, "sld"))
       if (!slide) throw new PptxPackageError("INVALID_DOCUMENT", `Slide ${i + 1} is missing or malformed.`)
       const cSld = child(slide, "cSld")
       if (path(cSld, "bg", "bgPr", "blipFill")) notExtracted.slideBackgrounds++
       const tree = path(cSld, "spTree")
+      const slideRels = reader.rels(part)
+      const slideText: PptxSlideText | null = textLayout
+        ? { slideNumber: i + 1, slidePart: part, section: sectionBySlideRel.get(relId) ?? null, shapes: [], pictures: new Map(), notes: readNotes(reader, part, slideRels) }
+        : null
+      if (textLayout && slideText) textLayout.slides.push(slideText)
       if (!tree) return
       walkShapes(childrenOf(tree), [], 0, {
+        text: slideText ? { slide: slideText, slideSize, groups: [], order: { n: 0 } } : undefined,
         reader,
         slidePart: part,
         slideNumber: i + 1,
@@ -393,7 +572,7 @@ export function readPptxPackage(buf: Buffer): PptxPackage {
     })
     notExtracted.layoutAndMasterImages = countLayoutAndMasterImages(reader)
 
-    return { totalSlides: slides.length, occurrences, notExtracted, readMedia: (p, max) => reader.bytes(p, max) }
+    return { totalSlides: slides.length, occurrences, notExtracted, readMedia: (p, max) => reader.bytes(p, max), ...(textLayout ? { text: textLayout } : {}) }
   } catch (err) {
     if (err instanceof PptxPackageError) throw err
     const rejection = asValidationRejection(err)
