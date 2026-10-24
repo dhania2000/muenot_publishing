@@ -510,9 +510,14 @@ export async function saveGeneration(
   const tenantId = tid()
   return withTransaction(async (conn) => {
     const claimGuard = attempt === undefined ? " AND status = 'processing'" : " AND status = 'processing' AND attempts = ?"
+    // A new automated result replaces the previous automated one; an editor's manual correction is kept.
+    const automated = result.automatedClassification
+    const classificationSet = automated
+      ? `, classification_json = JSON_OBJECT('schemaVersion', ?, 'automated', CAST(? AS JSON), 'manual', JSON_EXTRACT(COALESCE(classification_json, JSON_OBJECT()), '$.manual'))`
+      : ""
     const [res] = await conn.query<ResultSetHeader>(
       `UPDATE alt_text_assets SET status = ?, classification = ?, short_alt = ?, long_description = ?, extracted_text = ?, warnings = ?, treatment = ?,
-         model_id = ?, credits_used = credits_used + ?, current_version = current_version + 1, approved_at = ?, reviewed_by = NULL, error_message = NULL, error_code = NULL
+         model_id = ?, credits_used = credits_used + ?, current_version = current_version + 1, approved_at = ?, reviewed_by = NULL, error_message = NULL, error_code = NULL${classificationSet}
        WHERE tenant_id = ? AND id = ?${claimGuard}`,
       [
         requireReview ? "in_review" : "approved",
@@ -525,6 +530,7 @@ export async function saveGeneration(
         modelId,
         credits,
         requireReview ? null : new Date(),
+        ...(automated ? [automated.schemaVersion, JSON.stringify(automated)] : []),
         tenantId,
         id,
         ...(attempt === undefined ? [] : [attempt]),
@@ -540,6 +546,21 @@ export async function saveGeneration(
     )
     return true
   })
+}
+
+/**
+ * Saves (or clears, with `null`) the editor's manual classification. Alt text, its version and the
+ * automated result are untouched. Refused while a generation holds the claim so the two never race.
+ */
+export async function setManualClassification(id: number, manual: ManualClassification | null): Promise<boolean> {
+  await ensureAltTextSchema()
+  const res = await query<ResultSetHeader>(
+    `UPDATE alt_text_assets
+        SET classification_json = JSON_SET(COALESCE(classification_json, JSON_OBJECT('schemaVersion', ?, 'automated', NULL)), '$.manual', CAST(? AS JSON))
+      WHERE tenant_id = ? AND id = ? AND status <> 'processing'`,
+    [CLASSIFICATION_SCHEMA_VERSION, JSON.stringify(manual), tid(), id],
+  )
+  return Number(res.affectedRows) > 0
 }
 
 /**
