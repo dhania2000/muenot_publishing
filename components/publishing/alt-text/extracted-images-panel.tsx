@@ -170,8 +170,8 @@ export function ExtractedImagesPanel() {
               Review every image occurrence with its original page, slide or position, then select which ones to send for alt text generation.
             </CardDescription>
           </div>
-          <div className="flex flex-col gap-3 md:flex-row md:items-end">
-            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+          <div className="flex flex-col gap-3">
+            <div className="flex w-full flex-col gap-1.5">
               <Label htmlFor="extract-doc">Document</Label>
               <Select value={selected} onValueChange={selectDocument} disabled={reviewable.length === 0}>
                 <SelectTrigger id="extract-doc" className="w-full md:max-w-sm">
