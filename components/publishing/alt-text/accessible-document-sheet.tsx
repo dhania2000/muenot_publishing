@@ -13,6 +13,16 @@ import useSWR from "swr"
 import { toast } from "sonner"
 import { AlertTriangle, Download, FileCheck2, Loader2, RefreshCw } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -23,6 +33,7 @@ import { altTextFetcher, docxExportPreflightUrl, exportAccessibleDocx, newIdempo
 import {
   DOCX_EXPORT_POLICIES,
   DOCX_EXPORT_POLICY_LABELS,
+  type AccessibleExportFormat,
   type DocxExportItem,
   type DocxExportPolicy,
   type DocxExportPreflight,
@@ -51,6 +62,8 @@ function Stat({ label, value }: { label: string; value: number }) {
   )
 }
 
+const itemLabel = (i: DocxExportItem) => `Image #${i.occurrenceId}${i.slideNumber ? ` · Slide ${i.slideNumber}` : ""}${i.grouped ? " · in group" : ""}`
+
 function ItemList({ items }: { items: DocxExportItem[] }) {
   const notable = items.filter((i) => i.status !== "updated" && i.status !== "unchanged")
   if (notable.length === 0) return <p className="text-sm text-muted-foreground">Every eligible image can receive its approved description.</p>
@@ -59,7 +72,7 @@ function ItemList({ items }: { items: DocxExportItem[] }) {
       {notable.slice(0, 50).map((i) => (
         <li key={i.occurrenceId} className="flex flex-col gap-1 rounded-md border px-3 py-2 text-sm">
           <div className="flex items-center justify-between gap-2">
-            <span className="font-medium text-foreground">{`Image #${i.occurrenceId}`}</span>
+            <span className="font-medium text-foreground">{itemLabel(i)}</span>
             <Badge variant={i.status === "failed" ? "destructive" : "secondary"}>{STATUS_LABEL[i.status]}</Badge>
           </div>
           <p className="text-muted-foreground">{i.message}</p>
@@ -76,8 +89,11 @@ export function AccessibleDocumentSheet({ documentId, open, onOpenChange }: { do
   const [running, setRunning] = useState(false)
   const [result, setResult] = useState<DocxExportResponse | null>(null)
   const [failure, setFailure] = useState<{ message: string; items: DocxExportItem[] } | null>(null)
+  const [confirming, setConfirming] = useState(false)
   const key = useRef<string | null>(null)
   const data = pre.data
+  const format: AccessibleExportFormat = data?.documentType === "pptx" ? "pptx" : "docx"
+  const kind = format === "pptx" ? "presentation" : "document"
 
   function change(next: boolean) {
     if (!next) {
@@ -90,10 +106,11 @@ export function AccessibleDocumentSheet({ documentId, open, onOpenChange }: { do
 
   async function run() {
     if (!documentId || !data || running) return
+    setConfirming(false)
     setRunning(true)
     setFailure(null)
     key.current ??= newIdempotencyKey()
-    const r = await exportAccessibleDocx(documentId, { format: "docx", policy, idempotencyKey: key.current, snapshot: data.snapshot })
+    const r = await exportAccessibleDocx(documentId, { format, policy, idempotencyKey: key.current, snapshot: data.snapshot })
     setRunning(false)
     if (!r.ok) {
       if (r.error.code !== "RATE_LIMITED") key.current = null
@@ -105,7 +122,7 @@ export function AccessibleDocumentSheet({ documentId, open, onOpenChange }: { do
     key.current = null
     setResult(r.data)
     void pre.mutate()
-    toast.success("Accessible document is ready", { description: `${r.data.summary.updated} image${r.data.summary.updated === 1 ? "" : "s"} updated.` })
+    toast.success(`Accessible ${kind} is ready`, { description: `${r.data.summary.updated} image${r.data.summary.updated === 1 ? "" : "s"} updated.` })
   }
 
   const t = data?.totals
@@ -117,7 +134,7 @@ export function AccessibleDocumentSheet({ documentId, open, onOpenChange }: { do
         <SheetHeader>
           <SheetTitle>Download Accessible Document</SheetTitle>
           <SheetDescription>
-            Creates a copy of {data?.filename ? <span className="font-medium text-foreground">{data.filename}</span> : "the document"} with approved alt text. The original stays unchanged.
+            Creates a copy of {data?.filename ? <span className="font-medium text-foreground">{data.filename}</span> : `the ${kind}`} with approved alt text. The original stays unchanged.
           </SheetDescription>
         </SheetHeader>
 
@@ -151,6 +168,11 @@ export function AccessibleDocumentSheet({ documentId, open, onOpenChange }: { do
                   <Stat label="Blocked" value={t.blocked} />
                   <Stat label="Unmapped" value={t.unmapped} />
                 </dl>
+                {format === "pptx" && plan ? (
+                  <p className="text-xs text-muted-foreground">
+                    {`${plan.slideCount ?? 0} slide${plan.slideCount === 1 ? "" : "s"} · ${plan.pictureCount} picture${plan.pictureCount === 1 ? "" : "s"} · ${plan.groupedPictureCount ?? 0} in groups`}
+                  </p>
+                ) : null}
               </section>
 
               {!data.supported ? (
@@ -215,9 +237,14 @@ export function AccessibleDocumentSheet({ documentId, open, onOpenChange }: { do
               {result ? (
                 <Alert role="status">
                   <FileCheck2 aria-hidden="true" />
-                  <AlertTitle>{result.replayed ? "Export already completed" : "Accessible document ready"}</AlertTitle>
+                  <AlertTitle>{result.replayed ? "Export already completed" : `Accessible ${kind} ready`}</AlertTitle>
                   <AlertDescription className="flex flex-col items-start gap-2">
-                    {`${result.summary.updated} updated, ${result.summary.unchanged} already current, ${result.summary.skipped} skipped, ${result.summary.unsupported + result.summary.failed} not inserted.`}
+                    {`${result.summary.updated} updated, ${result.summary.unchanged} already current, ${result.summary.skipped} skipped, ${result.summary.unsupported + result.summary.failed} not inserted, ${result.summary.existingAltTextPreserved} existing descriptions preserved.`}
+                    {result.summary.warnings.map((w) => (
+                      <span key={w.code} className="text-xs">
+                        {w.message}
+                      </span>
+                    ))}
                     {result.export.downloadUrl ? (
                       <Button asChild size="sm">
                         <a href={result.export.downloadUrl} download={result.export.filename}>
@@ -262,12 +289,30 @@ export function AccessibleDocumentSheet({ documentId, open, onOpenChange }: { do
         </div>
 
         <SheetFooter className="border-t">
-          <Button onClick={run} disabled={!data?.supported || running || pre.isLoading}>
+          <Button onClick={() => setConfirming(true)} disabled={!data?.supported || running || pre.isLoading}>
             {running ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Download aria-hidden="true" />}
-            {running ? "Preparing document…" : "Create accessible DOCX"}
+            {running ? `Preparing ${kind}…` : `Create accessible ${format.toUpperCase()}`}
           </Button>
         </SheetFooter>
       </SheetContent>
+
+      <AlertDialog open={confirming} onOpenChange={setConfirming}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{`Create accessible ${format.toUpperCase()}?`}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {format === "pptx"
+                ? `Approved alt text will be written into a new copy of this presentation${plan?.slideCount ? ` across ${plan.slideCount} slide${plan.slideCount === 1 ? "" : "s"}` : ""}. Unapproved images are left unchanged. The original file is not modified.`
+                : "Approved alt text will be written into a new copy of this document. Unapproved images are left unchanged. The original file is not modified."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {plan ? <p className="text-sm text-muted-foreground">{`${plan.updated} image${plan.updated === 1 ? "" : "s"} will be updated · ${DOCX_EXPORT_POLICY_LABELS[policy]}`}</p> : null}
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={run}>Create copy</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Sheet>
   )
 }

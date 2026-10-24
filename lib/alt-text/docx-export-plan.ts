@@ -27,6 +27,8 @@ export type DocxExportPlan = {
   totals: DocxExportTotals
   /** Approved version id per occurrence, kept with the export report for traceability. */
   approvedVersions: Map<number, number | null>
+  /** Eligible occurrences that also carry an approved detailed description (kept in the ERP only). */
+  detailedDescriptions?: number
 }
 
 export function planDocxExport(rows: InsertionReadinessRow[]): DocxExportPlan {
@@ -34,10 +36,12 @@ export function planDocxExport(rows: InsertionReadinessRow[]): DocxExportPlan {
   const skipped: DocxExportItem[] = []
   const approvedVersions = new Map<number, number | null>()
   const totals: DocxExportTotals = { occurrences: rows.length, eligible: 0, pendingReview: 0, unmapped: 0, blocked: 0 }
+  let detailedDescriptions = 0
   for (const r of rows) {
     approvedVersions.set(r.imageOccurrenceId, r.approvedVersionId)
     if (r.eligible) {
       totals.eligible++
+      if (!r.decorativeApproved && r.approvedLongDescription?.trim()) detailedDescriptions++
       instructions.push({
         occurrenceId: r.imageOccurrenceId,
         sourceLocator: r.sourceLocator,
@@ -60,7 +64,7 @@ export function planDocxExport(rows: InsertionReadinessRow[]): DocxExportPlan {
       decorative: r.decorativeApproved,
     })
   }
-  return { instructions, skipped, totals, approvedVersions }
+  return { instructions, skipped, totals, approvedVersions, detailedDescriptions }
 }
 
 /**
@@ -111,6 +115,14 @@ export function mergeExportReport(report: DocxInsertReport | PptxInsertReport | 
       message: `${plan.totals.unmapped} image${plan.totals.unmapped === 1 ? " has" : "s have"} no source location and cannot receive alt text.`,
     })
   }
+  // PowerPoint has no native long-description property, so detailed descriptions are never embedded.
+  const detailed = plan.detailedDescriptions ?? 0
+  if (report && "slideCount" in report && detailed > 0) {
+    warnings.push({
+      code: "DETAILED_DESCRIPTION_ERP_ONLY",
+      message: `${detailed} approved detailed description${detailed === 1 ? " is" : "s are"} kept in the ERP only; only the short alt text is written to the presentation.`,
+    })
+  }
   return {
     items,
     summary: {
@@ -143,5 +155,5 @@ const SAFE = /[^A-Za-z0-9._ -]+/g
 
 export function exportFilename(original: string, ext: "docx" | "pptx" = "docx"): string {
   const base = original.replace(/\.(?:docx|pptx)$/i, "").replace(SAFE, "_").replace(/\s+/g, " ").trim().slice(0, 120) || "document"
-  return `${base}-alt-text.${ext}`
+  return ext === "pptx" ? `${base}-alt-text-updated.pptx` : `${base}-alt-text.docx`
 }

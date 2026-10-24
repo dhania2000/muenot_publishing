@@ -180,6 +180,7 @@ export function ExtractedImagesPanel() {
   const selectedCount = summary?.selectedOccurrences ?? 0
   const hasImages = (counts?.total ?? 0) > 0
   const isDocx = doc?.documentType === "docx"
+  const canExport = isDocx || doc?.documentType === "pptx"
   const eligibleSelected = summary?.selectedOccurrences ?? 0
   const canGenerate = !!doc && doc.securityStatus === "clean" && eligibleSelected > 0 && !generating && !prep.active
 
@@ -256,13 +257,13 @@ export function ExtractedImagesPanel() {
                 {generating ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Sparkles aria-hidden="true" />}
                 {generating ? "Queuing…" : `Generate Alt Text${eligibleSelected ? ` (${eligibleSelected})` : ""}`}
               </Button>
-              {isDocx ? (
+              {canExport ? (
                 <Button size="sm" variant="outline" onClick={() => setExportOpen(true)} disabled={doc?.securityStatus !== "clean"}>
                   <Download aria-hidden="true" />
-                  Download Accessible Document
+                  {doc?.documentType === "pptx" ? "Download Accessible PPTX" : "Download Accessible Document"}
                 </Button>
               ) : (
-                <LaterButton label="Download Accessible Document" icon={Download} note="Available for Word (DOCX) documents." />
+                <LaterButton label="Download Accessible Document" icon={Download} note="Available for Word (DOCX) and PowerPoint (PPTX) files." />
               )}
               {LATER.map((l) => (
                 <LaterButton key={l.label} {...l} />
@@ -346,7 +347,7 @@ export function ExtractedImagesPanel() {
         canManage={review.canManage}
       />
       <DocumentContextSheet target={contextTarget} onClose={() => setContextTarget(null)} onAnalyzed={() => review.revalidateDocument()} />
-      <AccessibleDocumentSheet key={documentId ?? "none"} documentId={isDocx ? documentId : null} open={exportOpen && isDocx} onOpenChange={setExportOpen} />
+      <AccessibleDocumentSheet key={documentId ?? "none"} documentId={canExport ? documentId : null} open={exportOpen && canExport} onOpenChange={setExportOpen} />
     </>
   )
 }
