@@ -7,6 +7,7 @@
  */
 import type { CreateBatchPayload } from "./bulk-upload"
 import type { AltTextResult, GenerationSettings } from "./core"
+import type { DocumentImageContext } from "./document-context"
 import type { DocumentUploadReference } from "./document-upload-contract"
 import type { ExportFormat } from "./export"
 import type { AltTextAssetView } from "./history"
@@ -159,7 +160,21 @@ export function extractDocumentImages(documentId: number) {
 export const documentImageContextUrl = (documentId: number, imageId: number) =>
   `/api/alt-text/documents/${documentId}/context?${new URLSearchParams({ imageId: String(imageId) })}`
 
-export type ContextAnalysisResponse = { success: true; summary: { analyzed: number; unavailable: number; failed: number; total: number } }
+export type ContextAnalysisResponse = {
+  success: true
+  summary: { analyzed: number; unavailable: number; failed: number; total: number }
+  context?: DocumentImageContext | null
+}
+
+/** GET response of the context endpoint (stored context only; reading never runs analysis). */
+export type DocumentImageContextResponse = {
+  success: true
+  imageId: number
+  status: "analyzed" | "unavailable" | "failed" | "not_analyzed"
+  analyzedAt: string | null
+  stale: boolean
+  context: DocumentImageContext | null
+}
 
 export function analyzeDocumentContext(documentId: number, imageId?: number) {
   return requestJson<ContextAnalysisResponse>(`/api/alt-text/documents/${documentId}/context`, {

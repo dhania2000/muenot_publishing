@@ -735,7 +735,7 @@ export async function saveSettings(settings: AltTextSettings, actorId: number) {
   )
 }
 
-// ── Bulk processing batches ────────�����───────────────────────────────────────
+// ── Bulk processing batches ────────���───────────────────────────────────────
 // Counts are always derived from alt_text_assets (never stored) so they cannot
 // drift from the per-asset generation status.
 

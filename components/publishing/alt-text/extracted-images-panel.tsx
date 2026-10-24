@@ -11,7 +11,7 @@
 import { useState } from "react"
 import useSWR from "swr"
 import { toast } from "sonner"
-import { CheckCircle2, Download, FileStack, FileUp, Hourglass, ImageIcon, Images, ListChecks, Loader2, ScanSearch, Sparkles, XCircle, type LucideIcon } from "lucide-react"
+import { CheckCircle2, Download, FileSearch, FileStack, FileUp, Hourglass, ImageIcon, Images, ListChecks, Loader2, ScanSearch, Sparkles, XCircle, type LucideIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
@@ -19,13 +19,16 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { altTextFetcher, documentImagesUrl, documentListUrl, extractDocumentImages } from "@/lib/alt-text/client"
+import { altTextFetcher, analyzeDocumentContext, documentImagesUrl, documentListUrl, extractDocumentImages } from "@/lib/alt-text/client"
+import { CONTEXT_CONFIDENCE_LABEL } from "@/lib/alt-text/document-context"
 import type { DocumentImageRecord, DocumentImagesResponse, DocumentListResponse, DocumentRecord } from "@/lib/alt-text/document-records"
 import { AssetImage } from "./alt-text-history"
+import { CONFIDENCE_TONE, DocumentContextSheet, type ContextSheetTarget } from "./document-context-sheet"
 import { StatusBadge } from "./document-upload-status"
 
 const EXTRACTABLE = new Set(["pdf", "pptx"])
 const isExtractable = (d: DocumentRecord) => d.extractionReady && EXTRACTABLE.has(d.documentType) && d.processingStatus !== "extracting"
+const CONTEXT_READY = new Set(["extracted", "partially_extracted", "failed", "unsupported"])
 
 const LATER: { label: string; icon: LucideIcon }[] = [
   { label: "Generate Alt Text", icon: Sparkles },
@@ -35,7 +38,13 @@ const LATER: { label: string; icon: LucideIcon }[] = [
 ]
 const LATER_NOTE = "Available in a later phase of document processing."
 
-const COLUMNS = ["Image", "Page / Slide / Location", "Image Type", "Processing Status", "Existing Alt Text"]
+const COLUMNS = ["Image", "Page / Slide / Location", "Image Type", "Processing Status", "Existing Alt Text", "Document Context"]
+
+function ContextCell({ img }: { img: DocumentImageRecord }) {
+  if (img.contextStatus === "failed") return <StatusBadge tone="danger">Analysis failed</StatusBadge>
+  if (!img.contextStatus || !img.contextConfidence) return <span className="text-xs text-muted-foreground">Not analyzed</span>
+  return <StatusBadge tone={CONFIDENCE_TONE[img.contextConfidence]}>{CONTEXT_CONFIDENCE_LABEL[img.contextConfidence]}</StatusBadge>
+}
 
 const STATUS_TONE = { pending: "info", extracted: "success", failed: "danger", unsupported: "warning" } as const
 
@@ -97,6 +106,26 @@ export function ExtractedImagesPanel() {
     toast.success(r.data.alreadyProcessed ? "Images were already extracted" : `Extracted images from ${doc.filename}`)
   }
 
+  const [analyzing, setAnalyzing] = useState(false)
+  const [contextTarget, setContextTarget] = useState<ContextSheetTarget | null>(null)
+  const canAnalyze = !!doc && CONTEXT_READY.has(doc.processingStatus) && (counts?.total ?? 0) > 0
+
+  async function analyzeContext() {
+    if (!doc || analyzing) return
+    setAnalyzing(true)
+    const r = await analyzeDocumentContext(doc.id)
+    setAnalyzing(false)
+    await images.mutate()
+    if (!r.ok) {
+      toast.error("Context analysis failed", { description: r.error.message })
+      return
+    }
+    const s = r.data.summary
+    toast.success(`Analyzed context for ${s.total} image${s.total === 1 ? "" : "s"}`, {
+      description: `${s.analyzed} with context, ${s.unavailable} unavailable${s.failed ? `, ${s.failed} failed` : ""}.`,
+    })
+  }
+
   return (
     <>
       <section aria-labelledby="doc-summary-heading" className="flex flex-col gap-3">
@@ -138,6 +167,10 @@ export function ExtractedImagesPanel() {
               <Button size="sm" onClick={extract} disabled={!doc || !isExtractable(doc) || running}>
                 {running ? <Loader2 className="animate-spin" aria-hidden="true" /> : <ScanSearch aria-hidden="true" />}
                 {running ? "Extracting…" : "Extract Images"}
+              </Button>
+              <Button size="sm" variant="outline" onClick={analyzeContext} disabled={!canAnalyze || analyzing}>
+                {analyzing ? <Loader2 className="animate-spin" aria-hidden="true" /> : <FileSearch aria-hidden="true" />}
+                {analyzing ? "Analyzing…" : "Analyze Context"}
               </Button>
               {LATER.map(({ label, icon: Icon }) => (
                 <Tooltip key={label}>
@@ -193,6 +226,20 @@ export function ExtractedImagesPanel() {
                         <TableCell className="max-w-72 text-xs text-muted-foreground">
                           {alt ? <span className="line-clamp-2">{alt}</span> : "None in source"}
                         </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col items-start gap-1.5">
+                            <ContextCell img={img} />
+                            <Button
+                              variant="link"
+                              size="sm"
+                              className="h-auto p-0 text-xs"
+                              onClick={() => setContextTarget({ documentId: img.documentId, imageId: img.id, label: `Image ${img.occurrenceIndex + 1}, ${location(img)}` })}
+                            >
+                              View context
+                              <span className="sr-only">{` for image ${img.occurrenceIndex + 1}`}</span>
+                            </Button>
+                          </div>
+                        </TableCell>
                       </TableRow>
                     )
                   })
@@ -222,6 +269,7 @@ export function ExtractedImagesPanel() {
           </p>
         </CardContent>
       </Card>
+      <DocumentContextSheet target={contextTarget} onClose={() => setContextTarget(null)} onAnalyzed={() => images.mutate()} />
     </>
   )
 }
