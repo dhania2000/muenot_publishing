@@ -5,6 +5,7 @@
  * @summary Classifications, prompt builder, AI output parser, validation and export serializers.
  */
 import { documentContextRules, formatDocumentContextBlock, type DocumentPromptContext } from "./document-prompt"
+import type { AutomatedClassification } from "./classification"
 
 export const IMAGE_CLASSIFICATIONS = [
   "photograph",
@@ -377,6 +378,8 @@ export type PromptInput = {
   generation?: Partial<GenerationSettings>
   /** Server-resolved context of the specific document occurrence this image came from. Never client-supplied. */
   document?: DocumentPromptContext | null
+  /** Phase 3 Task 3: category/complexity rules requested in the same call. Adds an "analysis" object to the JSON shape. */
+  classificationRules?: string
 }
 
 /** Strips characters that could close the untrusted-data fence early. */
@@ -500,7 +503,10 @@ export function buildPrompt(input: PromptInput) {
     "treatment: one sentence telling the editor how to apply the result (alt attribute only, alt plus adjacent long description, or alt=\"\").",
     "NEVER invent numbers, labels, trends or relationships you cannot clearly see. If precise values cannot be determined, describe them approximately as approximate and add a warning. Add a warning for every uncertain or illegible element.",
     input.document ? documentContextRules(input.document) : "",
-    'Respond with ONLY a JSON object: {"classification": string, "purpose": string, "shortAlt": string, "longDescription": string, "extractedText": string, "warnings": string[], "treatment": string}',
+    input.classificationRules ?? "",
+    input.classificationRules
+      ? 'Respond with ONLY a JSON object: {"classification": string, "purpose": string, "shortAlt": string, "longDescription": string, "extractedText": string, "warnings": string[], "treatment": string, "analysis": {"primaryCategory": string, "secondaryCategories": string[], "complexityLevel": string, "contentHints": string[], "certainty": string, "evidenceSummary": string, "uncertaintyReasons": string[]}}'
+      : 'Respond with ONLY a JSON object: {"classification": string, "purpose": string, "shortAlt": string, "longDescription": string, "extractedText": string, "warnings": string[], "treatment": string}',
   ]
     .filter(Boolean)
     .join("\n")
@@ -523,6 +529,10 @@ export type AltTextResult = {
   treatment: string
   /** Purpose applied to the result. Optional so results stored before Task 8 stay valid. */
   purpose?: GenerationPurpose
+  /** Unvalidated "analysis" object from the model; validated by lib/alt-text/classification.ts. */
+  rawAnalysis?: unknown
+  /** Validated Phase 3 Task 3 classification produced by the same vision call. */
+  automatedClassification?: AutomatedClassification
 }
 
 export type AltTextOutputErrorCode = "no_json" | "malformed_json" | "not_object" | "missing_field" | "invalid_type" | "field_too_long" | "empty_output"
@@ -662,6 +672,7 @@ export function parseAiOutput(text: string, shortMaxChars: number, opts: ParseAi
     warnings,
     treatment: decorative && !modelTreatment.includes('alt=""') ? defaultTreatment : modelTreatment || defaultTreatment,
     ...(purpose ? { purpose } : {}),
+    ...(obj.analysis && typeof obj.analysis === "object" && !Array.isArray(obj.analysis) ? { rawAnalysis: obj.analysis } : {}),
   }
 }
 

@@ -24,6 +24,7 @@ import {
   type SupportedImageType,
 } from "./core"
 import { documentContextNotices, type DocumentPromptContext } from "./document-prompt"
+import { buildAutomatedClassification, CLASSIFICATION_PROMPT_RULES, parseClassificationAnalysis } from "./classification"
 
 const DEFAULT_TIMEOUT_MS = 90_000
 
@@ -135,6 +136,7 @@ export async function generateAltTextFromImage(input: GenerateAltTextFromImageIn
     shortMaxChars: altTextSettings.shortMaxChars,
     generation,
     document: input.document ?? null,
+    classificationRules: CLASSIFICATION_PROMPT_RULES,
   })
 
   const started = Date.now()
@@ -175,6 +177,10 @@ export async function generateAltTextFromImage(input: GenerateAltTextFromImageIn
   if (input.document) {
     const notices = documentContextNotices(input.document).filter((n) => !output.warnings.includes(n))
     if (notices.length) output = { ...output, warnings: [...output.warnings, ...notices] }
+  }
+  {
+    const { rawAnalysis, ...rest } = output
+    output = { ...rest, automatedClassification: buildAutomatedClassification(parseClassificationAnalysis(rawAnalysis, output.classification), model.id) }
   }
 
   const u = (result.usage ?? {}) as Record<string, unknown> & { inputTokenDetails?: { cacheReadTokens?: unknown } }

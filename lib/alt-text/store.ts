@@ -10,6 +10,14 @@ import type { ResultSetHeader, RowDataPacket } from "mysql2"
 import { query, withTransaction } from "@/lib/db"
 import { currentTenantId } from "@/lib/tenant-scope"
 import { BATCH_FIELD_LIMITS, OVERRIDABLE_FIELDS, resolveEffectiveSettings, type ImageOverride } from "./batch-settings"
+import {
+  CLASSIFICATION_SCHEMA_VERSION,
+  parseManualClassification,
+  parseStoredClassification,
+  type AutomatedClassification,
+  type ManualClassification,
+  type StoredClassification,
+} from "./classification"
 import { normalizeGenerationSettings, normalizeSettings, type AltTextResult, type AltTextSettings, type ExportRow, type GenerationSettings } from "./core"
 
 let schemaReady: Promise<void> | null = null
@@ -234,6 +242,10 @@ export function ensureAltTextSchema(): Promise<void> {
       "ALTER TABLE alt_text_document_images ADD COLUMN review_status VARCHAR(20) NOT NULL DEFAULT 'not_reviewed'",
       "ALTER TABLE alt_text_document_images ADD COLUMN reviewed_at TIMESTAMP NULL",
       "ALTER TABLE alt_text_document_images ADD COLUMN reviewed_by INT NULL",
+      // Phase 3 Task 3: per-occurrence manual category correction (wins over the binary-level result).
+      "ALTER TABLE alt_text_document_images ADD COLUMN classification_override_json JSON NULL",
+      // Phase 3 Task 3: binary-level automated + manual classification record.
+      "ALTER TABLE alt_text_assets ADD COLUMN classification_json JSON NULL",
     ]) {
       await query(ddl).catch((e: { code?: string }) => {
         if (e?.code !== "ER_DUP_FIELDNAME") throw e
@@ -320,6 +332,8 @@ export type AssetRow = {
   createdBy: number
   createdAt: string
   updatedAt: string
+  /** Phase 3 Task 3: automated + manual category/complexity (null for assets saved before Task 3). */
+  classificationRecord?: StoredClassification | null
 }
 
 const ASSET_SELECT = `SELECT a.*, p.name AS project_name, u.name AS reviewer_name
@@ -372,6 +386,7 @@ function mapAsset(r: any): AssetRow {
     createdBy: r.created_by,
     createdAt: new Date(r.created_at).toISOString(),
     updatedAt: new Date(r.updated_at ?? r.created_at).toISOString(),
+    classificationRecord: parseStoredClassification(r.classification_json),
   }
 }
 
