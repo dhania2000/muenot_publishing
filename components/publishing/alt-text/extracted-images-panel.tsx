@@ -30,6 +30,7 @@ import {
   newIdempotencyKey,
   startDocumentPreparation,
 } from "@/lib/alt-text/client"
+import { AccessibleDocumentSheet } from "./accessible-document-sheet"
 import { DocumentPreparationStatus } from "./document-preparation-status"
 import { useDocumentPreparation } from "./use-document-preparation"
 import type { ReviewImageRecord } from "@/lib/alt-text/document-image-review"
@@ -51,7 +52,6 @@ const CONTEXT_READY = new Set(["extracted", "partially_extracted", "failed", "un
 
 const LATER: { label: string; icon: LucideIcon }[] = [
   { label: "Review Descriptions", icon: ListChecks },
-  { label: "Download Accessible Document", icon: Download },
   { label: "Export Results", icon: FileUp },
 ]
 const LATER_NOTE = "Available in a later phase of document processing."
@@ -98,6 +98,7 @@ export function ExtractedImagesPanel() {
   const generationKey = useRef<string | null>(null)
   const [contextTarget, setContextTarget] = useState<ContextSheetTarget | null>(null)
   const [details, setDetails] = useState<DetailsTarget | null>(null)
+  const [exportOpen, setExportOpen] = useState(false)
   const documentId = selected ? Number(selected) : null
   const doc = docs.data?.documents.find((d) => d.id === documentId) ?? null
   const review = useImageReview(documentId)
@@ -255,6 +256,14 @@ export function ExtractedImagesPanel() {
                 {generating ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Sparkles aria-hidden="true" />}
                 {generating ? "Queuing…" : `Generate Alt Text${eligibleSelected ? ` (${eligibleSelected})` : ""}`}
               </Button>
+              {isDocx ? (
+                <Button size="sm" variant="outline" onClick={() => setExportOpen(true)} disabled={doc?.securityStatus !== "clean"}>
+                  <Download aria-hidden="true" />
+                  Download Accessible Document
+                </Button>
+              ) : (
+                <LaterButton label="Download Accessible Document" icon={Download} note="Available for Word (DOCX) documents." />
+              )}
               {LATER.map((l) => (
                 <LaterButton key={l.label} {...l} />
               ))}
@@ -337,6 +346,7 @@ export function ExtractedImagesPanel() {
         canManage={review.canManage}
       />
       <DocumentContextSheet target={contextTarget} onClose={() => setContextTarget(null)} onAnalyzed={() => review.revalidateDocument()} />
+      <AccessibleDocumentSheet key={documentId ?? "none"} documentId={isDocx ? documentId : null} open={exportOpen && isDocx} onOpenChange={setExportOpen} />
     </>
   )
 }
