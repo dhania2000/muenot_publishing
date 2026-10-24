@@ -12,7 +12,7 @@
  *   reviewed or described on its own.
  */
 import { SUPPORTED_IMAGE_TYPES } from "./core"
-import type { DocumentImageRecord, DocumentType } from "./document-records"
+import type { DocumentExtractionCounts, DocumentImageRecord, DocumentType } from "./document-records"
 
 export const REVIEW_STATUSES = ["not_reviewed", "reviewed", "needs_attention"] as const
 export type ReviewStatus = (typeof REVIEW_STATUSES)[number]
@@ -257,6 +257,9 @@ export type ReviewImagesResponse = {
   total: number
   summary: ReadinessSummary
 }
+
+/** GET /documents/:id/images body: the filtered page plus document-wide per-status counts. */
+export type DocumentReviewImagesResponse = ReviewImagesResponse & { counts: DocumentExtractionCounts }
 
 export type SelectionAction = "select" | "deselect" | "select_all_eligible" | "clear_selection" | "set_review"
 

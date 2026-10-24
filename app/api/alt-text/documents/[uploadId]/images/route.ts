@@ -18,9 +18,8 @@ import { currentTenantId } from "@/lib/tenant-scope"
 import { gateAltTextHistory, jsonError, jsonOk, unexpected } from "@/lib/alt-text/route-gate"
 import { ownerScopeFor } from "@/lib/alt-text/document-service"
 import { countDocumentImages, getDocument } from "@/lib/alt-text/document-store"
-import { parseImageListQuery, parseImageMutation, type ImageMutationResponse, type ReviewImagesResponse } from "@/lib/alt-text/document-image-review"
+import { parseImageListQuery, parseImageMutation, type DocumentReviewImagesResponse, type ImageMutationResponse } from "@/lib/alt-text/document-image-review"
 import { clearSelection, getReadinessSummary, listReviewImages, selectAllEligible, setReviewStatus, setSelection } from "@/lib/alt-text/document-image-review-store"
-import type { DocumentExtractionCounts } from "@/lib/alt-text/document-records"
 
 export const dynamic = "force-dynamic"
 
@@ -30,8 +29,6 @@ const BODY_MAX = 16_384
 
 const notFound = () => jsonError({ status: 404, code: "NOT_FOUND", error: "The document could not be found." })
 const invalid = (error: string) => jsonError({ status: 400, code: "INVALID_REQUEST", error })
-
-export type DocumentReviewImagesResponse = ReviewImagesResponse & { counts: DocumentExtractionCounts }
 
 export async function GET(req: Request, ctx: { params: Promise<{ uploadId: string }> }) {
   const gate = await gateAltTextHistory()

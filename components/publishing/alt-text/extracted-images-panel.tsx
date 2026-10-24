@@ -4,68 +4,46 @@
  * @file components/publishing/alt-text/extracted-images-panel.tsx
  * @module Publishing
  * @kind React client component
- * @summary Extraction summary + extracted-image table. Runs synchronous PDF/PPTX extraction for a
- *   selected, security-cleared document and lists every recorded image occurrence with its
- *   page/slide location and status. Later-phase actions stay disabled.
+ * @summary Phase 3 Task 10 — extracted image review workspace. Runs PDF/PPTX extraction and
+ *   context analysis for a security-cleared document, then lets users browse its persisted image
+ *   occurrences (gallery or table) with server-side search, filters, sort and pagination, inspect
+ *   each one, and persist which eligible occurrences are selected for future alt text generation.
+ *   Generation itself stays disabled until Tasks 11–12 consume the selection snapshot.
  */
 import { useState } from "react"
 import useSWR from "swr"
 import { toast } from "sonner"
-import { CheckCircle2, Download, FileSearch, FileStack, FileUp, Hourglass, ImageIcon, Images, ListChecks, Loader2, ScanSearch, Sparkles, XCircle, type LucideIcon } from "lucide-react"
+import { CheckCircle2, Download, FileSearch, FileStack, FileUp, Hourglass, ImageIcon, Images, ListChecks, Loader2, ScanSearch, SearchX, Sparkles, XCircle, type LucideIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { altTextFetcher, analyzeDocumentContext, documentImagesUrl, documentListUrl, extractDocumentImages } from "@/lib/alt-text/client"
-import { CONTEXT_CONFIDENCE_LABEL } from "@/lib/alt-text/document-context"
-import type { DocumentImageRecord, DocumentImagesResponse, DocumentListResponse, DocumentRecord } from "@/lib/alt-text/document-records"
-import { AssetImage } from "./alt-text-history"
-import { CONFIDENCE_TONE, DocumentContextSheet, type ContextSheetTarget } from "./document-context-sheet"
-import { StatusBadge } from "./document-upload-status"
+import { altTextFetcher, analyzeDocumentContext, documentListUrl, extractDocumentImages } from "@/lib/alt-text/client"
+import type { ReviewImageRecord } from "@/lib/alt-text/document-image-review"
+import type { DocumentListResponse, DocumentRecord } from "@/lib/alt-text/document-records"
+import { DocumentContextSheet, type ContextSheetTarget } from "./document-context-sheet"
+import { ExtractedImagesGallery, type ImageRowActions } from "./extracted-images-gallery"
+import { ImagePagination, PageSelectCheckbox, SelectionBar } from "./extracted-images-selection"
+import { ExtractedImagesTable } from "./extracted-images-table"
+import { DEFAULT_FILTERS, ExtractedImagesToolbar } from "./extracted-images-toolbar"
+import { ImageDetailsSheet, type DetailsTarget } from "./image-details-sheet"
+import { ImageReadinessSummary } from "./image-readiness-summary"
+import { locationLabel, sourceName } from "./image-review-ui"
+import { useImageReview } from "./use-image-review"
 
 const EXTRACTABLE = new Set(["pdf", "pptx"])
+const REVIEWABLE = new Set(["pdf", "pptx", "docx"])
 const isExtractable = (d: DocumentRecord) => d.extractionReady && EXTRACTABLE.has(d.documentType) && d.processingStatus !== "extracting"
 const CONTEXT_READY = new Set(["extracted", "partially_extracted", "failed", "unsupported"])
 
 const LATER: { label: string; icon: LucideIcon }[] = [
-  { label: "Generate Alt Text", icon: Sparkles },
   { label: "Review Descriptions", icon: ListChecks },
   { label: "Download Accessible Document", icon: Download },
   { label: "Export Results", icon: FileUp },
 ]
 const LATER_NOTE = "Available in a later phase of document processing."
-
-const COLUMNS = ["Image", "Page / Slide / Location", "Image Type", "Processing Status", "Existing Alt Text", "Document Context"]
-
-function ContextCell({ img }: { img: DocumentImageRecord }) {
-  if (img.contextStatus === "failed") return <StatusBadge tone="danger">Analysis failed</StatusBadge>
-  if (!img.contextStatus || !img.contextConfidence) return <span className="text-xs text-muted-foreground">Not analyzed</span>
-  return <StatusBadge tone={CONFIDENCE_TONE[img.contextConfidence]}>{CONTEXT_CONFIDENCE_LABEL[img.contextConfidence]}</StatusBadge>
-}
-
-const STATUS_TONE = { pending: "info", extracted: "success", failed: "danger", unsupported: "warning" } as const
-
-function location(img: DocumentImageRecord) {
-  const where = img.slideNumber != null ? `Slide ${img.slideNumber}` : img.pageNumber != null ? `Page ${img.pageNumber}` : "—"
-  const label = img.sourceMetadata?.pdf?.pageLabel
-  return label && label !== String(img.pageNumber) ? `${where} (${label})` : where
-}
-
-function imageType(img: DocumentImageRecord) {
-  if (img.isDecorative) return "Decorative candidate"
-  const cls = img.sourceMetadata?.pdf?.classification
-  if (cls === "likely_scanned_page") return "Likely scanned page"
-  if (img.sourceMetadata?.pdf?.kind === "inline") return "Inline image"
-  return "Embedded image"
-}
-
-function existingAlt(img: DocumentImageRecord) {
-  const m = img.sourceMetadata
-  return m?.originalDescription ?? m?.pdf?.structure?.actualText ?? m?.pdf?.structure?.markedContentAlt ?? null
-}
 
 function SummaryTile({ label, icon: Icon, value }: { label: string; icon: LucideIcon; value: number | null }) {
   return (
@@ -83,22 +61,50 @@ function SummaryTile({ label, icon: Icon, value }: { label: string; icon: Lucide
   )
 }
 
+function LaterButton({ label, icon: Icon, note = LATER_NOTE }: { label: string; icon: LucideIcon; note?: string }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span tabIndex={0} className="inline-flex rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <Button variant="outline" size="sm" disabled>
+            <Icon aria-hidden="true" />
+            {label}
+          </Button>
+        </span>
+      </TooltipTrigger>
+      <TooltipContent>{note}</TooltipContent>
+    </Tooltip>
+  )
+}
+
 export function ExtractedImagesPanel() {
   const docs = useSWR<DocumentListResponse>(documentListUrl(1, 100), altTextFetcher, { revalidateOnFocus: false })
   const [selected, setSelected] = useState<string>("")
   const [running, setRunning] = useState(false)
+  const [analyzing, setAnalyzing] = useState(false)
+  const [contextTarget, setContextTarget] = useState<ContextSheetTarget | null>(null)
+  const [details, setDetails] = useState<DetailsTarget | null>(null)
   const documentId = selected ? Number(selected) : null
   const doc = docs.data?.documents.find((d) => d.id === documentId) ?? null
-  const images = useSWR<DocumentImagesResponse>(documentId ? documentImagesUrl(documentId) : null, altTextFetcher, { revalidateOnFocus: false })
-  const counts = images.data?.counts ?? null
-  const eligible = docs.data?.documents.filter((d) => d.extractionReady && EXTRACTABLE.has(d.documentType)) ?? []
+  const review = useImageReview(documentId)
+  const { data } = review
+  const counts = data?.counts ?? null
+  const summary = data?.summary ?? null
+  const reviewable = docs.data?.documents.filter((d) => d.extractionReady && REVIEWABLE.has(d.documentType)) ?? []
+  const filtersActive = JSON.stringify({ ...review.filters, sort: DEFAULT_FILTERS.sort }) !== JSON.stringify(DEFAULT_FILTERS)
+
+  function selectDocument(id: string) {
+    setSelected(id)
+    setDetails(null)
+    setContextTarget(null)
+  }
 
   async function extract() {
     if (!doc || running) return
     setRunning(true)
     const r = await extractDocumentImages(doc.id)
     setRunning(false)
-    await Promise.all([images.mutate(), docs.mutate()])
+    await Promise.all([review.revalidateDocument(), docs.mutate()])
     if (!r.ok) {
       toast.error("Extraction failed", { description: r.error.message })
       return
@@ -106,8 +112,6 @@ export function ExtractedImagesPanel() {
     toast.success(r.data.alreadyProcessed ? "Images were already extracted" : `Extracted images from ${doc.filename}`)
   }
 
-  const [analyzing, setAnalyzing] = useState(false)
-  const [contextTarget, setContextTarget] = useState<ContextSheetTarget | null>(null)
   const canAnalyze = !!doc && CONTEXT_READY.has(doc.processingStatus) && (counts?.total ?? 0) > 0
 
   async function analyzeContext() {
@@ -115,7 +119,7 @@ export function ExtractedImagesPanel() {
     setAnalyzing(true)
     const r = await analyzeDocumentContext(doc.id)
     setAnalyzing(false)
-    await images.mutate()
+    await review.revalidateDocument()
     if (!r.ok) {
       toast.error("Context analysis failed", { description: r.error.message })
       return
@@ -125,6 +129,23 @@ export function ExtractedImagesPanel() {
       description: `${s.analyzed} with context, ${s.unavailable} unavailable${s.failed ? `, ${s.failed} failed` : ""}.`,
     })
   }
+
+  const openContext = (img: ReviewImageRecord) => setContextTarget({ documentId: img.documentId, imageId: img.id, label: `${sourceName(img)}, ${locationLabel(img)}` })
+
+  const actions: ImageRowActions = {
+    pendingIds: review.pendingIds,
+    canManage: review.canManage,
+    onToggle: review.toggle,
+    onDetails: (img) => setDetails({ img, focus: "details" }),
+    onContext: openContext,
+    onDuplicates: (img) => setDetails({ img, focus: "duplicates" }),
+  }
+
+  // Keep the open drawer in sync with the latest server-confirmed row after a mutation.
+  const liveDetails = details ? { ...details, img: review.images.find((i) => i.id === details.img.id) ?? details.img } : null
+  const selectedCount = summary?.selectedOccurrences ?? 0
+  const hasImages = (counts?.total ?? 0) > 0
+  const isDocx = doc?.documentType === "docx"
 
   return (
     <>
@@ -145,19 +166,21 @@ export function ExtractedImagesPanel() {
         <CardHeader className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
             <CardTitle className="text-base">Extracted Images</CardTitle>
-            <CardDescription>Each drawing of an image is listed with its original page or slide for context-aware descriptions and review.</CardDescription>
+            <CardDescription>
+              Review every image occurrence with its original page, slide or position, then select which ones to send for alt text generation.
+            </CardDescription>
           </div>
           <div className="flex flex-col gap-3 md:flex-row md:items-end">
             <div className="flex min-w-0 flex-1 flex-col gap-1.5">
               <Label htmlFor="extract-doc">Document</Label>
-              <Select value={selected} onValueChange={setSelected} disabled={eligible.length === 0}>
+              <Select value={selected} onValueChange={selectDocument} disabled={reviewable.length === 0}>
                 <SelectTrigger id="extract-doc" className="w-full md:max-w-sm">
-                  <SelectValue placeholder={docs.isLoading ? "Loading documents…" : eligible.length ? "Select a cleared PDF or PPTX" : "No cleared PDF or PPTX documents"} />
+                  <SelectValue placeholder={docs.isLoading ? "Loading documents…" : reviewable.length ? "Select a cleared document" : "No cleared documents"} />
                 </SelectTrigger>
                 <SelectContent>
-                  {eligible.map((d) => (
+                  {reviewable.map((d) => (
                     <SelectItem key={d.id} value={String(d.id)}>
-                      {d.filename}
+                      {`${d.filename} · ${d.documentType.toUpperCase()}`}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -172,104 +195,96 @@ export function ExtractedImagesPanel() {
                 {analyzing ? <Loader2 className="animate-spin" aria-hidden="true" /> : <FileSearch aria-hidden="true" />}
                 {analyzing ? "Analyzing…" : "Analyze Context"}
               </Button>
-              {LATER.map(({ label, icon: Icon }) => (
-                <Tooltip key={label}>
-                  <TooltipTrigger asChild>
-                    <span tabIndex={0} className="inline-flex rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                      <Button variant="outline" size="sm" disabled>
-                        <Icon aria-hidden="true" />
-                        {label}
-                      </Button>
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>{LATER_NOTE}</TooltipContent>
-                </Tooltip>
+              <LaterButton
+                label={`Generate Alt Text${selectedCount ? ` (${selectedCount})` : ""}`}
+                icon={Sparkles}
+                note={
+                  selectedCount
+                    ? `${selectedCount} selected image${selectedCount === 1 ? "" : "s"} will be used when document generation becomes available.`
+                    : "Select eligible images first. Document generation is available in a later phase."
+                }
+              />
+              {LATER.map((l) => (
+                <LaterButton key={l.label} {...l} />
               ))}
             </div>
           </div>
         </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <div className="overflow-x-auto rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  {COLUMNS.map((c) => (
-                    <TableHead key={c} className="whitespace-nowrap">
-                      {c}
-                    </TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {images.data && images.data.images.length > 0 ? (
-                  images.data.images.map((img) => {
-                    const alt = existingAlt(img)
-                    return (
-                      <TableRow key={img.id}>
-                        <TableCell>
-                          {img.altTextAssetId ? (
-                            <AssetImage id={img.altTextAssetId} alt={`Image ${img.occurrenceIndex + 1}, ${location(img)}`} className="size-12 rounded" />
-                          ) : (
-                            <div className="flex size-12 items-center justify-center rounded bg-muted text-muted-foreground" aria-label="No preview">
-                              <ImageIcon className="size-4" aria-hidden="true" />
-                            </div>
-                          )}
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap">{location(img)}</TableCell>
-                        <TableCell className="whitespace-nowrap">{imageType(img)}</TableCell>
-                        <TableCell>
-                          <div className="flex flex-col gap-1">
-                            <StatusBadge tone={STATUS_TONE[img.extractionStatus]}>{img.extractionStatus}</StatusBadge>
-                            {img.extractionErrorMessage && <span className="max-w-64 text-xs text-muted-foreground">{img.extractionErrorMessage}</span>}
-                          </div>
-                        </TableCell>
-                        <TableCell className="max-w-72 text-xs text-muted-foreground">
-                          {alt ? <span className="line-clamp-2">{alt}</span> : "None in source"}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-col items-start gap-1.5">
-                            <ContextCell img={img} />
-                            <Button
-                              variant="link"
-                              size="sm"
-                              className="h-auto p-0 text-xs"
-                              onClick={() => setContextTarget({ documentId: img.documentId, imageId: img.id, label: `Image ${img.occurrenceIndex + 1}, ${location(img)}` })}
-                            >
-                              View context
-                              <span className="sr-only">{` for image ${img.occurrenceIndex + 1}`}</span>
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })
+
+        <CardContent className="flex flex-col gap-5">
+          {!documentId || !hasImages ? (
+            <Empty className="rounded-md border py-10">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">{review.list.isLoading ? <Loader2 className="animate-spin" aria-hidden="true" /> : <ImageIcon aria-hidden="true" />}</EmptyMedia>
+                <EmptyTitle>{!documentId ? "No document selected" : review.list.error ? "Images could not be loaded" : review.list.isLoading ? "Loading images…" : "No extracted images yet"}</EmptyTitle>
+                <EmptyDescription>
+                  {!documentId
+                    ? "Choose a security-cleared document to view or extract its images."
+                    : review.list.error
+                      ? "Something went wrong while loading this document's images."
+                      : isDocx
+                        ? "Image extraction for Word documents is not available yet."
+                        : "Run Extract Images to list every image in this document."}
+                </EmptyDescription>
+              </EmptyHeader>
+              {review.list.error && (
+                <EmptyContent>
+                  <Button size="sm" variant="outline" onClick={() => review.list.mutate()}>
+                    Try again
+                  </Button>
+                </EmptyContent>
+              )}
+            </Empty>
+          ) : (
+            <>
+              <ImageReadinessSummary summary={summary} />
+              <ExtractedImagesToolbar filters={review.filters} onChange={review.setFilters} view={review.view} onViewChange={review.setView} isPdf={doc?.documentType === "pdf"} />
+              <SelectionBar review={review} summary={summary} />
+
+              <div aria-busy={review.list.isValidating} className="relative flex flex-col gap-4">
+                {review.images.length === 0 ? (
+                  <Empty className="rounded-md border py-10">
+                    <EmptyHeader>
+                      <EmptyMedia variant="icon">
+                        <SearchX aria-hidden="true" />
+                      </EmptyMedia>
+                      <EmptyTitle>No images match these filters</EmptyTitle>
+                      <EmptyDescription>Try a different search or clear the filters.</EmptyDescription>
+                    </EmptyHeader>
+                    {filtersActive && (
+                      <EmptyContent>
+                        <Button size="sm" variant="outline" onClick={() => review.setFilters({ ...DEFAULT_FILTERS, sort: review.filters.sort })}>
+                          Clear filters
+                        </Button>
+                      </EmptyContent>
+                    )}
+                  </Empty>
+                ) : review.view === "gallery" ? (
+                  <ExtractedImagesGallery images={review.images} actions={actions} />
                 ) : (
-                  <TableRow className="hover:bg-transparent">
-                    <TableCell colSpan={COLUMNS.length} className="p-0">
-                      <Empty className="py-10">
-                        <EmptyHeader>
-                          <EmptyMedia variant="icon">
-                            {images.isLoading ? <Loader2 className="animate-spin" aria-hidden="true" /> : <ImageIcon aria-hidden="true" />}
-                          </EmptyMedia>
-                          <EmptyTitle>{documentId ? "No extracted images yet" : "No document selected"}</EmptyTitle>
-                          <EmptyDescription>
-                            {documentId ? "Run Extract Images to list every image in this document." : "Choose a security-cleared document to view or extract its images."}
-                          </EmptyDescription>
-                        </EmptyHeader>
-                      </Empty>
-                    </TableCell>
-                  </TableRow>
+                  <ExtractedImagesTable images={review.images} actions={actions} pageHeader={<PageSelectCheckbox review={review} />} />
                 )}
-              </TableBody>
-            </Table>
-          </div>
+                <ImagePagination review={review} />
+              </div>
+            </>
+          )}
+
           <p className="text-xs leading-relaxed text-muted-foreground">
-            Existing alt text is shown only when the source document reliably links it to that image; it is never auto-approved. PDF remediation
-            depends on the document&apos;s tag structure, so not every PDF can be remediated automatically.
+            Existing alt text is shown only when the source document reliably links it to that image; it is never auto-approved. Selection only
+            marks images for a future generation run and does not use credits. PDF remediation depends on the document&apos;s tag structure.
           </p>
         </CardContent>
       </Card>
-      <DocumentContextSheet target={contextTarget} onClose={() => setContextTarget(null)} onAnalyzed={() => images.mutate()} />
+
+      <ImageDetailsSheet
+        target={liveDetails}
+        onClose={() => setDetails(null)}
+        onOpen={setDetails}
+        onContext={openContext}
+        onReview={review.setReview}
+        canManage={review.canManage}
+      />
+      <DocumentContextSheet target={contextTarget} onClose={() => setContextTarget(null)} onAnalyzed={() => review.revalidateDocument()} />
     </>
   )
 }

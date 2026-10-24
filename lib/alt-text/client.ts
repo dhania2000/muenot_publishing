@@ -148,9 +148,6 @@ function xhrUpload<T>(
   })
 }
 
-export const documentImagesUrl = (documentId: number, limit = 200, offset = 0) =>
-  `/api/alt-text/documents/${documentId}/images?${new URLSearchParams({ limit: String(limit), offset: String(offset) })}`
-
 export const documentReviewImagesUrl = (documentId: number, q: Partial<ImageListQuery>) =>
   `/api/alt-text/documents/${documentId}/images?${imageListSearchParams(q)}`
 
