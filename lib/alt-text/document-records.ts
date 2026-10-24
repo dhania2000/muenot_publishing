@@ -124,6 +124,10 @@ export type DocumentImageRecord = {
   extractionStatus: ImageExtractionStatus
   extractionErrorCode: string | null
   extractionErrorMessage: string | null
+  /** Phase 3 Task 9 summary columns; the full context is served by the context endpoint. */
+  contextStatus: "analyzed" | "unavailable" | "failed" | null
+  contextConfidence: "high" | "medium" | "low" | "unavailable" | null
+  contextAnalyzedAt: string | null
   createdAt: string
   updatedAt: string
 }
