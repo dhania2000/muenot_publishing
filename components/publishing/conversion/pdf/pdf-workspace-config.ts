@@ -11,6 +11,7 @@
  * no step is ever reported as completed, and guideline states other than "not-provided" are contracts for Phase 6.
  */
 import { deriveFormatAvailability, type PdfCapabilityStatus } from "@/components/publishing/conversion/pdf/pdf-capabilities"
+import { GUIDELINE_PRIORITY_LEVELS, GUIDELINES_OPTIONAL_SHORT_MESSAGE } from "@/lib/guidelines/contract"
 
 // ─── Workflow ────────────────────────────────────────────────────────────────
 
@@ -148,6 +149,10 @@ export function getTargetFormatOptions(): PdfTargetFormatOption[] {
 
 // ─── Optional guidelines ─────────────────────────────��──────────────────────
 
+/**
+ * Compact summary label only, derived by `derivePdfGuidelineState` (pdf-guidelines-model.ts) from the separate
+ * document, rule, application and verification statuses in lib/guidelines/contract.ts.
+ */
 export type PdfGuidelineState =
   | "not-provided"
   | "profile-selected"
@@ -156,30 +161,29 @@ export type PdfGuidelineState =
   | "conflict"
   | "unsupported"
   | "verification-pending"
+  | "failed"
+  | "verified-with-exceptions"
   | "verified"
 
 /** `tone` follows the shared status scale in pdf-status-model.ts. "not-provided" is neutral, never an error. */
 export const PDF_GUIDELINE_STATES: Record<
   PdfGuidelineState,
-  { label: string; description: string; tone: "neutral" | "info" | "success" | "warning" }
+  { label: string; description: string; tone: "neutral" | "info" | "success" | "warning" | "danger" }
 > = {
-  "not-provided": { label: "Not provided", tone: "neutral", description: "Company guidelines are optional. Standard settings will be used." },
-  "profile-selected": { label: "Guidelines selected", tone: "info", description: "A company guideline profile is selected for this job." },
-  "pending-review": { label: "Pending review", tone: "info", description: "Guidelines were supplied and are awaiting review." },
-  applied: { label: "Applied", tone: "info", description: "Applicable guideline rules are mapped to this job's settings. Output is not yet verified." },
-  conflict: { label: "Conflict", tone: "warning", description: "Some guideline rules conflict and need review before processing." },
-  unsupported: { label: "Unsupported", tone: "neutral", description: "Some requirements cannot be applied by this module. Standard settings cover the rest." },
-  "verification-pending": { label: "Verification pending", tone: "info", description: "Output has not yet been verified against the guidelines." },
-  verified: { label: "Verified", tone: "success", description: "Output was checked against each applicable guideline rule." },
+  "not-provided": { label: "Not Provided", tone: "neutral", description: GUIDELINES_OPTIONAL_SHORT_MESSAGE },
+  "profile-selected": { label: "Profile selected", tone: "info", description: "A company guideline profile is selected for this job. Its requirements are not yet applied." },
+  "pending-review": { label: "Pending Review", tone: "info", description: "Guidelines were supplied and their requirements are awaiting review." },
+  applied: { label: "Applied, not verified", tone: "info", description: "Accepted requirements are applied to this job's settings. Output is not yet verified." },
+  conflict: { label: "Conflict", tone: "warning", description: "Some requirements conflict and need review. Nothing is overridden silently." },
+  unsupported: { label: "Unsupported requirements", tone: "warning", description: "Some requirements cannot be produced by this module and need an explicit decision." },
+  "verification-pending": { label: "Verification Pending", tone: "info", description: "Output has not yet been verified against the guidelines." },
+  failed: { label: "Requirements failed", tone: "danger", description: "At least one mandatory requirement failed verification." },
+  "verified-with-exceptions": { label: "Verified with exceptions", tone: "info", description: "Mandatory requirements passed or are covered by approved exceptions." },
+  verified: { label: "Verified", tone: "success", description: "Every applicable mandatory requirement passed verification." },
 }
 
-/** Highest priority first. Safety constraints and mandatory technical requirements sit above all of these. */
-export const PDF_GUIDELINE_PRIORITY = [
-  { id: "job", label: "Job-Specific Guidelines" },
-  { id: "company", label: "Company Guideline Profile" },
-  { id: "preset", label: "Conversion Preset" },
-  { id: "standard", label: "Standard Default Settings" },
-] as const
+/** Highest priority first; mirrors the shared hierarchy. Mandatory technical and security constraints sit above all. */
+export const PDF_GUIDELINE_PRIORITY = GUIDELINE_PRIORITY_LEVELS
 
 export const STANDARD_PROFILE = { id: "standard", label: "Standard Profile" } as const
 

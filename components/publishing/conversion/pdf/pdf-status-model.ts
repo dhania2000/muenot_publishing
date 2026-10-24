@@ -3,16 +3,15 @@
  * @module Publishing › Conversion › PDF
  * @kind Pure configuration
  * @summary Engine-agnostic status contracts shared by the PDF UI: processing, progress, messages, logs,
- *   validation, optional client guidelines and conversion profiles. No data source lives here.
+ *   validation and conversion profiles. No data source lives here. Guideline statuses live in lib/guidelines/contract.ts.
  * @exports PDF_PROCESSING_STATUS_META, PDF_VALIDATION_STATUS_META, PDF_SEVERITY_META, PDF_CHECK_STATUS_META,
- *   PDF_CHECK_CATEGORY_META, PDF_GUIDELINE_RULE_STATUS_META, PDF_MESSAGE_TONE_META, PDF_DEFAULT_PROFILES,
- *   resolveProgress, resolveCheckStatus, summarizeValidation, summarizeGuidelineCompliance, and their types
+ *   PDF_CHECK_CATEGORY_META, PDF_MESSAGE_TONE_META, PDF_DEFAULT_PROFILES,
+ *   resolveProgress, resolveCheckStatus, summarizeValidation, and their types
  *
  * Phase 1 Task 8. These are contracts for later phases. Helpers refuse to manufacture progress, a pass or a
  * compliance result: an unknown percentage is indeterminate, and a "passed" check without evidence is reported
  * as needing review.
  */
-import type { PdfGuidelineState } from "@/components/publishing/conversion/pdf/pdf-workspace-config"
 
 /** Restrained tone scale. Every tone is paired with an icon and a text label, never color alone. */
 export type PdfStatusTone = "neutral" | "info" | "progress" | "success" | "warning" | "danger"
@@ -186,73 +185,8 @@ export function summarizeValidation({
 
 // ─── Optional client guidelines ─────────────────────────────────────────────
 
-export type PdfGuidelineRuleStatus = "identified" | "applied" | "verified" | "failed" | "unsupported" | "conflict"
-
-export const PDF_GUIDELINE_RULE_STATUS_META: Record<PdfGuidelineRuleStatus, PdfStatusMeta> = {
-  identified: { label: "Identified", tone: "neutral" },
-  applied: { label: "Applied, not verified", tone: "info" },
-  verified: { label: "Verified", tone: "success" },
-  failed: { label: "Failed", tone: "danger" },
-  unsupported: { label: "Unsupported", tone: "neutral" },
-  conflict: { label: "Conflict", tone: "warning" },
-}
-
-export type PdfGuidelineRule = {
-  id: string
-  requirement: string
-  /** Where the rule came from, e.g. "Style guide §4.2". */
-  sourceReference?: string
-  expectedSetting?: string
-  appliedSetting?: string
-  status: PdfGuidelineRuleStatus
-}
-
-export type PdfGuidelineConflict = {
-  id: string
-  requirement: string
-  sourceGuideline: string
-  affectedSetting: string
-  explanation: string
-  resolved: boolean
-}
-
-export type PdfGuidelineProfile = {
-  id: string
-  companyLabel: string
-  name: string
-  version?: string
-  applicableFormat?: string
-  status: PdfGuidelineState
-  /** ISO 8601 date, only when the source records one. */
-  updatedAt?: string
-}
-
-export type PdfGuidelineCompliance = {
-  identified: number
-  applied: number
-  verified: number
-  failed: number
-  unsupported: number
-  unresolvedConflicts: number
-}
-
-/** Counts only what the rules record. Returns null when there are no rules, so no empty "0 of 0 compliant" is shown. */
-export function summarizeGuidelineCompliance(
-  rules: readonly PdfGuidelineRule[],
-  conflicts: readonly PdfGuidelineConflict[] = [],
-): PdfGuidelineCompliance | null {
-  if (rules.length === 0 && conflicts.length === 0) return null
-  const count = (status: PdfGuidelineRuleStatus) => rules.filter((r) => r.status === status).length
-  return {
-    identified: rules.length,
-    // Verified rules were applied first, so they count toward applied too.
-    applied: count("applied") + count("verified"),
-    verified: count("verified"),
-    failed: count("failed"),
-    unsupported: count("unsupported"),
-    unresolvedConflicts: conflicts.filter((c) => !c.resolved).length + count("conflict"),
-  }
-}
+// Guideline documents, rules, statuses, conflicts and compliance live in the service-independent contract
+// (lib/guidelines/contract.ts). The PDF adapter is pdf-guidelines-model.ts.
 
 // ─── Conversion profiles ────────────────────────────────────────────────────
 
