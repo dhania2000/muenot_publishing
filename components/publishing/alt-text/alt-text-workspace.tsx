@@ -13,7 +13,7 @@ import { useEffect, useRef, useState } from "react"
 import { useSWRConfig } from "swr"
 import { FileText, History, ImagePlus, Layers, Settings2, SlidersHorizontal, Sparkles } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { Workbench, WorkbenchDrawer, WorkbenchScroll, WorkbenchToolbar } from "./workbench"
+import { ToolbarDivider, Workbench, WorkbenchDrawer, WorkbenchToolbar } from "./workbench"
 import { AccessibilitySettingsWorkspace } from "./accessibility-settings-workspace"
 import { BulkProcessingWorkspace } from "./bulk-processing-workspace"
 import { DocumentProcessingWorkspace } from "./document-processing-workspace"
@@ -61,6 +61,8 @@ const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
 import { GenerationSettingsPanel, PURPOSE_LABELS } from "./generation-settings-panel"
 import {
   AltTextResultsPanel,
+  GenerateActions,
+  type ResultsPanelActions,
   type GeneratedOutput,
   type GenerationStatus,
   type GenerationUsage,
@@ -70,33 +72,14 @@ import { AltTextHistory, AssetImage, StatusBadge } from "./alt-text-history"
 
 type Drafts = { shortAlt?: string; longDescription?: string }
 
-function SettingsSummary({ settings, onEdit }: { settings: GenerationSettings; onEdit: () => void }) {
-  const items = [
-    { label: "Purpose", value: PURPOSE_LABELS[settings.imagePurpose] },
-    { label: "Image type", value: GENERATION_IMAGE_TYPES[settings.imageType] },
-    { label: "Output", value: DESCRIPTION_MODES[settings.descriptionMode] },
-    { label: "Language", value: LANGUAGES[settings.outputLanguage] },
-  ]
-  return (
-    <section aria-labelledby="gen-settings-summary" className="flex flex-col gap-2 rounded-lg border bg-card p-3">
-      <div className="flex items-center justify-between gap-2">
-        <h2 id="gen-settings-summary" className="text-sm font-semibold text-foreground">
-          Generation settings
-        </h2>
-        <Button variant="ghost" size="sm" onClick={onEdit} aria-haspopup="dialog">
-          <SlidersHorizontal aria-hidden="true" /> Edit
-        </Button>
-      </div>
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
-        {items.map((item) => (
-          <div key={item.label} className="flex min-w-0 flex-col">
-            <dt className="text-muted-foreground">{item.label}</dt>
-            <dd className="truncate font-medium text-foreground">{item.value}</dd>
-          </div>
-        ))}
-      </dl>
-    </section>
-  )
+/** One-line, human-readable configuration summary shown in the Generate toolbar. */
+function settingsSummaryText(settings: GenerationSettings) {
+  return [
+    GENERATION_IMAGE_TYPES[settings.imageType],
+    PURPOSE_LABELS[settings.imagePurpose],
+    LANGUAGES[settings.outputLanguage],
+    DESCRIPTION_MODES[settings.descriptionMode],
+  ].join(" • ")
 }
 
 function settingsForAsset(asset: AltTextAssetView, base: GenerationSettings): GenerationSettings {
@@ -297,6 +280,27 @@ export function AltTextWorkspace() {
   const customizedSettings = (Object.keys(DEFAULT_GENERATION_SETTINGS) as (keyof GenerationSettings)[]).filter(
     (key) => settings[key] !== DEFAULT_GENERATION_SETTINGS[key],
   ).length
+  const imageSelected = image !== null || savedAsset !== null
+  const resultActions: ResultsPanelActions = {
+    generateBlockedReason,
+    onGenerate: () => void handleRegenerate(),
+    onRegenerate: () => void handleRegenerate(),
+    onSave: () => void handleSave(),
+    onExport: (f) => void handleExport(f),
+    onDraftChange: (field, draft, isDirty) => {
+      drafts.current[field] = draft
+      setDirtyFields((d) => (d[field] === isDirty ? d : { ...d, [field]: isDirty }))
+    },
+    saving,
+    exporting,
+    dirty,
+    saveError,
+    usage,
+    saved,
+    canSave: savedAsset !== null && saved !== null,
+    canExport: savedAsset !== null,
+  }
+  const summary = settingsSummaryText(settings)
 
   return (
     <>
@@ -346,7 +350,7 @@ export function AltTextWorkspace() {
               >
                 <ImagePlus aria-hidden="true" /> New Image
               </Button>
-              <Button variant="outline" size="sm" onClick={() => setSettingsOpen(true)} aria-haspopup="dialog">
+              <Button variant="outline" size="sm" onClick={() => setSettingsOpen(true)} aria-haspopup="dialog" title={summary}>
                 <SlidersHorizontal aria-hidden="true" /> Configure
                 {customizedSettings > 0 ? (
                   <Badge variant="secondary" className="ml-0.5 h-4 px-1.5 text-[10px] tabular-nums">
@@ -355,56 +359,42 @@ export function AltTextWorkspace() {
                   </Badge>
                 ) : null}
               </Button>
+              <ToolbarDivider />
+              <GenerateActions imageSelected={imageSelected} hasResult={output !== null} status={status} actions={resultActions} />
             </WorkbenchToolbar>
+            <p className="-mt-1 shrink-0 truncate px-1 text-xs text-muted-foreground" aria-label={`Current configuration: ${summary}`}>
+              {summary}
+            </p>
 
             <div className="flex min-h-0 min-w-0 flex-col gap-3 lg:flex-1 lg:flex-row">
-              <WorkbenchScroll className="flex flex-col gap-3 lg:w-[42%] lg:max-w-xl lg:flex-none">
+              <div className="flex min-w-0 flex-col lg:min-h-0 lg:w-[44%] lg:max-w-2xl lg:flex-none">
                 {savedAsset ? (
-                  <div className="flex flex-col gap-3 rounded-lg border bg-card p-3">
-                    <div className="flex items-center justify-center overflow-hidden rounded-md border bg-muted/30">
+                  <section aria-label="Image preview" className="flex flex-col gap-3 rounded-lg border bg-card p-3 lg:h-full lg:min-h-0">
+                    <div className="flex items-center justify-center overflow-hidden rounded-md border bg-muted/30 lg:min-h-0 lg:flex-1">
                       <AssetImage
                         id={savedAsset.id}
                         alt={savedAsset.shortAlt ?? `Preview of ${savedAsset.fileName}`}
-                        className="max-h-[min(55dvh,28rem)] w-full !object-contain"
+                        className="max-h-[min(55dvh,28rem)] w-full !object-contain lg:h-full lg:max-h-none"
                       />
                     </div>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="shrink-0 text-xs text-muted-foreground">
                       Saved asset opened from History. Use New Image to start over with a different file.
                     </p>
-                  </div>
+                  </section>
                 ) : (
                   <ImageInputPanel image={image} onImageChange={handleImageChange} />
                 )}
-                <SettingsSummary settings={settings} onEdit={() => setSettingsOpen(true)} />
-              </WorkbenchScroll>
-              <WorkbenchScroll className="lg:flex-1">
-              <AltTextResultsPanel
-                key={`${savedAsset?.id ?? "local"}-${editorKey}`}
-                imageSelected={image !== null || savedAsset !== null}
-                status={status}
-                error={error}
-                output={output}
-                actions={{
-                  generateBlockedReason,
-                  onGenerate: () => void handleRegenerate(),
-                  onRegenerate: () => void handleRegenerate(),
-                  onSave: () => void handleSave(),
-                  onExport: (f) => void handleExport(f),
-                  onDraftChange: (field, draft, isDirty) => {
-                    drafts.current[field] = draft
-                    setDirtyFields((d) => (d[field] === isDirty ? d : { ...d, [field]: isDirty }))
-                  },
-                  saving,
-                  exporting,
-                  dirty,
-                  saveError,
-                  usage,
-                  saved,
-                  canSave: savedAsset !== null && saved !== null,
-                  canExport: savedAsset !== null,
-                }}
-              />
-            </WorkbenchScroll>
+              </div>
+              <div className="flex min-w-0 flex-col lg:min-h-0 lg:flex-1">
+                <AltTextResultsPanel
+                  key={`${savedAsset?.id ?? "local"}-${editorKey}`}
+                  imageSelected={imageSelected}
+                  status={status}
+                  error={error}
+                  output={output}
+                  actions={resultActions}
+                />
+              </div>
           </div>
           </Workbench>
           <WorkbenchDrawer
