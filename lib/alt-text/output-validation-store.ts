@@ -138,6 +138,37 @@ export async function failValidation(runRef: string, code: string): Promise<void
   )
 }
 
+const CHUNK = 500
+const chunks = (ids: number[]) => Array.from({ length: Math.ceil(ids.length / CHUNK) }, (_, i) => ids.slice(i * CHUNK, (i + 1) * CHUNK))
+const placeholders = (n: number) => Array.from({ length: n }, () => "?").join(",")
+
+export type OccurrenceApproval = { sourceLocator: string; approvedVersionId: number | null }
+
+/** Current locator + approval of each occurrence, in batched queries (no N+1). */
+export async function loadOccurrenceApprovals(documentId: number, ids: number[]): Promise<Map<number, OccurrenceApproval>> {
+  await ensureSchema()
+  const out = new Map<number, OccurrenceApproval>()
+  for (const chunk of chunks([...new Set(ids)])) {
+    const rows = await query<RowDataPacket[]>(
+      `SELECT id, source_locator, approved_version_id FROM alt_text_document_images WHERE tenant_id = ? AND document_id = ? AND id IN (${placeholders(chunk.length)})`,
+      [tid(), documentId, ...chunk],
+    )
+    for (const r of rows) out.set(Number(r.id), { sourceLocator: String(r.source_locator ?? ""), approvedVersionId: r.approved_version_id == null ? null : Number(r.approved_version_id) })
+  }
+  return out
+}
+
+/** Immutable approved version rows referenced by an export. */
+export async function loadVersionTexts(ids: number[]): Promise<Map<number, { version: number; shortAlt: string | null }>> {
+  await ensureSchema()
+  const out = new Map<number, { version: number; shortAlt: string | null }>()
+  for (const chunk of chunks([...new Set(ids)])) {
+    const rows = await query<RowDataPacket[]>(`SELECT id, version, short_alt FROM alt_text_versions WHERE tenant_id = ? AND id IN (${placeholders(chunk.length)})`, [tid(), ...chunk])
+    for (const r of rows) out.set(Number(r.id), { version: Number(r.version), shortAlt: r.short_alt ?? null })
+  }
+  return out
+}
+
 /** Record a reviewer acknowledgement on one manual-review item of a completed run. Idempotent per item. */
 export async function acknowledgeCheck(documentId: number, outputRef: string, runRef: string, checkId: string, ack: ManualAcknowledgement): Promise<boolean> {
   await ensureSchema()

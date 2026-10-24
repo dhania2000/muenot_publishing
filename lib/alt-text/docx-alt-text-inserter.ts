@@ -271,7 +271,7 @@ export function inspectDocxPictures(source: Buffer): DocxInspection {
             relId: d.blipEmbed,
             mediaTarget: d.blipEmbed ? (m.rels.get(d.blipEmbed)?.target ?? null) : null,
             descr: d.descr,
-            decorative: d.decorativeTag ? decorativeOn(d.decorativeTag.text) : false,
+            decorative: decorativeOn(d),
             placement: d.placement,
             nested: d.nested,
             supported: isSupportedPicture(d, m),

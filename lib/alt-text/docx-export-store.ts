@@ -123,6 +123,16 @@ export async function getExportByRef(documentId: number, ref: string): Promise<S
   return rows[0] ? toRecord(rows[0]) : null
 }
 
+/** Checksums recorded at export time; used by Task 18 validation to prove integrity. */
+export async function getExportChecksums(documentId: number, ref: string): Promise<{ sourceChecksum: string | null; outputChecksum: string | null } | null> {
+  await ensureExportSchema()
+  const rows = await query<RowDataPacket[]>(
+    `SELECT source_checksum, output_checksum FROM alt_text_document_exports WHERE tenant_id = ? AND document_id = ? AND output_ref = ? LIMIT 1`,
+    [tid(), documentId, ref],
+  )
+  return rows[0] ? { sourceChecksum: rows[0].source_checksum ?? null, outputChecksum: rows[0].output_checksum ?? null } : null
+}
+
 export async function listExports(documentId: number, limit = 5): Promise<DocxExportRecord[]> {
   await ensureExportSchema()
   const rows = await query<Row[]>(`SELECT ${COLUMNS} FROM alt_text_document_exports WHERE tenant_id = ? AND document_id = ? ORDER BY id DESC LIMIT ?`, [tid(), documentId, limit])

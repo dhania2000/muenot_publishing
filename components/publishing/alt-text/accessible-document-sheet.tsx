@@ -11,7 +11,8 @@
 import { useRef, useState } from "react"
 import useSWR from "swr"
 import { toast } from "sonner"
-import { AlertTriangle, Download, FileCheck2, Loader2, RefreshCw } from "lucide-react"
+import { AlertTriangle, Download, FileCheck2, Loader2, RefreshCw, ShieldCheck } from "lucide-react"
+import { OutputValidationPanel } from "./output-validation-panel"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -120,6 +121,7 @@ export function AccessibleDocumentSheet({
   const [running, setRunning] = useState(false)
   const [result, setResult] = useState<DocxExportResponse | null>(null)
   const [failure, setFailure] = useState<{ message: string; items: DocxExportItem[] } | null>(null)
+  const [checking, setChecking] = useState<{ outputId: string; filename: string } | null>(null)
   const key = useRef<string | null>(null)
   const data = pre.data
 
@@ -127,6 +129,7 @@ export function AccessibleDocumentSheet({
     if (!next) {
       setResult(null)
       setFailure(null)
+      setChecking(null)
       key.current = null
     }
     onOpenChange(next)
@@ -166,7 +169,9 @@ export function AccessibleDocumentSheet({
         </SheetHeader>
 
         <div className="flex flex-1 flex-col gap-5 overflow-y-auto px-4 pb-4">
-          {pre.isLoading ? (
+          {checking && documentId ? (
+            <OutputValidationPanel documentId={documentId} outputId={checking.outputId} filename={checking.filename} onBack={() => setChecking(null)} />
+          ) : pre.isLoading ? (
             <div className="flex flex-col gap-3" aria-busy="true">
               <Skeleton className="h-16 w-full" />
               <Skeleton className="h-24 w-full" />
@@ -264,14 +269,20 @@ export function AccessibleDocumentSheet({
                   <AlertTitle>{result.replayed ? "Export already completed" : "Accessible document ready"}</AlertTitle>
                   <AlertDescription className="flex flex-col items-start gap-2">
                     {`${result.summary.updated} updated, ${result.summary.unchanged} already current, ${result.summary.skipped} skipped, ${result.summary.unsupported + result.summary.failed} not inserted.`}
-                    {result.export.downloadUrl ? (
-                      <Button asChild size="sm">
-                        <a href={result.export.downloadUrl} download={result.export.filename}>
-                          <Download aria-hidden="true" />
-                          Download {result.export.filename}
-                        </a>
+                    <div className="flex flex-wrap gap-2">
+                      {result.export.downloadUrl ? (
+                        <Button asChild size="sm">
+                          <a href={result.export.downloadUrl} download={result.export.filename}>
+                            <Download aria-hidden="true" />
+                            Download {result.export.filename}
+                          </a>
+                        </Button>
+                      ) : null}
+                      <Button size="sm" variant="outline" onClick={() => setChecking({ outputId: result.export.outputId, filename: result.export.filename })}>
+                        <ShieldCheck aria-hidden="true" />
+                        Quality check
                       </Button>
-                    ) : null}
+                    </div>
                   </AlertDescription>
                 </Alert>
               ) : null}
@@ -291,12 +302,19 @@ export function AccessibleDocumentSheet({
                             {e.status === "completed" ? `${e.updated} updated · ${DOCX_EXPORT_POLICY_LABELS[e.policy]}` : e.status === "failed" ? `Failed (${e.errorCode ?? "error"})` : "In progress"}
                           </span>
                         </span>
-                        {e.downloadUrl ? (
-                          <Button asChild size="sm" variant="outline">
-                            <a href={e.downloadUrl} download={e.filename} aria-label={`Download export from ${new Date(e.createdAt).toLocaleString()}`}>
-                              <Download aria-hidden="true" />
-                            </a>
-                          </Button>
+                        {e.status === "completed" ? (
+                          <span className="flex shrink-0 gap-1">
+                            <Button size="sm" variant="outline" onClick={() => setChecking({ outputId: e.outputId, filename: e.filename })} aria-label={`Quality check for export from ${new Date(e.createdAt).toLocaleString()}`}>
+                              <ShieldCheck aria-hidden="true" />
+                            </Button>
+                            {e.downloadUrl ? (
+                              <Button asChild size="sm" variant="outline">
+                                <a href={e.downloadUrl} download={e.filename} aria-label={`Download export from ${new Date(e.createdAt).toLocaleString()}`}>
+                                  <Download aria-hidden="true" />
+                                </a>
+                              </Button>
+                            ) : null}
+                          </span>
                         ) : null}
                       </li>
                     ))}
@@ -307,7 +325,7 @@ export function AccessibleDocumentSheet({
           ) : null}
         </div>
 
-        <SheetFooter className="border-t">
+        <SheetFooter className={checking ? "hidden" : "border-t"}>
           <Button onClick={run} disabled={!data?.supported || running || pre.isLoading}>
             {running ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Download aria-hidden="true" />}
             {running ? "Preparing document…" : `Create accessible ${FORMAT_LABEL[format]}`}

@@ -78,6 +78,26 @@ export type ValidationResponse = {
   report: Omit<ValidationReport, "checks"> | null
   findings: { items: ValidationCheck[]; total: number; page: number; pageSize: number }
   latestRun: { runId: string; status: ValidationRunStatus; errorCode: string | null; createdAt: string } | null
+  /** UI hint only; the server re-checks the approve permission on acknowledgement. */
+  canAcknowledge?: boolean
+}
+
+export type AcknowledgeRequest = { runId: string; checkId: string; note: string | null }
+
+const RUN_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+/** Check ids are interpolated into a JSON path, so only a safe character set is accepted. */
+const CHECK_ID = /^[A-Za-z0-9_.:-]{1,120}$/
+
+export function parseAcknowledgeRequest(body: unknown): { ok: true; request: AcknowledgeRequest } | { ok: false; error: string } {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return { ok: false, error: "The request body must be a JSON object." }
+  const b = body as Record<string, unknown>
+  if (Object.keys(b).some((k) => !["runId", "checkId", "note"].includes(k))) return { ok: false, error: "The request contains unknown fields." }
+  if (typeof b.runId !== "string" || !RUN_ID.test(b.runId)) return { ok: false, error: "A valid validation run id is required." }
+  if (typeof b.checkId !== "string" || !CHECK_ID.test(b.checkId)) return { ok: false, error: "A valid check id is required." }
+  if (b.note != null && typeof b.note !== "string") return { ok: false, error: "The note must be text." }
+  const note = typeof b.note === "string" ? b.note.trim() : ""
+  if ([...note].length > 500) return { ok: false, error: "The note must be 500 characters or fewer." }
+  return { ok: true, request: { runId: b.runId, checkId: b.checkId, note: note || null } }
 }
 
 export const STATUS_LABEL: Record<CheckStatus, string> = {

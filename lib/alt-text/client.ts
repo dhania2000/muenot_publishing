@@ -14,6 +14,7 @@ import type { DocumentRecord } from "./document-records"
 import type { DocumentUploadReference } from "./document-upload-contract"
 import type { DocxExportRequest, DocxExportResponse } from "./docx-export-contract"
 import type { ExportFormat } from "./export"
+import { outputValidationQueryUrl, type AcknowledgeRequest, type FindingsQuery, type ValidationResponse } from "./output-validation-contract"
 import type { AltTextAssetView } from "./history"
 import type { UploadedAsset } from "./upload"
 
@@ -281,6 +282,22 @@ export const docxExportPreflightUrl = (documentId: number) => `/api/alt-text/doc
 export function exportAccessibleDocx(documentId: number, request: DocxExportRequest) {
   return requestJson<DocxExportResponse>(docxExportPreflightUrl(documentId), {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request),
+  })
+}
+
+export function runOutputValidationRequest(documentId: number, outputId: string, query: FindingsQuery, force: boolean) {
+  return requestJson<ValidationResponse>(outputValidationQueryUrl(documentId, outputId, query), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(force ? { force: true } : {}),
+  })
+}
+
+export function acknowledgeValidationCheck(documentId: number, outputId: string, query: FindingsQuery, request: AcknowledgeRequest) {
+  return requestJson<ValidationResponse>(outputValidationQueryUrl(documentId, outputId, query), {
+    method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(request),
   })
