@@ -46,6 +46,7 @@ import {
 } from "@/lib/alt-text/client"
 import { AssetImage, StatusBadge, classificationLabel, exportAsset, formatDateTime, languageLabel } from "./alt-text-history"
 import { ImageClassificationPanel } from "./image-classification-panel"
+import { ImageRegionsPanel } from "./image-regions-panel"
 
 export type DrawerFocus = "view" | "edit" | "versions"
 
@@ -302,6 +303,10 @@ function DrawerBody({
       <Separator />
 
       <ImageClassificationPanel assetId={asset.id} />
+
+      <Separator />
+
+      <ImageRegionsPanel assetId={asset.id} />
 
       <Separator />
 
