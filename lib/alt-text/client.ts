@@ -9,6 +9,8 @@ import type { CreateBatchPayload } from "./bulk-upload"
 import type { AltTextResult, GenerationSettings } from "./core"
 import type { DocumentImageContext } from "./document-context"
 import { imageListSearchParams, type ImageListQuery, type ImageMutationRequest, type ImageMutationResponse } from "./document-image-review"
+import type { DocumentPreparationProgress } from "./document-preparation-contract"
+import type { DocumentRecord } from "./document-records"
 import type { DocumentUploadReference } from "./document-upload-contract"
 import type { ExportFormat } from "./export"
 import type { AltTextAssetView } from "./history"
@@ -162,10 +164,22 @@ export function updateDocumentImages(documentId: number, body: ImageMutationRequ
   })
 }
 
-export function extractDocumentImages(documentId: number) {
-  return requestJson<{ success: true; alreadyProcessed?: boolean; counts?: { total: number; extracted: number; failed: number; unsupported: number } }>(
-    `/api/alt-text/documents/${documentId}/extract`,
+export const documentDetailUrl = (documentId: number) => `/api/alt-text/documents/${documentId}`
+
+export type DocumentDetailResponse = { success: true; document: DocumentRecord; preparation: DocumentPreparationProgress }
+
+/** Enqueue (or reuse) the durable preparation job. Resolves once the queue accepted it (HTTP 202). */
+export function startDocumentPreparation(documentId: number) {
+  return requestJson<{ success: true; jobId: number; created: boolean; preparation: DocumentPreparationProgress }>(
+    `/api/alt-text/documents/${documentId}/process`,
     { method: "POST" },
+  )
+}
+
+export function cancelDocumentPreparation(documentId: number) {
+  return requestJson<{ success: true; result: "cancelled" | "cancel_requested"; jobId: number; preparation: DocumentPreparationProgress }>(
+    `/api/alt-text/documents/${documentId}/process`,
+    { method: "DELETE" },
   )
 }
 

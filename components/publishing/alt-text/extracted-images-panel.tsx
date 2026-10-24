@@ -10,7 +10,7 @@
  *   each one, and persist which eligible occurrences are selected for future alt text generation.
  *   Generation itself stays disabled until Tasks 11–12 consume the selection snapshot.
  */
-import { useState } from "react"
+import { useCallback, useState } from "react"
 import useSWR from "swr"
 import { toast } from "sonner"
 import { CheckCircle2, Download, FileSearch, FileStack, FileUp, Hourglass, ImageIcon, Images, ListChecks, Loader2, ScanSearch, SearchX, Sparkles, XCircle, type LucideIcon } from "lucide-react"
@@ -20,7 +20,9 @@ import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTi
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { altTextFetcher, analyzeDocumentContext, documentListUrl, extractDocumentImages } from "@/lib/alt-text/client"
+import { altTextFetcher, analyzeDocumentContext, cancelDocumentPreparation, documentListUrl, startDocumentPreparation } from "@/lib/alt-text/client"
+import { DocumentPreparationStatus } from "./document-preparation-status"
+import { useDocumentPreparation } from "./use-document-preparation"
 import type { ReviewImageRecord } from "@/lib/alt-text/document-image-review"
 import type { DocumentListResponse, DocumentRecord } from "@/lib/alt-text/document-records"
 import { DocumentContextSheet, type ContextSheetTarget } from "./document-context-sheet"
@@ -81,6 +83,7 @@ export function ExtractedImagesPanel() {
   const docs = useSWR<DocumentListResponse>(documentListUrl(1, 100), altTextFetcher, { revalidateOnFocus: false })
   const [selected, setSelected] = useState<string>("")
   const [running, setRunning] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
   const [analyzing, setAnalyzing] = useState(false)
   const [contextTarget, setContextTarget] = useState<ContextSheetTarget | null>(null)
   const [details, setDetails] = useState<DetailsTarget | null>(null)
@@ -99,17 +102,36 @@ export function ExtractedImagesPanel() {
     setContextTarget(null)
   }
 
+  const refreshAfterRun = useCallback(() => {
+    void review.revalidateDocument()
+    void docs.mutate()
+  }, [review.revalidateDocument, docs.mutate])
+  const prep = useDocumentPreparation(documentId, refreshAfterRun)
+
   async function extract() {
-    if (!doc || running) return
+    if (!doc || running || prep.active) return
     setRunning(true)
-    const r = await extractDocumentImages(doc.id)
+    const r = await startDocumentPreparation(doc.id)
     setRunning(false)
-    await Promise.all([review.revalidateDocument(), docs.mutate()])
     if (!r.ok) {
-      toast.error("Extraction failed", { description: r.error.message })
+      toast.error("Processing could not start", { description: r.error.message })
       return
     }
-    toast.success(r.data.alreadyProcessed ? "Images were already extracted" : `Extracted images from ${doc.filename}`)
+    await prep.mutate()
+    toast.success(r.data.created ? `Processing started for ${doc.filename}` : "Processing is already in progress")
+  }
+
+  async function cancelProcessing() {
+    if (!doc || cancelling) return
+    setCancelling(true)
+    const r = await cancelDocumentPreparation(doc.id)
+    setCancelling(false)
+    await prep.mutate()
+    if (!r.ok) {
+      toast.error("Could not cancel processing", { description: r.error.message })
+      return
+    }
+    toast.success(r.data.result === "cancelled" ? "Processing cancelled" : "Cancellation requested. Processing stops at the next checkpoint.")
   }
 
   const canAnalyze = !!doc && CONTEXT_READY.has(doc.processingStatus) && (counts?.total ?? 0) > 0
@@ -187,11 +209,11 @@ export function ExtractedImagesPanel() {
               </Select>
             </div>
             <div role="group" aria-label="Document actions" className="flex flex-wrap gap-2">
-              <Button size="sm" onClick={extract} disabled={!doc || !isExtractable(doc) || running}>
-                {running ? <Loader2 className="animate-spin" aria-hidden="true" /> : <ScanSearch aria-hidden="true" />}
-                {running ? "Extracting…" : "Extract Images"}
+              <Button size="sm" onClick={extract} disabled={!doc || !isExtractable(doc) || running || prep.active}>
+                {running || prep.active ? <Loader2 className="animate-spin" aria-hidden="true" /> : <ScanSearch aria-hidden="true" />}
+                {running ? "Starting…" : prep.active ? "Processing…" : "Process Document"}
               </Button>
-              <Button size="sm" variant="outline" onClick={analyzeContext} disabled={!canAnalyze || analyzing}>
+              <Button size="sm" variant="outline" onClick={analyzeContext} disabled={!canAnalyze || analyzing || prep.active}>
                 {analyzing ? <Loader2 className="animate-spin" aria-hidden="true" /> : <FileSearch aria-hidden="true" />}
                 {analyzing ? "Analyzing…" : "Analyze Context"}
               </Button>
@@ -212,6 +234,7 @@ export function ExtractedImagesPanel() {
         </CardHeader>
 
         <CardContent className="flex flex-col gap-5">
+          {prep.preparation && <DocumentPreparationStatus preparation={prep.preparation} stale={prep.stale} cancelling={cancelling} onCancel={cancelProcessing} />}
           {!documentId || !hasImages ? (
             <Empty className="rounded-md border py-10">
               <EmptyHeader>

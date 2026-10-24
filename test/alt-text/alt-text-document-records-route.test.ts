@@ -22,6 +22,8 @@ vi.mock("@/lib/alt-text/document-service", () => ({
   ownerScopeFor: (a: { userId: number; viewScope: string }) => (a.viewScope === "all" ? null : { uploadedBy: a.userId }),
 }))
 
+vi.mock("@/lib/alt-text/document-preparation-job", () => ({ getDocumentPreparationProgress: vi.fn(async (documentId: number) => ({ documentId, jobId: null })) }))
+
 const { GET: LIST } = await import("@/app/api/alt-text/documents/route")
 const { GET: DETAIL } = await import("@/app/api/alt-text/documents/[uploadId]/route")
 

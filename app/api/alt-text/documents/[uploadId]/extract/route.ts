@@ -2,36 +2,21 @@
  * @file app/api/alt-text/documents/[uploadId]/extract/route.ts
  * @module Publishing · Alt Text
  * @kind API route handler
- * @summary POST /api/alt-text/documents/:id/extract — synchronous PPTX (Phase 3 Task 5) and PDF (Task 7) image extraction.
- *   Creates image occurrence rows and Alt Text assets only. No AI generation, no approval,
- *   the original document is never modified. Safe to repeat.
+ * @summary POST /api/alt-text/documents/:id/extract — kept for compatibility. Since Phase 3 Task 11 it
+ *   enqueues the same durable preparation job as POST /process instead of extracting synchronously,
+ *   so there is a single processing path. Responds 202 with the preparation progress.
  * @security Session + publishing module + publishing.alt_text:view + :upload; tenant-scoped,
  *   owner-only unless view scope is `all`; per-user rate limit; clean security verdict re-checked server-side.
  */
-import { checkRateLimit } from "@/lib/rate-limit"
-import { currentTenantId } from "@/lib/tenant-scope"
-import { gateAltTextHistory, jsonError, jsonOk, unexpected } from "@/lib/alt-text/route-gate"
-import { ownerScopeFor } from "@/lib/alt-text/document-service"
-import { extractDocumentImages } from "@/lib/alt-text/document-extraction"
+import { gateAltTextHistory } from "@/lib/alt-text/route-gate"
+import { handleStartPreparation } from "@/lib/alt-text/document-preparation-route"
 
+export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 export const maxDuration = 300
-
-const DOCUMENT_ID = /^[1-9]\d{0,9}$/
-const RATE_LIMIT = { max: 10, windowMs: 60_000 }
 
 export async function POST(_req: Request, ctx: { params: Promise<{ uploadId: string }> }) {
   const gate = await gateAltTextHistory({ upload: true })
   if (!gate.ok) return gate.response
-  const { uploadId: id } = await ctx.params
-  if (!DOCUMENT_ID.test(id)) return jsonError({ status: 404, code: "NOT_FOUND", error: "The document could not be found." })
-  try {
-    const limit = await checkRateLimit(`alt-text-document-extract:${currentTenantId()}:${gate.actor.userId}`, RATE_LIMIT)
-    if (!limit.allowed) return jsonError({ status: 429, code: "RATE_LIMITED", error: "Too many extraction requests. Please wait and try again." })
-    const result = await extractDocumentImages(Number(id), ownerScopeFor(gate.actor))
-    if (!result.ok) return jsonError({ status: result.status, code: result.code, error: result.error })
-    return jsonOk({ success: true, ...result.summary })
-  } catch (err) {
-    return unexpected("documents/extract", err)
-  }
+  return handleStartPreparation(gate.actor, (await ctx.params).uploadId, "documents/extract")
 }
