@@ -564,6 +564,30 @@ export async function setManualClassification(id: number, manual: ManualClassifi
 }
 
 /**
+ * Reads a document image occurrence's manual classification. `found` is false when the occurrence
+ * does not exist in this tenant or does not reference the given asset.
+ */
+export async function getOccurrenceClassification(assetId: number, occurrenceId: number): Promise<{ found: boolean; manual: ManualClassification | null }> {
+  await ensureAltTextSchema()
+  const rows = await query<RowDataPacket[]>(
+    `SELECT classification_override_json FROM alt_text_document_images WHERE tenant_id = ? AND id = ? AND alt_text_asset_id = ? LIMIT 1`,
+    [tid(), occurrenceId, assetId],
+  )
+  if (!rows[0]) return { found: false, manual: null }
+  return { found: true, manual: parseManualClassification(rows[0].classification_override_json) }
+}
+
+/** Saves (or clears, with `null`) a single document occurrence's classification override. */
+export async function setOccurrenceClassification(assetId: number, occurrenceId: number, manual: ManualClassification | null): Promise<boolean> {
+  await ensureAltTextSchema()
+  const res = await query<ResultSetHeader>(
+    `UPDATE alt_text_document_images SET classification_override_json = ? WHERE tenant_id = ? AND id = ? AND alt_text_asset_id = ?`,
+    [manual ? JSON.stringify(manual) : null, tid(), occurrenceId, assetId],
+  )
+  return Number(res.affectedRows) > 0
+}
+
+/**
  * Marks a generation attempt failed. Only a processing asset can fail (a
  * reviewed or edited asset is never downgraded); with `attempt`, only the
  * request that still holds the claim may do so. A previously generated result
@@ -874,7 +898,7 @@ export async function saveSettingsRecord(
   })
 }
 
-// ── Bulk processing batches ────────���───────────────────────────────────────
+// ── Bulk processing batches ──���─────���───────────────────────────────────────
 // Counts are always derived from alt_text_assets (never stored) so they cannot
 // drift from the per-asset generation status.
 

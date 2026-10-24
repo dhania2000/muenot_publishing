@@ -6,6 +6,7 @@
  *   Contracts mirror lib/alt-text/{upload,generate,history,export}.ts — no tenant ids or storage paths are sent.
  */
 import type { CreateBatchPayload } from "./bulk-upload"
+import type { ClassificationView } from "./classification"
 import type { AltTextResult, GenerationSettings } from "./core"
 import type { DocumentImageContext } from "./document-context"
 import { imageListSearchParams, type ImageListQuery, type ImageMutationRequest, type ImageMutationResponse } from "./document-image-review"
@@ -362,6 +363,30 @@ export function historyListUrl(q: HistoryQuery) {
 
 export const assetUrl = (id: number) => `/api/alt-text/assets/${id}`
 export const assetVersionsUrl = (id: number) => `/api/alt-text/assets/${id}/versions`
+export const assetClassificationUrl = (id: number, occurrenceId?: number | null) =>
+  `/api/alt-text/assets/${id}/classification${occurrenceId ? `?occurrenceId=${occurrenceId}` : ""}`
+
+export type ClassificationResponse = { success: true; assetId: number; occurrenceId: number | null; classification: ClassificationView }
+
+export type ClassificationCorrection = {
+  primaryCategory: string
+  secondaryCategories: string[]
+  complexityLevel: string
+  note: string | null
+  occurrenceId?: number
+}
+
+export function saveClassificationCorrection(assetId: number, payload: ClassificationCorrection) {
+  return requestJson<ClassificationResponse>(`/api/alt-text/assets/${assetId}/classification`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  })
+}
+
+export function clearClassificationCorrection(assetId: number, occurrenceId?: number | null) {
+  return requestJson<ClassificationResponse>(assetClassificationUrl(assetId, occurrenceId), { method: "DELETE" })
+}
 /** SWR key matcher for every cached Alt Text asset request (list, detail, versions). */
 export const isAltTextAssetKey = (key: unknown) => typeof key === "string" && key.startsWith("/api/alt-text/assets")
 

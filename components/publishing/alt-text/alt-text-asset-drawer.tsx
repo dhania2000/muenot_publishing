@@ -45,6 +45,7 @@ import {
   type ApiError,
 } from "@/lib/alt-text/client"
 import { AssetImage, StatusBadge, classificationLabel, exportAsset, formatDateTime, languageLabel } from "./alt-text-history"
+import { ImageClassificationPanel } from "./image-classification-panel"
 
 export type DrawerFocus = "view" | "edit" | "versions"
 
@@ -297,6 +298,10 @@ function DrawerBody({
           <p className="text-sm text-muted-foreground">No warnings.</p>
         )}
       </section>
+
+      <Separator />
+
+      <ImageClassificationPanel assetId={asset.id} />
 
       <Separator />
 
