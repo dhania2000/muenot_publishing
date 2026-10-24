@@ -1,8 +1,9 @@
 "use client"
 
 import Link from "next/link"
+import { useState } from "react"
 import { usePathname } from "next/navigation"
-import { FileType, ImageIcon, Users, type LucideIcon } from "lucide-react"
+import { ChevronDown, FileType, ImageIcon, Users, type LucideIcon } from "lucide-react"
 import { NAV_GROUPS, type NavIcon } from "@/lib/navigation"
 import { cn } from "@/lib/utils"
 
@@ -14,6 +15,7 @@ const ICONS: Record<NavIcon, LucideIcon> = {
 
 export function SidebarNav({ isAdmin, pendingCount }: { isAdmin: boolean; pendingCount: number }) {
   const pathname = usePathname()
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({})
   const groups = NAV_GROUPS.filter((group) => !group.adminOnly || isAdmin)
 
   return (
@@ -30,11 +32,38 @@ export function SidebarNav({ isAdmin, pendingCount }: { isAdmin: boolean; pendin
             const badge = href === "/admin/users" && pendingCount > 0 ? pendingCount : 0
             return (
               <div key={href} className="flex gap-1 md:flex-col">
+              {children?.length ? (
+                <button
+                  type="button"
+                  aria-expanded={openSections[href] ?? inSection}
+                  aria-controls={`nav-children-${icon}`}
+                  onClick={() =>
+                    setOpenSections((prev) => ({ ...prev, [href]: !(prev[href] ?? inSection) }))
+                  }
+                  className={cn(
+                    "hidden w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:flex",
+                    inSection
+                      ? "font-medium text-sidebar-accent-foreground hover:bg-sidebar-accent"
+                      : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                  )}
+                >
+                  <Icon className="size-4" aria-hidden="true" />
+                  {label}
+                  <ChevronDown
+                    className={cn(
+                      "ml-auto size-4 text-muted-foreground transition-transform",
+                      (openSections[href] ?? inSection) && "rotate-180",
+                    )}
+                    aria-hidden="true"
+                  />
+                </button>
+              ) : null}
               <Link
                 href={href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
                   "flex shrink-0 items-center gap-2 rounded-md px-2 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  children?.length && "md:hidden",
                   active
                     ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
                     : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
@@ -51,8 +80,12 @@ export function SidebarNav({ isAdmin, pendingCount }: { isAdmin: boolean; pendin
               </Link>
               {children?.length ? (
                 <ul
+                  id={`nav-children-${icon}`}
                   aria-label={`${label} modules`}
-                  className="ml-4 hidden flex-col gap-0.5 border-l border-sidebar-border pl-2 md:flex"
+                  className={cn(
+                    "ml-4 hidden flex-col gap-0.5 border-l border-sidebar-border pl-2",
+                    (openSections[href] ?? inSection) && "md:flex",
+                  )}
                 >
                   {children.map((child) => {
                     const childActive = pathname === child.href || pathname.startsWith(`${child.href}/`)
