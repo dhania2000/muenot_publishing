@@ -78,6 +78,8 @@ export function altTextRequestId(operationId?: string | null): string {
   return `${REQUEST_PREFIX}${operationId}`
 }
 
+export type VisionReservationSizing = { promptChars: number; maxOutputTokens: number; estimate: UsageMeasure }
+
 export function estimateAltTextReservation(input: { generation: GenerationSettings; altTextSettings: AltTextSettings; model: Pick<CatalogModel, "maxOutputTokens"> }) {
   const { instructions, prompt } = buildPrompt({
     language: input.generation.outputLanguage,
@@ -86,8 +88,12 @@ export function estimateAltTextReservation(input: { generation: GenerationSettin
     shortMaxChars: input.altTextSettings.shortMaxChars,
     generation: input.generation,
   })
-  const textChars = instructions.length + prompt.length
-  const promptChars = textChars + Math.ceil(IMAGE_INPUT_TOKEN_RESERVE * CHARS_PER_TOKEN)
+  return estimateVisionReservation({ textChars: instructions.length + prompt.length, model: input.model })
+}
+
+/** Sizing for any single-image vision call: prompt text + one image allowance + full output ceiling. */
+export function estimateVisionReservation(input: { textChars: number; model: Pick<CatalogModel, "maxOutputTokens"> }): VisionReservationSizing {
+  const promptChars = input.textChars + Math.ceil(IMAGE_INPUT_TOKEN_RESERVE * CHARS_PER_TOKEN)
   const maxOutputTokens = visionMaxOutputTokens(input.model)
   const estimate: UsageMeasure = {
     inputTokens: Math.ceil(promptChars / CHARS_PER_TOKEN),
@@ -151,19 +157,17 @@ const isDuplicateKey = (e: unknown) => (e as { code?: string })?.code === "ER_DU
  * ERP's existing insufficient-credit AiError. Returns `replay` when this
  * operation was already settled so no second provider call is made.
  */
-export async function reserveAltTextCredits(input: {
-  tenantId: number
-  userId: number
-  model: CatalogModel
-  generation: GenerationSettings
-  altTextSettings: AltTextSettings
-  requestId: string
-}): Promise<{ reservation: AltTextReservation; replay?: undefined } | { reservation?: undefined; replay: AltTextCreditUsage }> {
+export async function reserveAltTextCredits(
+  input: { tenantId: number; userId: number; model: CatalogModel; requestId: string } & (
+    | { generation: GenerationSettings; altTextSettings: AltTextSettings; sizing?: undefined }
+    | { sizing: VisionReservationSizing; generation?: undefined; altTextSettings?: undefined }
+  ),
+): Promise<{ reservation: AltTextReservation; replay?: undefined } | { reservation?: undefined; replay: AltTextCreditUsage }> {
   const { tenantId, userId, model, requestId } = input
   const prior = await getAltTextCreditUsage(tenantId, userId, requestId)
   if (prior && prior.creditsCharged != null) return { replay: prior }
 
-  const { promptChars, maxOutputTokens, estimate } = estimateAltTextReservation(input)
+  const { promptChars, maxOutputTokens, estimate } = input.sizing ?? estimateAltTextReservation({ generation: input.generation, altTextSettings: input.altTextSettings, model })
   const meteredModel = { id: model.id, tier: costTier(model), supportsReasoning: model.supportsReasoning, maxOutputTokens }
   let metered: MeteredRequest
   try {
@@ -187,14 +191,17 @@ export async function releaseAltTextCredits(r: AltTextReservation): Promise<void
 }
 
 /** Settles against provider-reported usage; exactly-once per request id via settleCredits. */
-export async function settleAltTextCredits(r: AltTextReservation, vision: VisionGenerationResult, opts: { interactionId?: number } = {}): Promise<AltTextCreditUsage> {
+/** The billing-relevant part of any vision call result. */
+export type VisionCallMeta = Pick<VisionGenerationResult, "modelId" | "provider" | "usage" | "finishReason" | "latencyMs">
+
+export async function settleAltTextCredits(r: AltTextReservation, vision: VisionCallMeta, opts: { interactionId?: number; feature?: string } = {}): Promise<AltTextCreditUsage> {
   const u = vision.usage
   const reported = u.inputTokens != null && u.outputTokens != null
   const measure: UsageMeasure = reported
     ? { inputTokens: u.inputTokens!, cachedInputTokens: u.cachedInputTokens ?? 0, outputTokens: u.outputTokens!, reasoningTokens: 0, toolCalls: 0 }
     : r.estimate
   const metadata = {
-    feature: SOURCE_MODULE,
+    feature: opts.feature ?? SOURCE_MODULE,
     provider: vision.provider,
     usageSource: reported ? "provider" : "reservation_estimate",
     needsReconciliation: !reported,
@@ -232,6 +239,28 @@ export async function settleAltTextCredits(r: AltTextReservation, vision: Vision
     status: charged == null ? "pending_settlement" : reported ? "settled" : "estimated",
     needsReconciliation: charged == null || !reported,
   }
+}
+
+/**
+ * Generic reserve → call → settle for a non-alt-text vision feature (e.g. region detection).
+ * Same billing policy as generation: a failed call releases the hold and is not billable.
+ */
+export async function runMeteredVisionCall<T extends VisionCallMeta>(
+  input: { tenantId: number; userId: number; operationId: string; model: CatalogModel; sizing: VisionReservationSizing; feature: string },
+  call: () => Promise<T>,
+): Promise<{ status: "generated"; result: T; credits: AltTextCreditUsage } | { status: "replayed"; credits: AltTextCreditUsage }> {
+  const requestId = altTextRequestId(input.operationId)
+  const held = await reserveAltTextCredits({ tenantId: input.tenantId, userId: input.userId, model: input.model, requestId, sizing: input.sizing })
+  if (held.replay) return { status: "replayed", credits: held.replay }
+  let result: T
+  try {
+    result = await call()
+  } catch (e) {
+    await releaseAltTextCredits(held.reservation)
+    throw e
+  }
+  const credits = await settleAltTextCredits(held.reservation, result, { feature: input.feature })
+  return { status: "generated", result, credits }
 }
 
 export type MeteredAltTextOutcome =
