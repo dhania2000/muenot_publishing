@@ -10,7 +10,7 @@ import "server-only"
 import { getTenantAiSettings } from "@/lib/ai/assistant-store"
 import { resolveTenantModels } from "@/lib/ai/model-catalog"
 import type { AccessibilityBackend, CapabilityId } from "./accessibility-settings"
-import { probeOcrEngine } from "./ocr-engine"
+import { cachedOcrEngineHealth, probeOcrEngine } from "./ocr-engine"
 import { isVisionCompatible } from "./vision-service"
 
 /**
@@ -19,10 +19,37 @@ import { isVisionCompatible } from "./vision-service"
  */
 export const IMPLEMENTED_ACCESSIBILITY_ENGINES: readonly CapabilityId[] = ["standard_description", "auto_classification", "region_detection", "ocr"]
 
+/**
+ * A cold OCR probe boots several Tesseract workers and can take minutes. Requests wait at most this
+ * long; the probe keeps running in the background and its cached result is used on the next request.
+ */
+const OCR_PROBE_WAIT_MS = 3_000
+
+type OcrProbeOutcome = { status: "available"; languages: string[] } | { status: "unavailable"; reason: string | null }
+
+async function boundedOcrProbe(): Promise<OcrProbeOutcome> {
+  const cached = cachedOcrEngineHealth()
+  const probe = probeOcrEngine().catch((err) => {
+    console.error("[alt-text/accessibility-backend] OCR probe failed", err instanceof Error ? err.name : "unknown")
+    return cached
+  })
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const waited = new Promise<"pending">((resolve) => {
+    timer = setTimeout(() => resolve("pending"), OCR_PROBE_WAIT_MS)
+    timer.unref?.()
+  })
+  const result = await Promise.race([probe, waited])
+  if (timer) clearTimeout(timer)
+  const health = result === "pending" ? cached : result
+  if (health?.status === "available") return { status: "available", languages: health.languages }
+  if (health) return { status: "unavailable", reason: health.reason }
+  return { status: "unavailable", reason: "The OCR engine is still starting. Reload settings in a moment to see OCR options." }
+}
+
 export async function detectAccessibilityBackend(tenantId: number, role: "admin" | "employee"): Promise<AccessibilityBackend> {
   let visionModelAvailable: boolean | null = null
   const [ocr] = await Promise.all([
-    probeOcrEngine(),
+    boundedOcrProbe(),
     (async () => {
       try {
         const resolved = await resolveTenantModels(tenantId, await getTenantAiSettings(), role)
@@ -37,7 +64,7 @@ export async function detectAccessibilityBackend(tenantId: number, role: "admin"
     visionModelAvailable,
     // Only languages whose pack passed the engine's integrity check and worker start-up.
     ocrLanguagePacks: ocr.status === "available" ? ocr.languages : [],
-    ocrIssue: ocr.status === "available" ? null : ocr.reason,
+    ocrIssue: ocr.status === "available" ? null : (ocr.reason ?? "The OCR engine could not be started."),
     disabledByPolicy: process.env.ALT_TEXT_OCR_DISABLED === "1" ? ["ocr"] : [],
   }
 }
