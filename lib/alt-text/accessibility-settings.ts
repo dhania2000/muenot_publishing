@@ -34,6 +34,10 @@ export type CapabilityStatus = keyof typeof CAPABILITY_STATUSES
 export const ACCESSIBILITY_CAPABILITIES = {
   standard_description: { label: "Standard image description", dependency: "Requires an approved, vision-capable AI model for this tenant." },
   auto_classification: { label: "Automatic image classification", dependency: "Uses the image type returned by the vision model during generation." },
+  region_detection: {
+    label: "Image region detection",
+    dependency: "Uses an approved vision model to estimate region positions. Positions are model estimates, not pixel-verified.",
+  },
   classification_confidence: { label: "Classification confidence", dependency: "The vision model does not return calibrated classification confidence. Planned in Task 3." },
   advanced_description: { label: "Advanced description pipeline", dependency: "No advanced description engine is installed yet. Planned in a later Phase 3 task." },
   text_heavy_analysis: { label: "Text-heavy image analysis", dependency: "Depends on the OCR provider planned in Task 5." },
@@ -78,6 +82,7 @@ const RUNTIME_REQUIREMENTS: Partial<Record<CapabilityId, (b: AccessibilityBacken
   standard_description: (b) =>
     b.visionModelAvailable === true ? null : b.visionModelAvailable === false ? "No approved vision-capable model is available to this tenant." : "Vision model availability could not be verified.",
   auto_classification: (b) => (b.visionModelAvailable === true ? null : "Requires an available vision model."),
+  region_detection: (b) => (b.visionModelAvailable === true ? null : "Requires an available vision model."),
   ocr: (b) => (b.ocrLanguagePacks.length ? null : "No OCR language pack is installed."),
 }
 

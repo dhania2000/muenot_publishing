@@ -92,7 +92,7 @@ export function aiErrorToFailure(e: AiError): GenerateFailure {
   return fail(e.status, code, e.message, details)
 }
 
-async function readImageBytes(body: ReadableStream<Uint8Array> | Uint8Array, maxBytes: number): Promise<Uint8Array | null> {
+export async function readImageBytes(body: ReadableStream<Uint8Array> | Uint8Array, maxBytes: number): Promise<Uint8Array | null> {
   if (body instanceof Uint8Array) return body.length > maxBytes ? null : body
   const reader = body.getReader()
   const chunks: Uint8Array[] = []

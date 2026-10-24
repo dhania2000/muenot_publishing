@@ -26,6 +26,7 @@ import {
 } from "./core"
 import { documentContextNotices, type DocumentPromptContext } from "./document-prompt"
 import { buildAutomatedClassification, CLASSIFICATION_PROMPT_RULES, parseClassificationAnalysis } from "./classification"
+import { parseRegionProviderOutput, RegionOutputError, type RawRegionOutput } from "./region-analysis"
 
 const DEFAULT_TIMEOUT_MS = 90_000
 
@@ -195,6 +196,78 @@ export async function generateAltTextFromImage(input: GenerateAltTextFromImageIn
   const u = (result.usage ?? {}) as Record<string, unknown> & { inputTokenDetails?: { cacheReadTokens?: unknown } }
   return {
     output,
+    modelId: model.id,
+    provider: model.provider,
+    usage: {
+      inputTokens: num(u.inputTokens),
+      outputTokens: num(u.outputTokens),
+      totalTokens: num(u.totalTokens),
+      cachedInputTokens: num(u.inputTokenDetails?.cacheReadTokens),
+    },
+    finishReason: typeof result.finishReason === "string" ? result.finishReason : null,
+    latencyMs: Date.now() - started,
+  }
+}
+
+export type RegionDetectionResult = Omit<VisionGenerationResult, "output"> & { raw: RawRegionOutput }
+
+/**
+ * Phase 3 Task 4 — asks an authorised vision model to localise regions in the actual image bytes.
+ * Output is shape-checked here; geometry and hierarchy are validated by `finalizeRegions`.
+ */
+export async function detectRegionsFromImage(input: {
+  image: { bytes: Uint8Array; mediaType: SupportedImageType }
+  model: CatalogModel
+  prompt: { instructions: string; prompt: string }
+  maxFileMb: number
+  timeoutMs?: number
+  abortSignal?: AbortSignal
+}): Promise<RegionDetectionResult> {
+  const { image, model } = input
+  if (!isVisionCompatible(model)) throw new AiError("model_not_allowed", "The selected model cannot analyse images or its provider is not configured.", { modelId: model.id })
+  const check = validateImage({ type: image.mediaType, size: image.bytes?.length ?? 0, name: "" }, image.bytes ?? new Uint8Array(), input.maxFileMb)
+  if (!check.ok) throw new AiError("invalid_request", check.error)
+  await assertOutboundAllowed("AI_EXECUTE")
+
+  const started = Date.now()
+  let result: Awaited<ReturnType<typeof import("ai").generateText>>
+  try {
+    const [{ generateText }, { resolveLanguageModel }] = await Promise.all([import("ai"), import("@/lib/ai/provider")])
+    result = await generateText({
+      model: await resolveLanguageModel(model.id),
+      instructions: input.prompt.instructions,
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: input.prompt.prompt },
+            { type: "file", mediaType: check.type, data: { type: "data", data: image.bytes } },
+          ],
+        },
+      ],
+      maxOutputTokens: visionMaxOutputTokens(model),
+      timeout: input.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+      abortSignal: input.abortSignal,
+    })
+  } catch (e) {
+    console.error("[alt-text] region detection failed", { modelId: model.id, ...safeAiErrorMetadata(e) })
+    throw toProviderError(e, model.id)
+  }
+
+  let raw: RawRegionOutput
+  try {
+    raw = parseRegionProviderOutput(result.text)
+  } catch (e) {
+    if (e instanceof RegionOutputError) {
+      console.error("[alt-text] invalid region output", { modelId: model.id, code: e.code })
+      throw new AiError("provider_error", "The AI returned an invalid region response. No regions were saved.", { modelId: model.id, reason: "invalid_output", outputError: e.code })
+    }
+    throw e
+  }
+
+  const u = (result.usage ?? {}) as Record<string, unknown> & { inputTokenDetails?: { cacheReadTokens?: unknown } }
+  return {
+    raw,
     modelId: model.id,
     provider: model.provider,
     usage: {

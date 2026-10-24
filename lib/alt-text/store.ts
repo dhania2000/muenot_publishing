@@ -23,6 +23,29 @@ import { normalizeGenerationSettings, normalizeSettings, type AltTextResult, typ
 let schemaReady: Promise<void> | null = null
 
 /**
+ * Phase 3 Task 4 (image regions). One row per analysis version; earlier versions are kept.
+ * `occurrence_key` is 0 for the asset-level analysis so the unique key works without NULLs.
+ * Mirrors database/migrations/2026-10-24-alt-text-region-analyses.sql.
+ */
+export const ALT_TEXT_REGION_ANALYSES_DDL = `CREATE TABLE IF NOT EXISTS alt_text_region_analyses (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      tenant_id INT NOT NULL,
+      asset_id INT NOT NULL,
+      occurrence_id INT NULL,
+      occurrence_key INT NOT NULL DEFAULT 0,
+      version INT NOT NULL,
+      analysis_id VARCHAR(40) NOT NULL,
+      request_id VARCHAR(80) NULL,
+      status VARCHAR(20) NOT NULL,
+      analysis_json JSON NOT NULL,
+      created_by INT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_alt_regions_version (tenant_id, asset_id, occurrence_key, version),
+      UNIQUE KEY uq_alt_regions_request (tenant_id, request_id),
+      INDEX idx_alt_regions_latest (tenant_id, asset_id, occurrence_key, version)
+    )`
+
+/**
  * Phase 3 Task 4. Bytes stay in private storage (file_objects); only the facade's
  * file_ref and file id are stored. Mirrors database/migrations/2026-10-14-alt-text-documents.sql.
  */
@@ -251,6 +274,8 @@ export function ensureAltTextSchema(): Promise<void> {
         if (e?.code !== "ER_DUP_FIELDNAME") throw e
       })
     }
+    // Phase 3 Task 4 (image regions): versioned, append-only region analyses per asset / occurrence.
+    await query(ALT_TEXT_REGION_ANALYSES_DDL)
     // Phase 3 Task 11: durable document preparation state (the job itself lives in platform_background_jobs).
     for (const ddl of [
       "ALTER TABLE alt_text_documents ADD COLUMN preparation_stage VARCHAR(20) NULL",
@@ -1774,4 +1799,84 @@ export async function listReviewers() {
     query<any[]>("SELECT id, name FROM users WHERE tenant_id = ? ORDER BY name LIMIT 200", [tid()]),
   )
   return rows.map((r) => ({ id: r.id as number, name: String(r.name) }))
+}
+
+/* ───────────── Phase 3 Task 4: image region analyses ───────────── */
+
+export type StoredRegionAnalysisRow = { version: number; analysisId: string; requestId: string | null; analysis: unknown }
+
+const mapRegionRow = (r: RowDataPacket): StoredRegionAnalysisRow => ({
+  version: Number(r.version),
+  analysisId: String(r.analysis_id),
+  requestId: r.request_id ? String(r.request_id) : null,
+  analysis: typeof r.analysis_json === "string" ? JSON.parse(r.analysis_json) : r.analysis_json,
+})
+
+/** Latest analysis version for an asset (occurrenceId null) or one document occurrence. */
+export async function getLatestRegionAnalysis(assetId: number, occurrenceId: number | null): Promise<StoredRegionAnalysisRow | null> {
+  await ensureAltTextSchema()
+  const rows = await query<RowDataPacket[]>(
+    `SELECT version, analysis_id, request_id, analysis_json FROM alt_text_region_analyses
+      WHERE tenant_id = ? AND asset_id = ? AND occurrence_key = ? ORDER BY version DESC LIMIT 1`,
+    [tid(), assetId, occurrenceId ?? 0],
+  )
+  return rows[0] ? mapRegionRow(rows[0]) : null
+}
+
+export async function getRegionAnalysisByRequest(requestId: string): Promise<StoredRegionAnalysisRow | null> {
+  await ensureAltTextSchema()
+  const rows = await query<RowDataPacket[]>(
+    `SELECT version, analysis_id, request_id, analysis_json FROM alt_text_region_analyses WHERE tenant_id = ? AND request_id = ? LIMIT 1`,
+    [tid(), requestId],
+  )
+  return rows[0] ? mapRegionRow(rows[0]) : null
+}
+
+/** True when the occurrence exists and maps to this asset in the current tenant. */
+export async function occurrenceBelongsToAsset(assetId: number, occurrenceId: number): Promise<boolean> {
+  await ensureAltTextSchema()
+  const rows = await query<RowDataPacket[]>(`SELECT id FROM alt_text_document_images WHERE tenant_id = ? AND id = ? AND alt_text_asset_id = ? LIMIT 1`, [
+    tid(),
+    occurrenceId,
+    assetId,
+  ])
+  return rows.length > 0
+}
+
+/**
+ * Appends a new analysis version. `build(version)` receives the allocated version so the stored
+ * JSON is self-consistent. A replayed request id returns the already-saved row instead.
+ */
+export async function insertRegionAnalysis(input: {
+  assetId: number
+  occurrenceId: number | null
+  requestId: string | null
+  createdBy: number
+  build: (version: number) => { analysisId: string; status: string; analysis: unknown }
+}): Promise<StoredRegionAnalysisRow> {
+  await ensureAltTextSchema()
+  const tenantId = tid()
+  const key = input.occurrenceId ?? 0
+  try {
+    return await withTransaction(async (conn) => {
+      const [rows] = await conn.query<RowDataPacket[]>(
+        `SELECT COALESCE(MAX(version), 0) AS v FROM alt_text_region_analyses WHERE tenant_id = ? AND asset_id = ? AND occurrence_key = ? FOR UPDATE`,
+        [tenantId, input.assetId, key],
+      )
+      const version = Number(rows[0]?.v ?? 0) + 1
+      const built = input.build(version)
+      await conn.query(
+        `INSERT INTO alt_text_region_analyses (tenant_id, asset_id, occurrence_id, occurrence_key, version, analysis_id, request_id, status, analysis_json, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [tenantId, input.assetId, input.occurrenceId, key, version, built.analysisId, input.requestId, built.status, JSON.stringify(built.analysis), input.createdBy],
+      )
+      return { version, analysisId: built.analysisId, requestId: input.requestId, analysis: built.analysis }
+    })
+  } catch (e) {
+    if ((e as { code?: string })?.code === "ER_DUP_ENTRY" && input.requestId) {
+      const existing = await getRegionAnalysisByRequest(input.requestId)
+      if (existing) return existing
+    }
+    throw e
+  }
 }

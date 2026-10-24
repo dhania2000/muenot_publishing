@@ -12,8 +12,11 @@ import { resolveTenantModels } from "@/lib/ai/model-catalog"
 import type { AccessibilityBackend, CapabilityId } from "./accessibility-settings"
 import { isVisionCompatible } from "./vision-service"
 
-/** Engines implemented today: Phase 1 vision generation, which also returns an image classification. */
-export const IMPLEMENTED_ACCESSIBILITY_ENGINES: readonly CapabilityId[] = ["standard_description", "auto_classification"]
+/**
+ * Engines implemented today: Phase 1 vision generation (which also returns an image
+ * classification) and Phase 3 Task 4 vision region detection.
+ */
+export const IMPLEMENTED_ACCESSIBILITY_ENGINES: readonly CapabilityId[] = ["standard_description", "auto_classification", "region_detection"]
 
 /** No OCR provider is installed (Task 5), so no recognition language pack is available. */
 export const INSTALLED_OCR_LANGUAGE_PACKS: readonly string[] = []
