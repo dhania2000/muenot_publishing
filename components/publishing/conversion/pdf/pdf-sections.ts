@@ -62,9 +62,10 @@ const WIDE: PdfSectionLayout = { width: "wide", spacing: "standard" }
 const FULL: PdfSectionLayout = { width: "full", spacing: "compact" }
 
 /**
- * Status evidence (Task 5 audit): every existing PDF route renders the shared header and an honest
- * "planned" body; no section tools, uploader or conversion engine exist yet. Guidelines and
- * Profiles & Presets have no PDF route.
+ * Status evidence (Task 12 QA): Overview and Workspace have a working frontend (local file intake, preview and
+ * settings shells) but no conversion engine or server upload, so they are "ui-ready", never "available". Every
+ * other route renders the shared header and an honest "planned" body. Guidelines and Profiles & Presets have no
+ * PDF route.
  */
 export const PDF_SECTIONS: readonly PdfSection[] = [
   { id: "overview", slug: "", label: "Overview", breadcrumbLabel: "Overview", headerTitle: "PDF", description: "Professional Document Conversion & Processing", icon: LayoutDashboard, order: 1, status: "ui-ready", layout: DEFAULT },

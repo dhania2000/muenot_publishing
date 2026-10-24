@@ -40,8 +40,12 @@ describe("PDF_SECTIONS", () => {
     expect(blocked).toEqual(["guidelines", "profiles-presets"])
   })
 
-  it("marks only the Overview UI as ready; no section claims operational tools", () => {
-    expect(PDF_SECTIONS.filter((s) => s.status !== "planned").map((s) => [s.id, s.status])).toEqual([["overview", "ui-ready"]])
+  it("marks only the Overview and Workspace UIs as ready; no section claims operational tools", () => {
+    expect(PDF_SECTIONS.filter((s) => s.status !== "planned").map((s) => [s.id, s.status])).toEqual([
+      ["overview", "ui-ready"],
+      ["workspace", "ui-ready"],
+    ])
+    expect(PDF_SECTIONS.some((s) => s.status === "available")).toBe(false)
   })
 
   it("keeps the existing Preflight URL", () => {
