@@ -26,6 +26,7 @@ import { getPdfFormat, PDF_FORMAT_FAMILIES, PDF_FORMATS } from "@/components/pub
 import {
   canOpenCapabilityInWorkspace,
   capabilityDirection,
+  capabilityRequirements,
   categoryLabel,
   filterPdfCapabilities,
   isFormatAcceptedForUpload,
@@ -151,8 +152,14 @@ function CapabilityAction({ capability, workspaceHref }: { capability: PdfCapabi
   return <span className="text-xs text-muted-foreground">Not runnable yet</span>
 }
 
-function requirementSummary(capability: PdfCapability) {
-  return PDF_OCR_META[capability.ocr].label
+function RequirementSummary({ capability }: { capability: PdfCapability }) {
+  return (
+    <ul className="flex flex-col gap-0.5">
+      {capabilityRequirements(capability).map((item) => (
+        <li key={item}>{item}</li>
+      ))}
+    </ul>
+  )
 }
 
 function ExpandButton({
@@ -333,7 +340,9 @@ export function PdfFormatMatrix({ workspaceHref }: { workspaceHref: string | nul
                       <PdfCapabilityStatusIndicator status={capability.status} />
                     </dd>
                     <dt className="text-xs text-muted-foreground">Requires</dt>
-                    <dd>{requirementSummary(capability)}</dd>
+                    <dd>
+                      <RequirementSummary capability={capability} />
+                    </dd>
                   </dl>
                   <CapabilityAction capability={capability} workspaceHref={workspaceHref} />
                   {open && (
@@ -390,7 +399,9 @@ function MatrixRows({
         <TableCell>
           <PdfCapabilityStatusIndicator status={capability.status} />
         </TableCell>
-        <TableCell className="hidden whitespace-normal text-xs text-muted-foreground lg:table-cell">{requirementSummary(capability)}</TableCell>
+        <TableCell className="hidden whitespace-normal text-xs text-muted-foreground lg:table-cell">
+          <RequirementSummary capability={capability} />
+        </TableCell>
         <TableCell>
           <CapabilityAction capability={capability} workspaceHref={workspaceHref} />
         </TableCell>

@@ -41,7 +41,7 @@ export async function approveUserAction(userId: number) {
       const link = await loginUrl()
       await sendMail({
         to: user.email,
-        subject: "Your Muenot Publishing account is approved",
+        subject: "Your Muenot Services account is approved",
         text: `Hi ${user.name},\n\nAn administrator approved your account. You can sign in now:\n${link}`,
         html: `<p>Hi ${escapeHtml(user.name)},</p><p>An administrator approved your account. You can sign in now.</p><p><a href="${link}">Sign in</a></p>`,
       }).catch((error) => console.error("[admin] approval email failed", error instanceof Error ? error.message : error))

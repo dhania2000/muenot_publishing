@@ -97,8 +97,8 @@ async function notifyAdminsOfSignup(name: string, email: string) {
       sendMail({
         to: admin.email,
         subject: "New account awaiting approval",
-        text: `${name} (${email}) created an account on Muenot Publishing and is waiting for approval.\n\nReview it here: ${link}`,
-        html: `<p>${escapeHtml(name)} (${escapeHtml(email)}) created an account on Muenot Publishing and is waiting for approval.</p><p><a href="${link}">Review pending accounts</a></p>`,
+        text: `${name} (${email}) created an account on Muenot Services and is waiting for approval.\n\nReview it here: ${link}`,
+        html: `<p>${escapeHtml(name)} (${escapeHtml(email)}) created an account on Muenot Services and is waiting for approval.</p><p><a href="${link}">Review pending accounts</a></p>`,
       }),
     ),
   )
@@ -135,7 +135,7 @@ export async function requestPasswordResetAction(_prev: ResetRequestState, formD
       const link = `${await appOrigin()}/reset-password?token=${encodeURIComponent(token)}`
       await sendMail({
         to: email,
-        subject: "Reset your Muenot Publishing password",
+        subject: "Reset your Muenot Services password",
         text: `Hi ${user.name},\n\nUse this link to set a new password. It expires in ${RESET_MINUTES} minutes and can be used once:\n${link}\n\nIf you didn't request this, you can ignore this email.`,
         html: `<p>Hi ${escapeHtml(user.name)},</p><p>Use the link below to set a new password. It expires in ${RESET_MINUTES} minutes and can be used once.</p><p><a href="${link}">Reset password</a></p><p>If you didn't request this, you can ignore this email.</p>`,
       })

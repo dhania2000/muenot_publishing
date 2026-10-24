@@ -23,7 +23,7 @@ export function AppShell({
       <aside className="flex shrink-0 flex-col border-b border-sidebar-border bg-sidebar text-sidebar-foreground md:sticky md:top-0 md:h-dvh md:w-60 md:border-b-0 md:border-r">
         <div className="flex h-14 items-center gap-2 px-4">
           <BookOpen className="size-5 text-primary" aria-hidden="true" />
-          <span className="text-sm font-semibold">Muenot Publishing</span>
+          <span className="text-sm font-semibold">Muenot Services</span>
         </div>
         <SidebarNav isAdmin={session.role === "admin"} pendingCount={pendingCount} />
         <div className="hidden items-center gap-3 border-t border-sidebar-border p-3 md:flex">
