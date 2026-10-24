@@ -73,13 +73,16 @@ export function SidebarMenuToggle({
 
 export function SidebarMenuPanel({ menu, id, className }: { menu: NavMenu; id?: string; className?: string }) {
   const pathname = usePathname()
-  const [closed, setClosed] = useState<Record<string, boolean>>({})
+  const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({})
 
   return (
     <ul id={id} aria-label={`${menu.label} categories`} className={cn("flex flex-col gap-0.5", className)}>
       {menu.categories.map((category) => {
         const Icon = CATEGORY_ICONS[category.icon]
-        const open = !closed[category.id]
+        const containsActive = category.entries.some(
+          (entry) => entry.href && (pathname === entry.href || pathname.startsWith(`${entry.href}/`)),
+        )
+        const open = openCategories[category.id] ?? containsActive
         const listId = `nav-menu-${menu.id}-${category.id}`
         return (
           <li key={category.id}>
@@ -87,7 +90,7 @@ export function SidebarMenuPanel({ menu, id, className }: { menu: NavMenu; id?: 
               type="button"
               aria-expanded={open}
               aria-controls={listId}
-              onClick={() => setClosed((prev) => ({ ...prev, [category.id]: open }))}
+              onClick={() => setOpenCategories((prev) => ({ ...prev, [category.id]: !open }))}
               className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <Icon className="size-3.5" aria-hidden="true" />
