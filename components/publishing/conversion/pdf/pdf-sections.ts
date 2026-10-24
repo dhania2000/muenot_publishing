@@ -67,7 +67,7 @@ const FULL: PdfSectionLayout = { width: "full", spacing: "compact" }
  * Profiles & Presets have no PDF route.
  */
 export const PDF_SECTIONS: readonly PdfSection[] = [
-  { id: "overview", slug: "", label: "Overview", breadcrumbLabel: "Overview", headerTitle: "PDF", description: "Professional Document Conversion & Processing", icon: LayoutDashboard, order: 1, status: "planned", layout: DEFAULT },
+  { id: "overview", slug: "", label: "Overview", breadcrumbLabel: "Overview", headerTitle: "PDF", description: "Professional Document Conversion & Processing", icon: LayoutDashboard, order: 1, status: "ui-ready", layout: DEFAULT },
   { id: "workspace", slug: "workspace", label: "Workspace", breadcrumbLabel: "Workspace", description: "Configure and process your documents", icon: SquarePen, order: 2, status: "planned", layout: FULL },
   { id: "guidelines", slug: "guidelines", label: "Guidelines", breadcrumbLabel: "Guidelines", description: "Optional company-specific instructions", icon: BookOpen, order: 3, status: "planned", layout: DEFAULT },
   { id: "output-settings", slug: "output-settings", label: "Output Settings", breadcrumbLabel: "Output Settings", description: "Output format, quality and delivery options", icon: SlidersHorizontal, order: 4, status: "planned", layout: DEFAULT },

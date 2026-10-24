@@ -40,8 +40,8 @@ describe("PDF_SECTIONS", () => {
     expect(blocked).toEqual(["guidelines", "profiles-presets"])
   })
 
-  it("does not claim any section is operational while no section tools exist", () => {
-    expect(PDF_SECTIONS.every((s) => s.status === "planned")).toBe(true)
+  it("marks only the Overview UI as ready; no section claims operational tools", () => {
+    expect(PDF_SECTIONS.filter((s) => s.status !== "planned").map((s) => [s.id, s.status])).toEqual([["overview", "ui-ready"]])
   })
 
   it("keeps the existing Preflight URL", () => {
