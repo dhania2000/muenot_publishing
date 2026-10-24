@@ -12,6 +12,7 @@ import {
   PDF_CAPABILITIES,
   PDF_CAPABILITY_CATEGORIES,
   PDF_CAPABILITY_STATUS_META,
+  PDF_OCR_META,
   PDF_OPERATION_KIND_META,
   type PdfCapability,
   type PdfCapabilityCategoryId,
@@ -102,6 +103,20 @@ export function capabilityDirection(capability: PdfCapability) {
 /** Only an Available capability may link into the Workspace as an operational entry point. */
 export function canOpenCapabilityInWorkspace(capability: PdfCapability) {
   return capability.status === "available"
+}
+
+/**
+ * Compact requirements for the matrix row: OCR dependency, then blockers drawn from registry data only.
+ * Full limitations stay in the expandable details.
+ */
+export function capabilityRequirements(capability: PdfCapability) {
+  const items = [PDF_OCR_META[capability.ocr].label]
+  if (capability.kind === "conformance-profile") items.push("Conformance not validated")
+  if (!capability.inputFormats.some(isFormatAcceptedForUpload)) items.push("Source upload not accepted")
+  if (capability.limitations.length > 0) {
+    items.push(`${capability.limitations.length} known limitation${capability.limitations.length === 1 ? "" : "s"}`)
+  }
+  return items
 }
 
 export function categoryLabel(id: PdfCapabilityCategoryId) {
