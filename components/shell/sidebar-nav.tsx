@@ -87,10 +87,19 @@ export function SidebarNav({ isAdmin, pendingCount }: { isAdmin: boolean; pendin
                     (openSections[href] ?? inSection) && "md:flex",
                   )}
                 >
-                  {children.map((child) => {
+                  {children.map((child, index) => {
                     const childActive = pathname === child.href || pathname.startsWith(`${child.href}/`)
+                    const startsSection = child.section && child.section !== children[index - 1]?.section
                     return (
                       <li key={child.href}>
+                        {startsSection ? (
+                          <p
+                            aria-hidden="true"
+                            className="px-2 pb-0.5 pt-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80"
+                          >
+                            {child.section}
+                          </p>
+                        ) : null}
                         <Link
                           href={child.href}
                           aria-current={childActive ? "page" : undefined}
@@ -102,6 +111,7 @@ export function SidebarNav({ isAdmin, pendingCount }: { isAdmin: boolean; pendin
                           )}
                         >
                           {child.label}
+                          {child.section ? <span className="sr-only">{`, ${child.section}`}</span> : null}
                         </Link>
                       </li>
                     )
