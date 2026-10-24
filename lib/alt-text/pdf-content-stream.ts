@@ -509,7 +509,7 @@ export function interpretContentStream(
           if (op === "'" || op === '"') nextLine(0, -leading)
           const last = operands[operands.length - 1]
           if (op === "TJ" && Array.isArray(last)) {
-            showText(last.flatMap((p) => (p instanceof PStr ? [p.bytes] : typeof p === "number" ? [p] : [])))
+            showText(last.flatMap<Uint8Array | number>((p) => (p instanceof PStr ? [p.bytes] : typeof p === "number" ? [p] : [])))
           } else if (last instanceof PStr) showText([last.bytes])
         }
     }

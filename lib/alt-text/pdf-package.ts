@@ -58,6 +58,7 @@ import {
   type PdfColorSpace,
   type PdfImageSpec,
 } from "./pdf-image-decode"
+import { joinTextParts, parseToUnicode, winAnsiDecoder, type FontDecoder } from "./pdf-text-decode"
 
 const MIB = 1024 * 1024
 
@@ -153,7 +154,34 @@ export type PdfExtractionReport = {
   limitations: PdfLimitation[]
 }
 
-export type PdfPackage = { totalPages: number; occurrences: PdfOccurrence[]; report: PdfExtractionReport }
+/**
+ * Phase 3 Task 9: one text-showing operator, positioned in the visible page box with a top-left,
+ * y-down origin (PDF points). Width is approximated (0.5 em per glyph; no font metrics are read).
+ */
+export type PdfTextRun = {
+  text: string
+  box: { x0: number; y0: number; x1: number; y1: number }
+  size: number
+  /** Page-level MCID (structure-tree key), null outside marked content. */
+  mcid: number | null
+  artifact: boolean
+  /** Content-stream order on the page. */
+  order: number
+}
+
+/** Structure role of tagged text, keyed `<pageRef>#<mcid>`. */
+export type PdfTextRole = { role: string; structRef: string | null; order: number }
+
+export type PdfTextLayout = {
+  title: string | null
+  pages: { pageIndex: number; runs: PdfTextRun[]; undecodable: number; rotate: number; width: number; height: number; pageRef: string | null }[]
+  roles: Map<string, PdfTextRole>
+  truncated: boolean
+}
+
+export type PdfPackage = { totalPages: number; occurrences: PdfOccurrence[]; report: PdfExtractionReport; text?: PdfTextLayout }
+
+export const PDF_TEXT_LIMITS = { maxRunsPerPage: 4000, maxRunsTotal: 60_000, maxRunChars: 500 } as const
 
 // ---------------------------------------------------------------------------
 // pdf-lib helpers
@@ -539,11 +567,15 @@ type Figure = {
 }
 
 /** Map `<pageRef>#<mcid>` → Figure. MCRs pointing into a form stream (/Stm) are not mapped. */
-function readFigures(ctx: Ctx, root: PDFDict | null): { figures: Map<string, Figure>; all: Figure[]; formMcrs: number } {
+const TEXT_ROLES = new Set(["H", "H1", "H2", "H3", "H4", "H5", "H6", "Title", "Caption", "P", "TD", "TH"])
+
+function readFigures(ctx: Ctx, root: PDFDict | null): { figures: Map<string, Figure>; all: Figure[]; formMcrs: number; roles: Map<string, PdfTextRole> } {
   const figures = new Map<string, Figure>()
+  const roles = new Map<string, PdfTextRole>()
   const all: Figure[] = []
   let formMcrs = 0
-  if (!root) return { figures, all, formMcrs }
+  let roleOrder = 0
+  if (!root) return { figures, all, formMcrs, roles }
   const roleMap = dictOf(ctx, root.get(n("RoleMap")))
   const roleOf = (s: string | null) => {
     let cur = s
@@ -564,20 +596,22 @@ function readFigures(ctx: Ctx, root: PDFDict | null): { figures: Map<string, Fig
     return false
   }
   // Depth-first pre-order (children pushed in reverse) so `Figure.order` follows the logical structure order.
-  const stack: { node: PDFObject | undefined; pg: string | null; figure: Figure | null; parentFigure: Figure | null; depth: number }[] = [
-    { node: root.get(n("K")), pg: null, figure: null, parentFigure: null, depth: 0 },
+  type TextRole = PdfTextRole | null
+  const stack: { node: PDFObject | undefined; pg: string | null; figure: Figure | null; parentFigure: Figure | null; textRole: TextRole; depth: number }[] = [
+    { node: root.get(n("K")), pg: null, figure: null, parentFigure: null, textRole: null, depth: 0 },
   ]
   while (stack.length > 0) {
-    const { node, pg, figure, parentFigure, depth } = stack.pop()!
+    const { node, pg, figure, parentFigure, textRole: inheritedRole, depth } = stack.pop()!
     if (++nodes > PDF_EXTRACTION_LIMITS.maxStructNodes || depth > 128) break
     const o = look(ctx, node)
     if (o instanceof PDFNumber) {
       if (figure && pg) figures.set(`${pg}#${o.asNumber()}`, figure)
+      if (inheritedRole && pg) roles.set(`${pg}#${o.asNumber()}`, inheritedRole)
       continue
     }
     if (o instanceof PDFArray) {
       const kids = o.asArray()
-      for (let i = kids.length - 1; i >= 0; i--) stack.push({ node: kids[i], pg, figure, parentFigure, depth: depth + 1 })
+      for (let i = kids.length - 1; i >= 0; i--) stack.push({ node: kids[i], pg, figure, parentFigure, textRole: inheritedRole, depth: depth + 1 })
       continue
     }
     if (!(o instanceof PDFDict) || seen(node)) continue
@@ -586,11 +620,17 @@ function readFigures(ctx: Ctx, root: PDFDict | null): { figures: Map<string, Fig
     if (type === "MCR" || (o.has(n("MCID")) && !o.has(n("S")))) {
       const mcid = numOf(ctx, o.get(n("MCID")))
       if (o.has(n("Stm"))) formMcrs++
-      else if (figure && elemPg && mcid != null) figures.set(`${elemPg}#${mcid}`, figure)
+      else if (elemPg && mcid != null) {
+        if (figure) figures.set(`${elemPg}#${mcid}`, figure)
+        if (inheritedRole) roles.set(`${elemPg}#${mcid}`, inheritedRole)
+      }
       continue
     }
     if (type === "OBJR") continue
     const role = roleOf(nameOf(ctx, o.get(n("S"))))
+    // The innermost text role wins (a Caption's paragraphs stay "Caption"; a TD inside a table stays "TD").
+    const textRole: TextRole =
+      role && TEXT_ROLES.has(role) && !(inheritedRole?.role === "Caption" && role === "P") ? { role, structRef: refTag(node), order: roleOrder++ } : inheritedRole
     let current = figure
     let opened: Figure | null = null
     if (role === "Figure" && !figure) {
@@ -610,9 +650,38 @@ function readFigures(ctx: Ctx, root: PDFDict | null): { figures: Map<string, Fig
       const text = textOf(ctx, o.get(n("ActualText")))
       parentFigure.caption = { structRef: refTag(node), text: text ? text.slice(0, 300) : null }
     }
-    stack.push({ node: o.get(n("K")), pg: elemPg, figure: current, parentFigure: opened, depth: depth + 1 })
+    stack.push({ node: o.get(n("K")), pg: elemPg, figure: current, parentFigure: opened, textRole, depth: depth + 1 })
   }
-  return { figures, all, formMcrs }
+  return { figures, all, formMcrs, roles }
+}
+
+// ---------------------------------------------------------------------------
+// Text decoding (Task 9 context analysis only)
+// ---------------------------------------------------------------------------
+
+type FontCache = WeakMap<PDFDict, Map<string, FontDecoder | null>>
+
+function fontDecoder(ctx: Ctx, resources: PDFDict | null, name: string | null, cache: FontCache): FontDecoder | null {
+  if (!resources || !name) return null
+  let perRes = cache.get(resources)
+  if (!perRes) cache.set(resources, (perRes = new Map()))
+  if (perRes.has(name)) return perRes.get(name)!
+  let decoder: FontDecoder | null = null
+  const font = dictOf(ctx, dictOf(ctx, resources.get(n("Font")))?.get(n(name)))
+  if (font) {
+    const tu = look(ctx, font.get(n("ToUnicode")))
+    if (tu instanceof PDFStream) {
+      try {
+        decoder = parseToUnicode(Buffer.from(decodeStream(ctx, tu, 2 * MIB)).toString("latin1"))
+      } catch {
+        decoder = null
+      }
+    }
+    // Simple fonts without ToUnicode: WinAnsi is the common Latin case. Composite (Type0) fonts are left undecodable.
+    if (!decoder && nameOf(ctx, font.get(n("Subtype"))) !== "Type0") decoder = winAnsiDecoder
+  }
+  perRes.set(name, decoder)
+  return decoder
 }
 
 // ---------------------------------------------------------------------------
@@ -672,6 +741,8 @@ function contentBytes(ctx: Ctx, v: PDFObject | undefined, total: { bytes: number
   return out
 }
 
+type PageTextSink = { runs: PdfTextRun[]; undecodable: number; fonts: FontCache; total: { runs: number }; truncated: boolean }
+
 function collectPageOccurrences(
   ctx: Ctx,
   page: PageInfo,
@@ -680,6 +751,7 @@ function collectPageOccurrences(
   budget: ContentBudget,
   total: { bytes: number },
   limitations: Limitations,
+  text: PageTextSink | null = null,
 ): { drafts: Draft[]; stats: ContentStats } {
   const drafts: Draft[] = []
   const stats: ContentStats = { pathPaints: 0, textShows: 0, doCalls: 0, inlineImages: 0, inlineUnreadable: 0 }
@@ -744,6 +816,34 @@ function collectPageOccurrences(
           return out
         },
         inlineImageLength: inlineLength(ctx, resources),
+        onText: text
+          ? (show) => {
+              const decode = fontDecoder(ctx, resources, show.font, text.fonts)
+              if (!decode) {
+                text.undecodable++
+                return show.parts.reduce<number>((g, p) => g + (typeof p === "number" ? 0 : p.length), 0)
+              }
+              const { text: str, glyphs } = joinTextParts(show.parts, decode)
+              if (!str.trim() || show.size <= 0) return glyphs
+              if (text.runs.length >= PDF_TEXT_LIMITS.maxRunsPerPage || text.total.runs >= PDF_TEXT_LIMITS.maxRunsTotal) {
+                text.truncated = true
+                return glyphs
+              }
+              text.total.runs++
+              const [x, y] = [show.trm[4], show.trm[5]]
+              const width = glyphs * 0.5 * Math.hypot(show.trm[0], show.trm[1])
+              const withMcid = show.marked.slice(0, pageDepth).reverse().find((m) => m.mcid != null)
+              text.runs.push({
+                text: str.slice(0, PDF_TEXT_LIMITS.maxRunChars),
+                box: { x0: x - page.box[0], y0: page.box[3] - (y + 0.8 * show.size), x1: x + width - page.box[0], y1: page.box[3] - (y - 0.2 * show.size) },
+                size: Math.round(show.size * 100) / 100,
+                mcid: withMcid?.mcid ?? null,
+                artifact: show.marked.some((m) => m.tag === "Artifact"),
+                order: text.runs.length,
+              })
+              return glyphs
+            }
+          : undefined,
         onInlineImage: (dict, data, s) => {
           const spec = imageSpecFromInline(ctx, dict, data, resources)
           const key = createHash("sha256").update(data).update(JSON.stringify(describeImageSpec(spec))).digest("hex")
@@ -861,7 +961,7 @@ function collectPageOccurrences(
 }
 
 /** Parse the PDF and enumerate image occurrences. Throws PdfPackageError for document-level problems. */
-export async function readPdfPackage(bytes: Uint8Array): Promise<PdfPackage> {
+export async function readPdfPackage(bytes: Uint8Array, options: { collectText?: boolean } = {}): Promise<PdfPackage> {
   if (!/^%PDF-[12]\.\d/.test(Buffer.from(bytes.subarray(0, 16)).toString("latin1"))) throw new PdfPackageError("INVALID_DOCUMENT", "The file is not a valid PDF document.")
   let doc: PDFDocument
   try {
@@ -891,13 +991,29 @@ export async function readPdfPackage(bytes: Uint8Array): Promise<PdfPackage> {
     }
   })()
   const structRoot = dictOf(ctx, catalog.get(n("StructTreeRoot")))
-  const { figures, all: allFigures, formMcrs } = (() => {
+  const { figures, all: allFigures, formMcrs, roles } = (() => {
     try {
       return readFigures(ctx, structRoot)
     } catch {
-      return { figures: new Map<string, Figure>(), all: [] as Figure[], formMcrs: 0 }
+      return { figures: new Map<string, Figure>(), all: [] as Figure[], formMcrs: 0, roles: new Map<string, PdfTextRole>() }
     }
   })()
+  const textLayout: PdfTextLayout | null = options.collectText
+    ? {
+        title: (() => {
+          try {
+            return doc.getTitle()?.slice(0, 500) ?? null
+          } catch {
+            return null
+          }
+        })(),
+        pages: [],
+        roles,
+        truncated: false,
+      }
+    : null
+  const fonts: FontCache = new WeakMap()
+  const textTotal = { runs: 0 }
   const tagged = structRoot != null
 
   const limitations: Limitations = new Map()
@@ -911,8 +1027,21 @@ export async function readPdfPackage(bytes: Uint8Array): Promise<PdfPackage> {
     const page = pages[i]
     let drafts: Draft[]
     let stats: ContentStats
+    const sink: PageTextSink | null = textLayout ? { runs: [], undecodable: 0, fonts, total: textTotal, truncated: false } : null
     try {
-      ;({ drafts, stats } = collectPageOccurrences(ctx, page, i, labels?.[i] ?? null, budget, total, limitations))
+      ;({ drafts, stats } = collectPageOccurrences(ctx, page, i, labels?.[i] ?? null, budget, total, limitations, sink))
+      if (textLayout && sink) {
+        textLayout.truncated ||= sink.truncated
+        textLayout.pages.push({
+          pageIndex: i,
+          runs: sink.runs,
+          undecodable: sink.undecodable,
+          rotate: page.rotate,
+          width: page.box[2] - page.box[0],
+          height: page.box[3] - page.box[1],
+          pageRef: page.ref,
+        })
+      }
     } catch (err) {
       if (err instanceof PdfPackageError) throw err
       if (err instanceof ContentLimitError || err instanceof DecodeLimitError || err instanceof RangeError) {
@@ -969,6 +1098,7 @@ export async function readPdfPackage(bytes: Uint8Array): Promise<PdfPackage> {
       unmatchedFigures: allFigures.filter((f) => f.alt && f.occurrences === 0).length,
       limitations: [...limitations.values()],
     },
+    ...(textLayout ? { text: textLayout } : {}),
   }
 }
 
