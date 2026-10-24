@@ -12,7 +12,7 @@ import { PageHeader } from "@/components/enterprise/page-header"
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 
 export const metadata: Metadata = {
-  title: "Conversion Name",
+  title: "Conversion",
   description: "Manage conversion names for publishing workflows.",
 }
 
@@ -22,13 +22,13 @@ export default async function ConversionNamePage() {
   return (
     <div className="flex min-w-0 flex-col gap-6 p-4 sm:p-6 md:p-8">
       <PageHeader
-        title="Conversion Name"
+        title="Conversion"
         description="Manage conversion names for publishing workflows."
         icon={Icon}
         breadcrumbs={[
           { label: "Modules", href: "/modules" },
           { label: "Publishing", href: "/modules/publishing" },
-          { label: "Conversion Name" },
+          { label: "Conversion" },
         ]}
       />
       <Empty className="border border-dashed">
@@ -38,7 +38,7 @@ export default async function ConversionNamePage() {
           </EmptyMedia>
           <EmptyTitle>Coming soon</EmptyTitle>
           <EmptyDescription>
-            The Conversion Name module is set up. Its tools will appear here once they are built.
+            The Conversion module is set up. Its tools will appear here once they are built.
           </EmptyDescription>
         </EmptyHeader>
       </Empty>
