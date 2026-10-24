@@ -151,7 +151,7 @@ export function DocumentDescriptionReview({ documentId }: { documentId: number }
         </Select>
       </header>
 
-      <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+      <dl className="alt-stat-grid">
         {stats.map((st) => (
           <div key={st.label} className="rounded-md bg-muted/50 px-2 py-1.5">
             <dt className="text-xs text-muted-foreground">{st.label}</dt>

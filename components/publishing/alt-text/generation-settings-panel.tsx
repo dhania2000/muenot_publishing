@@ -7,8 +7,8 @@
  * @summary Controlled generation settings form. State lives in the workspace so
  *   the future generation request can read it alongside the selected image.
  */
-import type { ReactNode } from "react"
-import { Info, RotateCcw } from "lucide-react"
+import { useId, useState, type ReactNode } from "react"
+import { ChevronDown, Info, RotateCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -88,10 +88,10 @@ function Hint({ id, children, tone = "muted" }: { id?: string; children: ReactNo
     <p
       id={id}
       className={cn(
-        "flex items-start gap-2 rounded-md border px-3 py-2 text-xs leading-relaxed",
+        "flex items-start gap-2 text-xs leading-relaxed",
         tone === "warning"
-          ? "border-amber-200 bg-amber-50 text-amber-900"
-          : "border-border bg-muted/40 text-muted-foreground",
+          ? "rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900"
+          : "text-muted-foreground",
       )}
     >
       <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
@@ -100,8 +100,9 @@ function Hint({ id, children, tone = "muted" }: { id?: string; children: ReactNo
   )
 }
 
-const VERTICAL_GRID = "grid gap-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2"
-const HORIZONTAL_GRID = "grid gap-4 sm:grid-cols-2"
+// Columns follow the panel's own width, so fields never shrink below a readable
+// size whether the panel sits in a narrow column or spans the page.
+const FIELD_GRID = "grid gap-4 grid-cols-[repeat(auto-fill,minmax(min(100%,14rem),1fr))]"
 
 export function GenerationSettingsPanel({
   settings,
@@ -110,6 +111,7 @@ export function GenerationSettingsPanel({
   description = "Help the AI understand how the image is used.",
   footer,
   layout = "vertical",
+  collapsible = false,
 }: {
   settings: GenerationSettings
   onChange: (settings: GenerationSettings) => void
@@ -117,9 +119,11 @@ export function GenerationSettingsPanel({
   description?: string
   footer?: ReactNode
   layout?: "vertical" | "horizontal"
+  collapsible?: boolean
 }) {
   const horizontal = layout === "horizontal"
-  const GRID = horizontal ? HORIZONTAL_GRID : VERTICAL_GRID
+  const [open, setOpen] = useState(true)
+  const contentId = useId()
   const update = <K extends keyof GenerationSettings>(key: K, value: GenerationSettings[K]) =>
     onChange({ ...settings, [key]: value })
 
@@ -150,11 +154,33 @@ export function GenerationSettingsPanel({
           Reset
           <span className="sr-only"> settings to defaults</span>
         </Button>
+        {collapsible && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setOpen((o) => !o)}
+            aria-expanded={open}
+            aria-controls={contentId}
+            className="shrink-0"
+          >
+            <ChevronDown className={cn("size-4 transition-transform", open && "rotate-180")} aria-hidden="true" />
+            {open ? "Collapse" : "Expand"}
+            <span className="sr-only"> {title}</span>
+          </Button>
+        )}
       </CardHeader>
 
-      <CardContent className={cn("gap-6", horizontal ? "grid lg:grid-cols-2 xl:grid-cols-3" : "flex flex-col")}>
+      <CardContent
+        id={contentId}
+        hidden={!open}
+        className={cn(
+          "flex flex-col gap-6",
+          horizontal && "[&>fieldset+fieldset]:border-t [&>fieldset+fieldset]:pt-5",
+        )}
+      >
         <Section title="Image">
-          <div className={GRID}>
+          <div className={FIELD_GRID}>
             <SelectField
               id="alt-image-type"
               label="Image type"
@@ -179,7 +205,7 @@ export function GenerationSettingsPanel({
         </Section>
 
         <Section title="Content context">
-          <div className={GRID}>
+          <div className={FIELD_GRID}>
             <SelectField
               id="alt-content-type"
               label="Content type"
@@ -256,7 +282,7 @@ export function GenerationSettingsPanel({
         </Section>
 
         <Section title="Output">
-          <div className={GRID}>
+          <div className={FIELD_GRID}>
             <SelectField
               id="alt-language"
               label="Output language"

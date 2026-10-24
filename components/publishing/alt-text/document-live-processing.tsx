@@ -217,7 +217,7 @@ export function DocumentLiveProcessing({ onOpenImages }: { onOpenImages?: () => 
             Processing Overview
           </h3>
           {totals ? (
-            <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
+            <div className="alt-stat-grid">
               <OverviewCard label="Total Documents" value={totals.documents} icon={FileStack} hint="Visible to you" />
               <OverviewCard label="Extracted Images" value={totals.extracted} icon={Images} hint="Extracted occurrences" />
               <OverviewCard label="Selected Images" value={totals.selected} icon={ListChecks} hint={`${totals.submitted.toLocaleString()} submitted to AI`} />
@@ -228,7 +228,7 @@ export function DocumentLiveProcessing({ onOpenImages }: { onOpenImages?: () => 
           ) : list.error ? (
             <ErrorState title="Could not load processing data" message={list.error.message} onRetry={() => void list.mutate()} />
           ) : (
-            <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
+            <div className="alt-stat-grid">
               {Array.from({ length: 6 }, (_, i) => (
                 <Skeleton key={i} className="h-[76px]" />
               ))}

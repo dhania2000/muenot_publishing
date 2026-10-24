@@ -273,8 +273,8 @@ export function BulkProcessingWorkspace({
 
       {/* Kept mounted so unsaved batch settings, uploads and the open dashboard survive view switches. */}
       <TabsContent value="current" keepMounted hidden={view !== "current"} className="mt-0 flex min-w-0 flex-col gap-6">
-      <div className="grid min-w-0 gap-6 lg:grid-cols-5">
-        <div className="flex min-w-0 flex-col gap-6 lg:col-span-2">
+      <div className="grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+        <div className="flex min-w-0 flex-col gap-6">
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Bulk Image Upload</CardTitle>
@@ -290,8 +290,8 @@ export function BulkProcessingWorkspace({
               <CardTitle className="text-base">Batch Information</CardTitle>
               <CardDescription>Identify this batch. Kept in this session until the batch is submitted.</CardDescription>
             </CardHeader>
-            <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-              <div className="flex flex-col gap-2 sm:col-span-2 lg:col-span-1 xl:col-span-2">
+            <CardContent className="grid gap-4 grid-cols-[repeat(auto-fill,minmax(min(100%,14rem),1fr))]">
+              <div className="flex flex-col gap-2 col-span-full">
                 <div className="flex items-baseline justify-between gap-2">
                   <Label htmlFor="bulk-batch-name">
                     Batch name <span className="text-destructive" aria-hidden="true">*</span>
@@ -344,7 +344,7 @@ export function BulkProcessingWorkspace({
                   </SelectContent>
                 </Select>
               </div>
-              <div className="flex flex-col gap-2 sm:col-span-2 lg:col-span-1 xl:col-span-2">
+              <div className="flex flex-col gap-2 col-span-full">
                 <div className="flex items-baseline justify-between gap-2">
                   <Label htmlFor="bulk-batch-description">
                     Description <span className="font-normal text-muted-foreground">(optional)</span>
@@ -366,7 +366,7 @@ export function BulkProcessingWorkspace({
           </Card>
         </div>
 
-        <div className="flex min-w-0 flex-col gap-6 lg:col-span-3">
+        <div className="flex min-w-0 flex-col gap-6">
           <BatchProgressDashboard onOpenInEditor={onOpenInEditor} openRequest={openRequest} />
 
           <Card>
@@ -380,7 +380,7 @@ export function BulkProcessingWorkspace({
               </Badge>
             </CardHeader>
             <CardContent className="flex flex-col gap-2">
-              <dl className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+              <dl className="alt-stat-grid">
                 {settingsSummary.map(({ label, value }) => (
                   <div key={label} className="rounded-md border px-3 py-2">
                     <dt className="text-xs text-muted-foreground">{label}</dt>
@@ -578,7 +578,7 @@ export function BulkProcessingWorkspace({
           </Card>
         </div>
 
-        <div className="lg:col-span-5">
+        <div className="min-w-0 xl:col-span-2">
           <GenerationSettingsPanel
             layout="horizontal"
             settings={draftSettings}

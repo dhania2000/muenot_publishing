@@ -68,6 +68,8 @@ export function DocumentProcessingWorkspace({ onOpenBatch }: { onOpenBatch?: (ba
   )
 }
 
+const WORKFLOW_STEPS = ["Upload", "Extract images", "Review", "Generate alt text", "Approve", "Export"] as const
+
 function CurrentDocument({ openRequest }: { openRequest: DocumentOpenRequest | null }) {
   const queue = useDocumentQueue()
   const uploads = useDocumentUploads()
@@ -76,8 +78,22 @@ function CurrentDocument({ openRequest }: { openRequest: DocumentOpenRequest | n
 
   return (
     <div className="flex min-w-0 flex-col gap-6">
-      <div className="grid min-w-0 gap-6 lg:grid-cols-5">
-        <Card className="min-w-0 lg:col-span-2">
+      <ol aria-label="Document workflow" className="flex flex-wrap items-center gap-x-2 gap-y-2 text-xs text-muted-foreground">
+        {WORKFLOW_STEPS.map((step, i) => (
+          <li key={step} className="flex items-center gap-2">
+            <span className="flex items-center gap-1.5 rounded-full border bg-card px-2.5 py-1 font-medium text-foreground">
+              <span className="flex size-4 items-center justify-center rounded-full bg-accent text-[10px] font-semibold text-accent-foreground tabular-nums">
+                {i + 1}
+              </span>
+              {step}
+            </span>
+            {i < WORKFLOW_STEPS.length - 1 && <span aria-hidden="true" className="h-px w-3 bg-border" />}
+          </li>
+        ))}
+      </ol>
+
+      <div className="grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+        <Card className="min-w-0">
           <CardHeader>
             <CardTitle className="text-base">Document Upload</CardTitle>
             <CardDescription>Add one or more documents to extract their images for alt text.</CardDescription>
@@ -85,15 +101,18 @@ function CurrentDocument({ openRequest }: { openRequest: DocumentOpenRequest | n
           <CardContent className="flex flex-col gap-4">
             <DocumentDropZone queue={queue} />
 
-            <div className="flex flex-col gap-2 rounded-md border px-3 py-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Supported formats</p>
-              <ul className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2">
+              <p className="text-xs font-medium text-muted-foreground">Supported formats</p>
+              <ul className="flex flex-wrap gap-1.5">
                 {SUPPORTED_FORMATS.map((f) => (
-                  <li key={f.ext} className="flex items-start gap-2 text-xs">
-                    <span className="w-11 shrink-0 rounded border bg-muted/50 px-1.5 py-0.5 text-center font-mono font-medium text-foreground">
+                  <li key={f.ext}>
+                    <span
+                      title={f.note}
+                      className="inline-flex rounded-md border bg-muted px-2 py-0.5 font-mono text-xs font-medium text-foreground"
+                    >
                       {f.ext}
+                      <span className="sr-only">: {f.note}</span>
                     </span>
-                    <span className="leading-relaxed text-muted-foreground">{f.note}</span>
                   </li>
                 ))}
               </ul>
@@ -104,24 +123,25 @@ function CurrentDocument({ openRequest }: { openRequest: DocumentOpenRequest | n
           </CardContent>
         </Card>
 
-        <div className="flex min-w-0 flex-col gap-4 lg:col-span-3">
-          <GenerationSettingsPanel
-            settings={settings}
-            onChange={setSettings}
-            layout="horizontal"
-            title="Document Settings"
-            description="Context applied to every image extracted from the selected documents. Image Type sets the classification preference."
-            footer={
-              <div className="flex flex-col gap-4">
+        <GenerationSettingsPanel
+          settings={settings}
+          onChange={setSettings}
+          layout="horizontal"
+          collapsible
+          title="Document Settings"
+          description="Context applied to every image extracted from the selected documents."
+          footer={
+            <div className="flex flex-col gap-3 border-t pt-5">
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,14rem),1fr))] gap-4">
                 <SelectField id="doc-type" label="Document Type" value={documentType} options={DOCUMENT_TYPES} onChange={setDocumentType} />
-                <p className="flex items-start gap-2 rounded-md border bg-muted/40 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
-                  <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-                  <span>AI model selection follows your organization&apos;s Alt Text governance policy.</span>
-                </p>
               </div>
-            }
-          />
-        </div>
+              <p className="flex items-start gap-2 text-xs leading-relaxed text-muted-foreground">
+                <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+                <span>AI model selection follows your organization&apos;s Alt Text governance policy.</span>
+              </p>
+            </div>
+          }
+        />
       </div>
 
       <SelectedDocumentsCard queue={queue} uploads={uploads} />

@@ -296,7 +296,7 @@ export function BatchProgressDashboard({
             />
           ) : !view ? (
             <div className="flex flex-col gap-3" aria-busy="true" aria-label="Loading batch progress">
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+              <div className="alt-stat-grid">
                 {Array.from({ length: 6 }, (_, i) => (
                   <Skeleton key={i} className="h-14" />
                 ))}
@@ -324,7 +324,7 @@ export function BatchProgressDashboard({
                   </AlertDescription>
                 </Alert>
               )}
-              <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+              <dl className="alt-stat-grid">
                 <StatCard label="Total Images" value={view.total} icon={Images} tone="bg-slate-100 text-slate-700" />
                 <StatCard label="Pending" value={view.pending} icon={Clock} tone="bg-slate-100 text-slate-600" />
                 <StatCard label="Processing" value={view.processing} icon={Loader2} tone="bg-sky-50 text-sky-700" />
