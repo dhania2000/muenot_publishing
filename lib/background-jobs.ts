@@ -6,16 +6,21 @@ import "server-only"
  */
 import { createHash, randomUUID } from "node:crypto"
 import { query, withTransaction } from "@/lib/db"
-import { classifyJobFailure, JobDeferredError, retryDisposition } from "@/lib/job-retry-policy"
+import { classifyJobFailure, JobCancelledError, JobDeferredError, retryDisposition } from "@/lib/job-retry-policy"
 import { assertEnqueueAllowed, jobLimitsFromEnv, payloadBytes } from "@/lib/observability/job-limits"
 
-export const BACKGROUND_JOB_TYPES = ["alt_text.batch_processing"] as const
+export const BACKGROUND_JOB_TYPES = ["alt_text.batch_processing", "alt_text.document_preparation"] as const
 export type BackgroundJobType = (typeof BACKGROUND_JOB_TYPES)[number]
 export const BACKGROUND_JOB_STATUSES = ["queued", "running", "completed", "failed", "dead_letter", "cancelled"] as const
 export type BackgroundJobStatus = (typeof BACKGROUND_JOB_STATUSES)[number]
 
 export type AltTextBatchJobPayload = { batchId: string }
-export type BackgroundJobPayload = AltTextBatchJobPayload
+/** Phase 3 Task 11: staged extraction → location mapping → context → AI readiness for one document. */
+export type DocumentPreparationJobPayload = { documentId: number }
+export type BackgroundJobPayload = AltTextBatchJobPayload | DocumentPreparationJobPayload
+
+/** Cluster-wide running cap for document preparation (memory-heavy parsing). Phase 2 types keep their own policy. */
+export const documentPreparationGlobalCap = () => bounded(process.env.ALT_TEXT_DOCUMENT_JOBS_GLOBAL_MAX, 2, 1, 20)
 
 export type BackgroundJob = {
   id: number
@@ -87,6 +92,8 @@ function mapJob(row: any): BackgroundJob {
 function validatePayload(type: BackgroundJobType, payload: unknown): BackgroundJobPayload {
   const batchId = (payload as { batchId?: unknown })?.batchId
   if (type === "alt_text.batch_processing" && typeof batchId === "string" && batchId.length > 0 && batchId.length <= 64) return { batchId }
+  const documentId = (payload as { documentId?: unknown })?.documentId
+  if (type === "alt_text.document_preparation" && Number.isSafeInteger(documentId) && (documentId as number) > 0) return { documentId: documentId as number }
   throw new Error("Invalid background job payload")
 }
 
@@ -213,11 +220,60 @@ type JobHandler = (payload: BackgroundJobPayload, context: JobHandlerContext) =>
 const JOB_HANDLERS: Record<BackgroundJobType, JobHandler> = {
   async "alt_text.batch_processing"(payload, context) {
     const [{ runAltTextBatchJob }, { processAltTextBatch }] = await Promise.all([import("@/lib/alt-text/batch-job"), import("@/lib/alt-text/batch-processor")])
-    return runAltTextBatchJob(payload, context, { processor: processAltTextBatch })
+    return runAltTextBatchJob(payload as AltTextBatchJobPayload, context, { processor: processAltTextBatch })
+  },
+  async "alt_text.document_preparation"(payload, context) {
+    const { runDocumentPreparationJob } = await import("@/lib/alt-text/document-preparation-job")
+    return runDocumentPreparationJob(payload as DocumentPreparationJobPayload, context)
   },
 }
 
+/** Stage/progress audit entry on the existing job event log. */
+export async function recordBackgroundJobEvent(jobId: number, eventType: string, detail: Record<string, unknown> = {}) {
+  await appendEvent(jobId, eventType.slice(0, 40), detail)
+}
+
+/** Durable cancel flag read at handler checkpoints (the in-memory job snapshot is taken at claim time). */
+export async function isBackgroundJobCancelRequested(jobId: number): Promise<boolean> {
+  const rows = await query<any[]>("SELECT cancel_requested FROM platform_background_jobs WHERE id=? LIMIT 1", [jobId])
+  return Boolean(Number(rows[0]?.cancel_requested ?? 0))
+}
+
+/**
+ * Tenant-scoped cancel. A queued job is cancelled atomically; a running job only gets the durable
+ * cancel_requested flag and settles at its next safe checkpoint (in-flight work is never killed).
+ */
+export async function requestBackgroundJobCancel(jobId: number, tenantId: number): Promise<"cancelled" | "cancel_requested" | "not_active"> {
+  await ensureBackgroundJobSchema()
+  const queued = await query<any>(
+    `UPDATE platform_background_jobs SET status='cancelled', cancel_requested=1, error_message='CANCELLED', completed_at=UTC_TIMESTAMP()
+      WHERE id=? AND tenant_id=? AND status='queued'`,
+    [jobId, tenantId],
+  )
+  if (Number(queued.affectedRows) > 0) {
+    await appendEvent(jobId, "cancelled", { while: "queued" })
+    const job = await getBackgroundJob(jobId)
+    if (job) await afterSettle(job, "cancelled")
+    return "cancelled"
+  }
+  const running = await query<any>("UPDATE platform_background_jobs SET cancel_requested=1 WHERE id=? AND tenant_id=? AND status='running'", [jobId, tenantId])
+  if (Number(running.affectedRows) > 0) {
+    await appendEvent(jobId, "cancel_requested", {})
+    return "cancel_requested"
+  }
+  return "not_active"
+}
+
 async function afterSettle(job: BackgroundJob, status: BackgroundJobStatus) {
+  if (job.job_type === "alt_text.document_preparation") {
+    try {
+      const { onDocumentPreparationJobSettled } = await import("@/lib/alt-text/document-preparation-job")
+      await onDocumentPreparationJobSettled(job, status)
+    } catch (error) {
+      console.error("[jobs] document preparation settle hook failed", error instanceof Error ? error.message : error)
+    }
+    return
+  }
   if (job.job_type !== "alt_text.batch_processing") return
   try {
     const { onAltTextBatchJobSettled } = await import("@/lib/alt-text/batch-job")
@@ -245,8 +301,12 @@ async function claimNext(workerId: string): Promise<BackgroundJob | null> {
           AND (j.concurrency_key IS NULL OR (
             SELECT COUNT(*) FROM platform_background_jobs r WHERE r.status = 'running' AND r.concurrency_key = j.concurrency_key
           ) < j.concurrency_limit)
+          AND (j.job_type <> 'alt_text.document_preparation' OR (
+            SELECT COUNT(*) FROM platform_background_jobs g WHERE g.status = 'running' AND g.job_type = 'alt_text.document_preparation'
+          ) < ?)
         ORDER BY j.priority DESC, j.available_at ASC, j.id ASC
         LIMIT 1 FOR UPDATE SKIP LOCKED`,
+      [documentPreparationGlobalCap()],
     )
     const row = rows[0]
     if (!row) return null
@@ -289,6 +349,10 @@ async function runJob(job: BackgroundJob): Promise<BackgroundJobStatus> {
     await settle(job, "completed", result ?? null, null)
     return "completed"
   } catch (error) {
+    if (error instanceof JobCancelledError) {
+      await settle(job, "cancelled", null, error.code)
+      return "cancelled"
+    }
     if (error instanceof JobDeferredError && !controller.signal.aborted) {
       await query("UPDATE platform_background_jobs SET attempts = GREATEST(attempts - 1, 0) WHERE id=?", [job.id])
       await settle(job, "queued", null, error.code, error.delaySeconds)
