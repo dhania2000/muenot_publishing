@@ -776,11 +776,66 @@ export async function getSettings(): Promise<AltTextSettings> {
 }
 
 export async function saveSettings(settings: AltTextSettings, actorId: number) {
+  await saveSettingsRecord({ settings, expectedRevision: null }, actorId)
+}
+
+/**
+ * Phase 3 Task 2: the same tenant row also carries the `accessibility` preferences and a `revision`
+ * counter inside its JSON. normalizeSettings() ignores both, so every existing getSettings() caller
+ * keeps reading exactly the fields it did before.
+ */
+export type AltTextSettingsRecord = {
+  settings: AltTextSettings
+  accessibility: unknown
+  revision: number
+  updatedBy: number | null
+  updatedAt: string | null
+}
+
+const parseSettingsJson = (raw: unknown): Record<string, unknown> => {
+  const v = typeof raw === "string" ? JSON.parse(raw) : raw
+  return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {}
+}
+const revisionOf = (json: Record<string, unknown>) => (Number.isSafeInteger(json.revision) && Number(json.revision) >= 0 ? Number(json.revision) : 0)
+
+export async function getSettingsRecord(): Promise<AltTextSettingsRecord> {
   await ensureAltTextSchema()
-  await query(
-    "INSERT INTO alt_text_settings (tenant_id, settings, updated_by) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE settings = VALUES(settings), updated_by = VALUES(updated_by)",
-    [tid(), JSON.stringify(settings), actorId],
-  )
+  const rows = await query<any[]>("SELECT settings, updated_by, updated_at FROM alt_text_settings WHERE tenant_id = ?", [tid()])
+  const row = rows[0]
+  const json = parseSettingsJson(row?.settings)
+  return {
+    settings: normalizeSettings(json),
+    accessibility: json.accessibility ?? null,
+    revision: revisionOf(json),
+    updatedBy: row?.updated_by == null ? null : Number(row.updated_by),
+    updatedAt: row?.updated_at ? new Date(row.updated_at).toISOString() : null,
+  }
+}
+
+/**
+ * Atomic read-modify-write of the tenant settings row. `accessibility: undefined` preserves the
+ * stored preferences, so legacy callers can never wipe them. With `expectedRevision`, a write based
+ * on a stale read returns a conflict instead of overwriting a concurrent change.
+ */
+export async function saveSettingsRecord(
+  input: { settings: AltTextSettings; accessibility?: unknown; expectedRevision: number | null },
+  actorId: number,
+): Promise<{ ok: true; revision: number } | { ok: false; reason: "conflict"; revision: number }> {
+  await ensureAltTextSchema()
+  const tenantId = tid()
+  return withTransaction(async (conn) => {
+    const [rows] = await conn.query<RowDataPacket[]>("SELECT settings FROM alt_text_settings WHERE tenant_id = ? FOR UPDATE", [tenantId])
+    const current = parseSettingsJson(rows[0]?.settings)
+    const revision = revisionOf(current)
+    if (input.expectedRevision != null && input.expectedRevision !== revision) return { ok: false, reason: "conflict", revision } as const
+    const accessibility = input.accessibility === undefined ? current.accessibility : input.accessibility
+    const next = { ...input.settings, ...(accessibility == null ? {} : { accessibility }), revision: revision + 1 }
+    await conn.query(
+      "INSERT INTO alt_text_settings (tenant_id, settings, updated_by) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE settings = VALUES(settings), updated_by = VALUES(updated_by)",
+      [tenantId, JSON.stringify(next), actorId],
+    )
+    return { ok: true, revision: revision + 1 } as const
+  })
 }
 
 // ── Bulk processing batches ────────���───────────────────────────────────────

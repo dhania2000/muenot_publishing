@@ -11,7 +11,8 @@
  */
 import { useEffect, useRef, useState } from "react"
 import { useSWRConfig } from "swr"
-import { FileText, History, ImagePlus, Layers, Sparkles } from "lucide-react"
+import { FileText, History, ImagePlus, Layers, Settings2, Sparkles } from "lucide-react"
+import { AccessibilitySettingsWorkspace } from "./accessibility-settings-workspace"
 import { BulkProcessingWorkspace } from "./bulk-processing-workspace"
 import { DocumentProcessingWorkspace } from "./document-processing-workspace"
 import {
@@ -99,6 +100,13 @@ function outputForAsset(asset: AltTextAssetView, settings: GenerationSettings): 
 export function AltTextWorkspace() {
   const { mutate } = useSWRConfig()
   const [tab, setTab] = useState("generate")
+  const [settingsDirty, setSettingsDirty] = useState(false)
+  const [settingsKey, setSettingsKey] = useState(0)
+  const [pendingTab, setPendingTab] = useState<string | null>(null)
+  const changeTab = (next: string) => {
+    if (tab === "settings" && next !== "settings" && settingsDirty) setPendingTab(next)
+    else setTab(next)
+  }
   const [batchRequest, setBatchRequest] = useState<{ id: string; nonce: number } | null>(null)
   const [settings, setSettings] = useState<GenerationSettings>(DEFAULT_GENERATION_SETTINGS)
   const [image, setImage] = useState<SelectedImage | null>(null)
@@ -257,8 +265,8 @@ export function AltTextWorkspace() {
 
   return (
     <>
-      <Tabs value={tab} onValueChange={setTab} className="flex flex-col gap-4">
-        <TabsList className="w-full sm:w-fit">
+      <Tabs value={tab} onValueChange={changeTab} className="flex flex-col gap-4">
+        <TabsList className="w-full overflow-x-auto sm:w-fit">
           <TabsTrigger value="generate" className="flex-1 gap-2 sm:flex-none">
             <Sparkles className="size-4" aria-hidden="true" />
             Generate
@@ -274,6 +282,10 @@ export function AltTextWorkspace() {
           <TabsTrigger value="history" className="flex-1 gap-2 sm:flex-none">
             <History className="size-4" aria-hidden="true" />
             History
+          </TabsTrigger>
+          <TabsTrigger value="settings" className="flex-1 gap-2 sm:flex-none">
+            <Settings2 className="size-4" aria-hidden="true" />
+            Settings
           </TabsTrigger>
         </TabsList>
 
@@ -354,7 +366,34 @@ export function AltTextWorkspace() {
         <TabsContent value="history" className="mt-0">
           <AltTextHistory onOpenInEditor={requestOpen} />
         </TabsContent>
+
+        <TabsContent value="settings" className="mt-0">
+          <AccessibilitySettingsWorkspace onDirtyChange={setSettingsDirty} />
+        </TabsContent>
       </Tabs>
+
+      <AlertDialog open={pendingTab !== null} onOpenChange={(o) => !o && setPendingTab(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Leave with unsaved settings?</AlertDialogTitle>
+            <AlertDialogDescription>Your Accessibility Settings changes have not been saved and will be discarded.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep editing</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                const target = pendingTab
+                setPendingTab(null)
+                setSettingsDirty(false)
+                setSettingsKey((k) => k + 1)
+                if (target) setTab(target)
+              }}
+            >
+              Discard changes
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={pendingOpen !== null} onOpenChange={(o) => !o && setPendingOpen(null)}>
         <AlertDialogContent>

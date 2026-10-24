@@ -415,3 +415,30 @@ export function triggerDownload(blob: Blob, filename: string) {
   a.remove()
   setTimeout(() => URL.revokeObjectURL(url), 0)
 }
+
+export const ALT_TEXT_SETTINGS_URL = "/api/alt-text/settings"
+
+export type AltTextSettingsResponse = {
+  success: true
+  settings: import("./core").AltTextSettings
+  revision: number
+  updatedAt: string | null
+  accessibility: import("./accessibility-settings").EffectiveAccessibilitySettings
+  permissions: { canManage: boolean }
+}
+
+export type AltTextSettingsPatch = Partial<
+  Pick<import("./core").AltTextSettings, "defaultLanguage" | "defaultAudience" | "shortMaxChars" | "requireReview">
+> & { accessibility?: import("./accessibility-settings").AccessibilityPatch; expectedRevision: number }
+
+export function getAltTextSettings() {
+  return requestJson<AltTextSettingsResponse>(ALT_TEXT_SETTINGS_URL, { cache: "no-store" })
+}
+
+export function updateAltTextSettings(body: AltTextSettingsPatch) {
+  return requestJson<AltTextSettingsResponse>(ALT_TEXT_SETTINGS_URL, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  })
+}
