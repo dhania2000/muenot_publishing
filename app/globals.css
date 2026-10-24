@@ -99,3 +99,28 @@
     @apply bg-background text-foreground antialiased;
   }
 }
+
+/*
+ * PDF module accessibility (Phase 1 Task 11).
+ * The shared 50%-opacity focus ring falls below the 3:1 non-text contrast minimum (WCAG 1.4.11), so the PDF
+ * module adds a solid ring-colour outline. Controls that already draw an inset ring (full-width rows inside
+ * overflow-hidden containers) get an inset outline so it is never clipped.
+ */
+[data-pdf-layout] :focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+[data-pdf-layout] [class*="ring-inset"]:focus-visible {
+  outline-offset: -2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-pdf-layout] *,
+  [data-pdf-layout] *::before,
+  [data-pdf-layout] *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

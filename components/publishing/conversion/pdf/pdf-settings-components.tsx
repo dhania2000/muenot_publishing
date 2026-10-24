@@ -147,7 +147,7 @@ export function PdfConfigField({
               <button
                 type="button"
                 aria-label={`About ${label}`}
-                className="inline-flex size-5 items-center justify-center rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                className="inline-flex size-6 items-center justify-center rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <CircleHelp className="size-3.5" aria-hidden="true" />
               </button>

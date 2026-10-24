@@ -20,6 +20,7 @@ import {
   deriveGuidelineState,
   describeLocalFile,
   formatBytes,
+  PDF_FILE_ISSUE_MESSAGES,
   PDF_WORKFLOW_STEPS,
   getWorkflowStepState,
   type PdfGuidelineState,
@@ -88,12 +89,11 @@ export function PdfWorkspace({
       const next = [...files]
       for (const file of incoming) next.push(describeLocalFile(file, next, `local-${++fileSeq}`))
       const added = next.slice(files.length)
-      const issues = added.filter((f) => f.issue).length
+      const issues = added.filter((f) => f.issue)
       setFiles(next)
       if (!selectedId) setSelectedId(added.find((f) => !f.issue)?.id ?? added[0].id)
-      setAnnouncement(
-        `${added.length} ${added.length === 1 ? "file" : "files"} added.${issues ? ` ${issues} with validation issues.` : ""}`,
-      )
+      const reasons = issues.map((f) => `${f.name}: ${PDF_FILE_ISSUE_MESSAGES[f.issue!]}`).join(" ")
+      setAnnouncement(`${added.length} ${added.length === 1 ? "file" : "files"} added.${reasons ? ` ${reasons}` : ""}`)
     },
     [files, selectedId],
   )
@@ -155,10 +155,11 @@ export function PdfWorkspace({
   }
 
   // CSS-only visibility: every panel stays mounted, so files, selection and settings survive resizes and switching.
-  const panelVisibility = (tab: PanelTab) => cn("min-h-0 min-w-0", panelTab !== tab && "max-xl:hidden")
+  // Breakpoints use the workspace's own width so the app sidebar is accounted for; pdf-panels has the same width.
+  const panelVisibility = (tab: PanelTab) => cn("min-h-0 min-w-0", panelTab !== tab && "@max-4xl/pdf-panels:hidden")
 
   return (
-    <div data-slot="pdf-workspace" className="flex min-w-0 flex-col gap-3">
+    <div data-slot="pdf-workspace" className="@container/pdf-workspace flex min-w-0 flex-col gap-3">
       <p aria-live="polite" className="sr-only">
         {announcement}
       </p>
@@ -170,7 +171,7 @@ export function PdfWorkspace({
       <div
         role="group"
         aria-label="Workspace panels"
-        className="sticky top-0 z-10 flex gap-1 rounded-lg bg-muted p-1 shadow-sm xl:hidden"
+        className="sticky top-0 z-10 flex gap-1 rounded-lg bg-muted p-1 shadow-sm @4xl/pdf-workspace:hidden"
       >
         {PANEL_TABS.map((tab) => (
           <button
@@ -194,10 +195,10 @@ export function PdfWorkspace({
         data-slot="pdf-workspace-panels"
         sourceCollapsed={!leftOpen}
         settingsCollapsed={!rightOpen}
-        className="gap-3 xl:h-[min(80dvh,920px)] xl:min-h-[600px]"
+        className="gap-3 @4xl/pdf-panels:h-[min(80dvh,920px)] @4xl/pdf-panels:min-h-[560px]"
         slotClassNames={{
           source: panelVisibility("source"),
-          preview: cn(panelVisibility("preview"), "max-xl:h-[min(70dvh,880px)]"),
+          preview: cn(panelVisibility("preview"), "@max-4xl/pdf-panels:h-[min(70dvh,880px)]"),
           settings: panelVisibility("settings"),
         }}
         source={
@@ -259,12 +260,13 @@ export function PdfWorkflowStepper({
 }) {
   return (
     <nav aria-label="Workflow steps">
-      <ol className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-6">
+      {/* Narrow: one compact scrollable row so the work surface stays near the top. Wider: full cards with descriptions. */}
+      <ol className="-mx-1 flex snap-x gap-1.5 overflow-x-auto px-1 pb-1 [scrollbar-width:thin] @2xl/pdf-workspace:mx-0 @2xl/pdf-workspace:grid @2xl/pdf-workspace:grid-cols-3 @2xl/pdf-workspace:overflow-visible @2xl/pdf-workspace:px-0 @2xl/pdf-workspace:pb-0 @5xl/pdf-workspace:grid-cols-6">
         {PDF_WORKFLOW_STEPS.map((step, index) => {
           const state = getWorkflowStepState(step, currentStep)
           const isCurrent = state === "current"
           return (
-            <li key={step.id} className="min-w-0">
+            <li key={step.id} className="w-36 min-w-0 shrink-0 snap-start @2xl/pdf-workspace:w-auto">
               <button
                 type="button"
                 aria-current={isCurrent ? "step" : undefined}
@@ -289,7 +291,7 @@ export function PdfWorkflowStepper({
                     {step.label}
                     {step.optional && <span className="text-xs font-normal text-muted-foreground">(Optional)</span>}
                   </span>
-                  <span className="line-clamp-2 text-xs text-muted-foreground">{step.description}</span>
+                  <span className="hidden text-xs text-muted-foreground @2xl/pdf-workspace:line-clamp-2">{step.description}</span>
                   {state === "planned" && <span className="text-xs text-muted-foreground">Planned</span>}
                 </span>
               </button>
@@ -317,7 +319,7 @@ export function PdfWorkspaceToolbar({
     <div
       role="region"
       aria-label="Workspace summary"
-      className="flex min-w-0 flex-col gap-2 rounded-lg border bg-card px-3 py-2 lg:flex-row lg:items-center lg:justify-between"
+      className="flex min-w-0 flex-col gap-2 rounded-lg border bg-card px-3 py-2 @4xl/pdf-workspace:flex-row @4xl/pdf-workspace:items-center @4xl/pdf-workspace:justify-between"
     >
       <dl className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 text-xs">
         <div className="flex min-w-0 items-center gap-1.5">

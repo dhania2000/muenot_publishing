@@ -99,7 +99,7 @@ function toMetadataFields(file: PdfLocalFile): PdfFileMetadataFields {
   }
 }
 
-// ─── Collapse controls (≥ xl) ───────────────────────────────────────────────
+// ─── Collapse controls (panel container ≥ 56rem) ────────────────────────────
 
 function CollapseButton({
   side,
@@ -125,14 +125,14 @@ function CollapseButton({
       aria-label={label}
       title={label}
       onClick={onToggle}
-      className="hidden xl:inline-flex"
+      className="hidden @4xl/pdf-panels:inline-flex"
     >
       <Icon aria-hidden="true" />
     </Button>
   )
 }
 
-/** 48px rail shown in place of a collapsed side panel (≥ xl only). */
+/** 48px rail shown in place of a collapsed side panel (three-column mode only). */
 function CollapsedRail({
   side,
   label,
@@ -150,7 +150,7 @@ function CollapsedRail({
 }) {
   const ExpandIcon = side === "left" ? PanelLeftOpen : PanelRightOpen
   return (
-    <div className="hidden h-full flex-col items-center gap-3 py-2 xl:flex">
+    <div className="hidden h-full flex-col items-center gap-3 py-2 @4xl/pdf-panels:flex">
       <Button
         variant="ghost"
         size="icon-sm"
@@ -219,7 +219,7 @@ export function PdfSourcePanel({
   return (
     <section id={regionId} tabIndex={-1} aria-labelledby={headingId} className={PANEL_SURFACE}>
       {!expanded && <CollapsedRail side="left" label="Source Files" icon={FileText} controls={bodyId} count={files.length} onExpand={onToggle} />}
-      <div id={bodyId} className={cn("flex min-h-0 flex-1 flex-col", !expanded && "xl:hidden")}>
+      <div id={bodyId} className={cn("flex min-h-0 flex-1 flex-col", !expanded && "@4xl/pdf-panels:hidden")}>
         <PdfPanelHeader headingId={headingId} title="Source Files" meta={files.length > 0 && <Badge variant="secondary">{files.length}</Badge>}>
           <Button variant="outline" size="sm" onClick={() => addInputRef.current?.click()}>
             <Plus aria-hidden="true" />
@@ -234,7 +234,7 @@ export function PdfSourcePanel({
             accept={PDF_SOURCE_EXTENSIONS}
             inputRef={addInputRef}
             onFiles={onAddFiles}
-            hint="PDF, Word, Excel, PowerPoint, HTML, XML or images. Files stay in this browser; server upload is planned."
+            hint="PDF, Word, Excel, PowerPoint, HTML, XML or images. Empty files are rejected; no size limit is applied locally. Files stay in this browser; server upload is planned."
           />
           <input
             ref={replaceInputRef}
@@ -386,7 +386,7 @@ function OriginalPreview({ file, hasFiles }: { file: PdfLocalFile | null; hasFil
     <PdfPreviewContainer
       state="unavailable"
       title="Document rendering is planned"
-      description={`${file.name} is selected. Page rendering arrives with the PDF viewer; its metadata is shown in Source Files.`}
+      description={`${file.name} is selected. Page rendering arrives with the PDF viewer; its metadata is shown in Source Files. A visual preview will not make the document's text available to screen readers.`}
     />
   )
 }
@@ -418,7 +418,7 @@ export function PdfSettingsPanel(props: PdfSettingsPanelProps) {
   return (
     <section id={regionId} tabIndex={-1} aria-labelledby={headingId} className={PANEL_SURFACE}>
       {!expanded && <CollapsedRail side="right" label="Settings" icon={SlidersHorizontal} controls={bodyId} onExpand={onToggle} />}
-      <div id={bodyId} className={cn("flex min-h-0 flex-1 flex-col", !expanded && "xl:hidden")}>
+      <div id={bodyId} className={cn("flex min-h-0 flex-1 flex-col", !expanded && "@4xl/pdf-panels:hidden")}>
         <PdfPanelHeader headingId={headingId} title="Conversion Settings">
           <CollapseButton side="right" expanded={expanded} controls={bodyId} panelName="settings" onToggle={onToggle} />
         </PdfPanelHeader>

@@ -76,9 +76,9 @@ export const PDF_SOURCE_EXTENSIONS = ["pdf", "docx", "xlsx", "pptx", "html", "ht
 export type PdfLocalFileIssue = "unsupported-type" | "empty-file" | "duplicate"
 
 export const PDF_FILE_ISSUE_MESSAGES: Record<PdfLocalFileIssue, string> = {
-  "unsupported-type": "This file type is not supported by the PDF module.",
-  "empty-file": "This file is empty (0 bytes).",
-  duplicate: "A file with the same name and size is already in the list.",
+  "unsupported-type": "Unsupported format. Remove it, or replace it with a PDF, Word, Excel, PowerPoint, HTML, XML or image file.",
+  "empty-file": "This file is empty (0 bytes). Remove it, or replace it with a file that has content.",
+  duplicate: "A file with the same name and size is already in the list. Remove this copy.",
 }
 
 export type PdfLocalFile = {

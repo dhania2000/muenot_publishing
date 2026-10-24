@@ -224,15 +224,16 @@ export function PdfPreviewToolbar({
         <div role="group" aria-label="Page navigation" className="flex items-center gap-1">
           <ToolbarButton action={{ id: "prev", label: "Previous page", icon: ChevronLeft, onClick: c.onPreviousPage, disabled: atFirst }} />
           <ToolbarButton action={{ id: "next", label: "Next page", icon: ChevronRight, onClick: c.onNextPage, disabled: atLast }} />
-          <span
-            className="px-1 text-xs tabular-nums text-muted-foreground"
-            aria-live="polite"
-            aria-label={pageKnown ? `Page ${c.page} of ${c.pageCount}` : "Page number unavailable"}
-          >
-            {pageKnown ? `${c.page} / ${c.pageCount}` : "– / –"}
+          {/* aria-label is not supported on generic spans, so the spoken form is sr-only text. */}
+          <span role="status" className="px-1 text-xs tabular-nums text-muted-foreground">
+            <span aria-hidden="true">{pageKnown ? `${c.page} / ${c.pageCount}` : "– / –"}</span>
+            <span className="sr-only">{pageKnown ? `Page ${c.page} of ${c.pageCount}` : "Page number unavailable"}</span>
           </span>
           {c.zoomPercent !== undefined && (
-            <span className="px-1 text-xs tabular-nums text-muted-foreground">{`${Math.round(c.zoomPercent)}%`}</span>
+            <span className="px-1 text-xs tabular-nums text-muted-foreground">
+              <span className="sr-only">Zoom </span>
+              {`${Math.round(c.zoomPercent)}%`}
+            </span>
           )}
           <span className="mx-1 h-4 w-px bg-border" aria-hidden="true" />
         </div>
