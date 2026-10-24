@@ -31,6 +31,7 @@ export function PdfConfirmDialog({
   cancelLabel = "Cancel",
   destructive = false,
   onConfirm,
+  onCloseAutoFocus,
   children,
 }: DialogControl & {
   title: string
@@ -39,11 +40,13 @@ export function PdfConfirmDialog({
   cancelLabel?: string
   destructive?: boolean
   onConfirm: () => void
+  /** Redirect focus on close when the trigger no longer exists (e.g. after removing the item). */
+  onCloseAutoFocus?: (event: Event) => void
   children?: React.ReactNode
 }) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
+      <AlertDialogContent data-pdf-overlay="dialog" onCloseAutoFocus={onCloseAutoFocus}>
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>
@@ -91,7 +94,7 @@ export function PdfErrorDetailsDialog({
 }) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
+      <AlertDialogContent data-pdf-overlay="dialog">
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>{message}</AlertDialogDescription>
@@ -119,7 +122,7 @@ export function PdfFileInfoDialog({
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       {/* Informational, not an alert: Radix spreads props after its default role, so this overrides "alertdialog". */}
-      <AlertDialogContent role="dialog">
+      <AlertDialogContent role="dialog" data-pdf-overlay="dialog">
         <AlertDialogHeader>
           <AlertDialogTitle className="truncate">{fields.filename ?? "File information"}</AlertDialogTitle>
           <AlertDialogDescription>Details reported for this file.</AlertDialogDescription>
