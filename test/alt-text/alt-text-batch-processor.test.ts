@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 vi.mock("server-only", () => ({}))
-vi.mock("@/lib/db", () => ({ query: vi.fn() }))
+vi.mock("@/lib/db", () => ({ query: vi.fn(async () => []) }))
 vi.mock("@/lib/permission-store", () => ({ getScope: vi.fn(), hasActionGrant: vi.fn() }))
 const store = vi.hoisted(() => ({
   BATCH_HOLD_STATUSES: ["pause_requested", "paused", "cancel_requested"],
@@ -12,6 +12,8 @@ const store = vi.hoisted(() => ({
   markFailed: vi.fn(async () => true),
   requeueAsset: vi.fn(async () => true),
   finalizeBatchFromAssets: vi.fn(),
+  ensureAltTextSchema: vi.fn(async () => {}),
+  BATCH_MAX_ASSETS_PER_CALL: 100,
 }))
 const credits = vi.hoisted(() => ({ getAltTextCreditUsage: vi.fn(async () => null), altTextRequestId: (s: string) => `alt_${s}` }))
 vi.mock("@/lib/alt-text/store", async (importOriginal) => ({ deriveBatchStatus: ((await importOriginal()) as any).deriveBatchStatus, ...store }))

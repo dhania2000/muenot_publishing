@@ -6,6 +6,7 @@
  * @exports PdfModuleLayout, PdfLayoutWidth, PdfLayoutSpacing, PdfSectionLayout, getPdfSectionLayout
  * @see PDF_PHASE1_TASK2_UI_ARCHITECTURE.md §6.3, §7, §13
  */
+import { getPdfSection } from "@/components/publishing/conversion/pdf/pdf-sections"
 import { cn } from "@/lib/utils"
 
 export type PdfLayoutWidth = "default" | "wide" | "full"
@@ -25,28 +26,9 @@ const SPACING_CLASS: Record<PdfLayoutSpacing, string> = {
 
 const DEFAULT_SECTION_LAYOUT: PdfSectionLayout = { width: "default", spacing: "standard" }
 
-/**
- * One layout table for all 12 planned sections, keyed by route slug ("" = Overview).
- * Slugs not yet in the conversion registry (guidelines, profiles-and-presets) are listed so
- * Task 5 only has to add the registry rows.
- */
-const PDF_SECTION_LAYOUTS: Record<string, PdfSectionLayout> = {
-  "": DEFAULT_SECTION_LAYOUT,
-  workspace: { width: "full", spacing: "compact" },
-  guidelines: DEFAULT_SECTION_LAYOUT,
-  "output-settings": DEFAULT_SECTION_LAYOUT,
-  "page-layout": { width: "full", spacing: "compact" },
-  "content-extraction": { width: "full", spacing: "compact" },
-  "compliance-profiles": DEFAULT_SECTION_LAYOUT,
-  "preflight-and-validation": { width: "wide", spacing: "standard" },
-  "batch-processing": { width: "wide", spacing: "standard" },
-  "output-preview": { width: "full", spacing: "compact" },
-  "profiles-and-presets": { width: "wide", spacing: "standard" },
-  history: { width: "wide", spacing: "standard" },
-}
-
+/** Per-section layout lives in the PDF section config ("" = Overview); unknown slugs use the default. */
 export function getPdfSectionLayout(sectionSlug: string): PdfSectionLayout {
-  return PDF_SECTION_LAYOUTS[sectionSlug] ?? DEFAULT_SECTION_LAYOUT
+  return getPdfSection(sectionSlug)?.layout ?? DEFAULT_SECTION_LAYOUT
 }
 
 type PdfModuleLayoutProps = {
