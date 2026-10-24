@@ -10,7 +10,7 @@
  *   each one, and persist which eligible occurrences are selected for future alt text generation.
  *   Generation itself stays disabled until Tasks 11–12 consume the selection snapshot.
  */
-import { useCallback, useState } from "react"
+import { useCallback, useRef, useState } from "react"
 import useSWR from "swr"
 import { toast } from "sonner"
 import { CheckCircle2, Download, FileSearch, FileStack, FileUp, Hourglass, ImageIcon, Images, ListChecks, Loader2, ScanSearch, SearchX, Sparkles, XCircle, type LucideIcon } from "lucide-react"
@@ -20,7 +20,16 @@ import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTi
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { altTextFetcher, analyzeDocumentContext, cancelDocumentPreparation, documentListUrl, startDocumentPreparation } from "@/lib/alt-text/client"
+import {
+  altTextFetcher,
+  analyzeDocumentContext,
+  cancelDocumentPreparation,
+  describeBatchError,
+  documentListUrl,
+  generateDocumentAltText,
+  newIdempotencyKey,
+  startDocumentPreparation,
+} from "@/lib/alt-text/client"
 import { DocumentPreparationStatus } from "./document-preparation-status"
 import { useDocumentPreparation } from "./use-document-preparation"
 import type { ReviewImageRecord } from "@/lib/alt-text/document-image-review"
@@ -85,6 +94,8 @@ export function ExtractedImagesPanel() {
   const [running, setRunning] = useState(false)
   const [cancelling, setCancelling] = useState(false)
   const [analyzing, setAnalyzing] = useState(false)
+  const [generating, setGenerating] = useState(false)
+  const generationKey = useRef<string | null>(null)
   const [contextTarget, setContextTarget] = useState<ContextSheetTarget | null>(null)
   const [details, setDetails] = useState<DetailsTarget | null>(null)
   const documentId = selected ? Number(selected) : null
@@ -168,6 +179,29 @@ export function ExtractedImagesPanel() {
   const selectedCount = summary?.selectedOccurrences ?? 0
   const hasImages = (counts?.total ?? 0) > 0
   const isDocx = doc?.documentType === "docx"
+  const eligibleSelected = summary?.selectedOccurrences ?? 0
+  const canGenerate = !!doc && doc.securityStatus === "clean" && eligibleSelected > 0 && !generating && !prep.active
+
+  async function generate() {
+    if (!doc || !canGenerate) return
+    setGenerating(true)
+    // One key per click target set: a retried/duplicated request replays the same batch.
+    const key = generationKey.current ?? newIdempotencyKey()
+    generationKey.current = key
+    const r = await generateDocumentAltText(doc.id, key)
+    setGenerating(false)
+    if (!r.ok) {
+      if (r.error.code !== "RATE_LIMITED") generationKey.current = null
+      toast.error("Generation could not be queued", { description: describeBatchError(r.error) })
+      return
+    }
+    generationKey.current = null
+    await review.revalidateDocument()
+    const { acceptedImageCount: n, skippedImageCount: skipped } = r.data
+    toast.success(r.data.replayed ? "Generation was already queued" : `Queued ${n} image${n === 1 ? "" : "s"} for alt text generation`, {
+      description: `Batch ${r.data.batchId.slice(0, 8)} · ${skipped ? `${skipped} selected image${skipped === 1 ? " was" : "s were"} not eligible. ` : ""}Processing continues in the background.`,
+    })
+  }
 
   return (
     <>
@@ -217,15 +251,10 @@ export function ExtractedImagesPanel() {
                 {analyzing ? <Loader2 className="animate-spin" aria-hidden="true" /> : <FileSearch aria-hidden="true" />}
                 {analyzing ? "Analyzing…" : "Analyze Context"}
               </Button>
-              <LaterButton
-                label={`Generate Alt Text${selectedCount ? ` (${selectedCount})` : ""}`}
-                icon={Sparkles}
-                note={
-                  selectedCount
-                    ? `${selectedCount} selected image${selectedCount === 1 ? "" : "s"} will be used when document generation becomes available.`
-                    : "Select eligible images first. Document generation is available in a later phase."
-                }
-              />
+              <Button size="sm" variant="outline" onClick={generate} disabled={!canGenerate}>
+                {generating ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Sparkles aria-hidden="true" />}
+                {generating ? "Queuing…" : `Generate Alt Text${eligibleSelected ? ` (${eligibleSelected})` : ""}`}
+              </Button>
               {LATER.map((l) => (
                 <LaterButton key={l.label} {...l} />
               ))}

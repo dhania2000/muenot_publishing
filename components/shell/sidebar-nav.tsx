@@ -4,7 +4,7 @@ import Link from "next/link"
 import { useState } from "react"
 import { usePathname } from "next/navigation"
 import { ChevronDown, FileType, ImageIcon, Users, type LucideIcon } from "lucide-react"
-import { NAV_GROUPS, type NavIcon } from "@/lib/navigation"
+import { NAV_GROUPS, type NavChild, type NavIcon } from "@/lib/navigation"
 import { SidebarMenuPanel, SidebarMenuToggle } from "@/components/shell/sidebar-menu"
 import { cn } from "@/lib/utils"
 
@@ -14,9 +14,25 @@ const ICONS: Record<NavIcon, LucideIcon> = {
   users: Users,
 }
 
+function groupChildren(children: NavChild[]) {
+  const groups: { section: string; items: NavChild[] }[] = []
+  for (const child of children) {
+    const section = child.section ?? "Modules"
+    const last = groups[groups.length - 1]
+    if (last && last.section === section) last.items.push(child)
+    else groups.push({ section, items: [child] })
+  }
+  return groups
+}
+
+function slugifySection(section: string) {
+  return section.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
+}
+
 export function SidebarNav({ isAdmin, pendingCount }: { isAdmin: boolean; pendingCount: number }) {
   const pathname = usePathname()
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({})
+  const [openSubsections, setOpenSubsections] = useState<Record<string, boolean>>({})
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({})
   const groups = NAV_GROUPS.filter((group) => !group.adminOnly || isAdmin)
   const mobileMenus = groups.flatMap((group) => group.menus ?? []).filter((menu) => openMenus[menu.id])
@@ -91,32 +107,58 @@ export function SidebarNav({ isAdmin, pendingCount }: { isAdmin: boolean; pendin
                     (openSections[href] ?? inSection) && "md:flex",
                   )}
                 >
-                  {children.map((child, index) => {
-                    const childActive = pathname === child.href || pathname.startsWith(`${child.href}/`)
-                    const startsSection = child.section && child.section !== children[index - 1]?.section
+                  {groupChildren(children).map(({ section, items }) => {
+                    const sectionKey = `${href}::${section}`
+                    const containsActive = items.some(
+                      (child) => pathname === child.href || pathname.startsWith(`${child.href}/`),
+                    )
+                    const sectionOpen = openSubsections[sectionKey] ?? containsActive
+                    const listId = `nav-children-${icon}-${slugifySection(section)}`
                     return (
-                      <li key={child.href}>
-                        {startsSection ? (
-                          <p
+                      <li key={section}>
+                        <button
+                          type="button"
+                          aria-expanded={sectionOpen}
+                          aria-controls={listId}
+                          onClick={() =>
+                            setOpenSubsections((prev) => ({ ...prev, [sectionKey]: !sectionOpen }))
+                          }
+                          className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          {section}
+                          <ChevronDown
+                            className={cn("ml-auto size-3.5 transition-transform", sectionOpen && "rotate-180")}
                             aria-hidden="true"
-                            className="px-2 pb-0.5 pt-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80"
-                          >
-                            {child.section}
-                          </p>
-                        ) : null}
-                        <Link
-                          href={child.href}
-                          aria-current={childActive ? "page" : undefined}
+                          />
+                        </button>
+                        <ul
+                          id={listId}
+                          aria-label={section}
                           className={cn(
-                            "block rounded-md px-2 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                            childActive
-                              ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
-                              : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                            "ml-2 flex-col gap-0.5 border-l border-sidebar-border pl-2",
+                            sectionOpen ? "flex" : "hidden",
                           )}
                         >
-                          {child.label}
-                          {child.section ? <span className="sr-only">{`, ${child.section}`}</span> : null}
-                        </Link>
+                          {items.map((child) => {
+                            const childActive = pathname === child.href || pathname.startsWith(`${child.href}/`)
+                            return (
+                              <li key={child.href}>
+                                <Link
+                                  href={child.href}
+                                  aria-current={childActive ? "page" : undefined}
+                                  className={cn(
+                                    "block rounded-md px-2 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                                    childActive
+                                      ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
+                                      : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                                  )}
+                                >
+                                  {child.label}
+                                </Link>
+                              </li>
+                            )
+                          })}
+                        </ul>
                       </li>
                     )
                   })}

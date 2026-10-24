@@ -26,6 +26,7 @@ import { AltTextBatchJobError, applyBatchControl, isHoldStatus, type AltTextBatc
 import { altTextConcurrencyFromEnv, classifyHalt, haltDelaySeconds } from "./concurrency"
 import { validateGenerationSettings } from "./core"
 import { altTextRequestId, getAltTextCreditUsage } from "./credit-service"
+import { resolveDocumentPromptContext } from "./document-generation"
 import { generateAltTextForAsset, type GenerateActor, type GenerateFailure } from "./generate"
 import { claimForGeneration, finalizeBatchFromAssets, getAsset, getBatch, getBatchStatus, markFailed, requeueAsset } from "./store"
 
@@ -88,6 +89,7 @@ export type BatchProcessorDeps = {
   loadActor?: BatchActorLoader
   countHaltDeferrals?: (jobId: number) => Promise<number>
   random?: () => number
+  resolveDocument?: typeof resolveDocumentPromptContext
 }
 
 /** Consecutive halt deferrals recorded by the durable queue for this job (last 24h). */
@@ -147,7 +149,16 @@ export async function processAltTextBatch(plan: AltTextBatchPlan, ctx: { signal:
       }
     }
 
-    const res = await generate({ assetId, settings, requestId: batchOperationKey(plan.batchId, asset.currentVersion, asset.attempts) }, actor)
+    // Document occurrences: re-read eligibility + occurrence-specific context at processing time.
+    const docCtx = await (deps.resolveDocument ?? resolveDocumentPromptContext)(assetId)
+    if (docCtx.kind === "ineligible") {
+      await failUnclaimed(assetId, docCtx.error, docCtx.code)
+      counts.failed++
+      continue
+    }
+    const document = docCtx.kind === "document" ? docCtx.document : null
+
+    const res = await generate({ assetId, settings, requestId: batchOperationKey(plan.batchId, asset.currentVersion, asset.attempts), document }, actor)
     if (res.ok) {
       if (res.body.replayed) counts.skipped++
       else counts.completed++

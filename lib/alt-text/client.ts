@@ -254,7 +254,31 @@ export function submitAltTextBatch(batchId: string) {
   return requestJson<SubmitBatchResponse>(`/api/alt-text/batches/${encodeURIComponent(batchId)}/submit`, { method: "POST" })
 }
 
+export type DocumentGenerationResponse = {
+  success: true
+  documentId: number
+  batchId: string
+  jobId: number | null
+  replayed: boolean
+  submissionStatus: "queued"
+  acceptedImageCount: number
+  skippedImageCount: number
+  message: string
+}
+
+/** Queue alt text generation for the document's selected, eligible occurrences (Phase 2 batch, HTTP 202). */
+export function generateDocumentAltText(documentId: number, idempotencyKey: string, settings?: GenerationSettings) {
+  return requestJson<DocumentGenerationResponse>(`/api/alt-text/documents/${documentId}/generate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
+    body: JSON.stringify(settings ? { settings } : {}),
+  })
+}
+
 export function describeBatchError(e: ApiError): string {
+  if (e.code === "NO_ELIGIBLE_IMAGES") return "Select at least one eligible image before generating alt text."
+  if (e.code === "ALREADY_QUEUED") return "Some selected images are already queued in another generation batch."
+  if (e.code === "DOCUMENT_NOT_CLEAN") return "This document has not passed the security scan."
   if (e.code === "ASSETS_NOT_CLEARED") return "Some images have not passed the security scan yet. Wait for scanning to finish, then retry."
   if (isCreditError(e)) return "Not enough AI credits to process this batch. Add credits or reduce the batch size, then retry."
   if (e.status === 401) return "Your session has expired. Sign in again, then retry."
