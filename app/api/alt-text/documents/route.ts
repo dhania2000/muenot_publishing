@@ -10,6 +10,8 @@
 import { gateAltTextHistory, jsonError, jsonOk, unexpected } from "@/lib/alt-text/route-gate"
 import { listDocumentRecords, ownerScopeFor } from "@/lib/alt-text/document-service"
 import { DOCUMENT_LIST_LIMITS, type DocumentListResponse } from "@/lib/alt-text/document-records"
+import { parseHistoryFilter, type DocumentHistoryListResponse } from "@/lib/alt-text/document-history-contract"
+import { listDocumentHistory } from "@/lib/alt-text/document-history-store"
 
 export const dynamic = "force-dynamic"
 
@@ -24,6 +26,17 @@ export async function GET(req: Request) {
   const gate = await gateAltTextHistory()
   if (!gate.ok) return gate.response
   const sp = new URL(req.url).searchParams
+  if (sp.get("view") === "history") {
+    const filter = parseHistoryFilter(sp, DOCUMENT_LIST_LIMITS.maxPageSize)
+    if ("error" in filter) return jsonError({ status: 400, code: "INVALID_QUERY", error: filter.error })
+    try {
+      const { documents, total } = await listDocumentHistory(filter, ownerScopeFor(gate.actor))
+      const body: DocumentHistoryListResponse = { success: true, documents, page: filter.page, pageSize: filter.pageSize, total }
+      return jsonOk(body)
+    } catch (err) {
+      return unexpected("documents/history-list", err)
+    }
+  }
   const page = intParam(sp.get("page"), 1, 100_000)
   const pageSize = intParam(sp.get("pageSize"), DOCUMENT_LIST_LIMITS.defaultPageSize, DOCUMENT_LIST_LIMITS.maxPageSize)
   const rawProject = sp.get("projectId")
