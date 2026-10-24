@@ -229,6 +229,65 @@ const isSupportedPicture = (d: Drawing, part: PartModel) => {
   return !!rel && !rel.external && IMAGE_REL.test(rel.type)
 }
 
+/* ---------- Read-only inspection (Task 18 output validation) ---------- */
+
+export type DocxPictureSnapshot = {
+  ordinal: number
+  docPrId: string | null
+  relId: string | null
+  mediaTarget: string | null
+  descr: string | null
+  decorative: boolean
+  placement: "inline" | "floating" | null
+  nested: boolean
+  supported: boolean
+}
+export type DocxPartSnapshot = { name: string; xml: string; pictures: DocxPictureSnapshot[]; legacyVml: number } | { name: string; error: string }
+export type DocxInspection = { ok: true; parts: Map<string, DocxPartSnapshot> } | { ok: false; message: string }
+
+/** Parse the same picture model the inserter uses, without changing anything. */
+export function inspectDocxPictures(source: Buffer): DocxInspection {
+  const valid = validateDocumentBytes(source, "docx")
+  if (!valid.ok) return { ok: false, message: valid.message }
+  try {
+    const entries = readZipDirectory(source)
+    const byName = new Map(entries.map((e) => [e.name.toLowerCase(), e]))
+    const text = (name: string): string | null => {
+      const e = byName.get(name)
+      return e ? readZipEntryBytes(source, e, DOCX_INSERT_LIMITS.maxPartBytes).toString("utf8") : null
+    }
+    const mainRels = parseRels(text("word/_rels/document.xml.rels"), "word")
+    const names = new Set(["word/document.xml"])
+    for (const r of mainRels.values()) if (!r.external && PART_REL.test(r.type) && DOCX_LOCATOR_PARTS.test(r.target) && byName.has(r.target)) names.add(r.target)
+    const parts = new Map<string, DocxPartSnapshot>()
+    for (const name of names) {
+      try {
+        const m = modelPart(name, text(name) ?? "", text(relsPathFor(name)))
+        const pictures = m.drawings
+          .filter((d): d is Drawing & { ordinal: number } => d.ordinal !== null)
+          .map((d) => ({
+            ordinal: d.ordinal,
+            docPrId: d.docPrId,
+            relId: d.blipEmbed,
+            mediaTarget: d.blipEmbed ? (m.rels.get(d.blipEmbed)?.target ?? null) : null,
+            descr: d.descr,
+            decorative: d.decorativeTag ? decorativeOn(d.decorativeTag.text) : false,
+            placement: d.placement,
+            nested: d.nested,
+            supported: isSupportedPicture(d, m),
+          }))
+        parts.set(name, { name, xml: m.xml, pictures, legacyVml: m.legacyVml })
+      } catch (err) {
+        if (err instanceof PartError) parts.set(name, { name, error: err.code })
+        else throw err
+      }
+    }
+    return { ok: true, parts }
+  } catch (err) {
+    return { ok: false, message: asValidationRejection(err)?.message ?? "The document package could not be read." }
+  }
+}
+
 /* ---------- Entry point ---------- */
 
 type Plan = { item: DocxInsertItem; part?: PartModel; drawing?: Drawing; text?: string }
