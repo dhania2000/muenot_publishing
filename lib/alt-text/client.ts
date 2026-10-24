@@ -20,6 +20,8 @@ import type { AltTextAssetView } from "./history"
 import type { DetectRegionsResponse, RegionAnalysisResponse } from "./region-service"
 
 export type { DetectRegionsResponse, RegionAnalysisResponse }
+import type { OcrResponse, RunOcrResponse } from "./ocr-service"
+export type { OcrResponse, RunOcrResponse }
 import type { UploadedAsset } from "./upload"
 
 export type ApiError = { status: number; code: string; message: string; details?: Record<string, unknown> }
@@ -398,6 +400,22 @@ export function detectRegions(assetId: number, payload: { requestId: string; occ
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ requestId: payload.requestId, ...(payload.occurrenceId ? { occurrenceId: payload.occurrenceId } : {}) }),
+  })
+}
+
+export const assetOcrUrl = (id: number, occurrenceId?: number | null) => `/api/alt-text/assets/${id}/ocr${occurrenceId ? `?occurrenceId=${occurrenceId}` : ""}`
+
+/** Retries of one click reuse the same requestId so a dropped response replays the saved result. */
+export function runOcr(assetId: number, payload: { requestId: string; occurrenceId?: number | null; regionId?: string | null; reprocess?: boolean }) {
+  return requestJson<RunOcrResponse>(`/api/alt-text/assets/${assetId}/ocr`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      requestId: payload.requestId,
+      ...(payload.occurrenceId ? { occurrenceId: payload.occurrenceId } : {}),
+      ...(payload.regionId ? { regionId: payload.regionId } : {}),
+      ...(payload.reprocess ? { reprocess: true } : {}),
+    }),
   })
 }
 

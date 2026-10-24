@@ -41,7 +41,7 @@ export const ACCESSIBILITY_CAPABILITIES = {
   classification_confidence: { label: "Classification confidence", dependency: "The vision model does not return calibrated classification confidence. Planned in Task 3." },
   advanced_description: { label: "Advanced description pipeline", dependency: "No advanced description engine is installed yet. Planned in a later Phase 3 task." },
   text_heavy_analysis: { label: "Text-heavy image analysis", dependency: "Depends on the OCR provider planned in Task 5." },
-  ocr: { label: "OCR text recognition", dependency: "No OCR provider is installed. Planned in Task 5." },
+  ocr: { label: "OCR text recognition", dependency: "Self-hosted Tesseract.js engine with an integrity-checked English language pack. Printed English text only." },
   math_analysis: { label: "Mathematical equation analysis", dependency: "No mathematical recognizer is installed. Planned in Task 8." },
   math_ocr: { label: "Mathematical OCR", dependency: "No mathematical OCR is installed. Planned in Task 8." },
   math_verification: { label: "Formula verification", dependency: "No formula validator is installed. Planned in Task 9." },
@@ -71,6 +71,8 @@ export type AccessibilityBackend = {
   visionModelAvailable: boolean | null
   /** OCR language codes with an installed recognition pack. */
   ocrLanguagePacks: readonly string[]
+  /** Why the OCR engine failed its health check, when it did. */
+  ocrIssue?: string | null
   /** Capabilities switched off by a mandatory platform or tenant policy. */
   disabledByPolicy: readonly CapabilityId[]
 }
@@ -83,7 +85,7 @@ const RUNTIME_REQUIREMENTS: Partial<Record<CapabilityId, (b: AccessibilityBacken
     b.visionModelAvailable === true ? null : b.visionModelAvailable === false ? "No approved vision-capable model is available to this tenant." : "Vision model availability could not be verified.",
   auto_classification: (b) => (b.visionModelAvailable === true ? null : "Requires an available vision model."),
   region_detection: (b) => (b.visionModelAvailable === true ? null : "Requires an available vision model."),
-  ocr: (b) => (b.ocrLanguagePacks.length ? null : "No OCR language pack is installed."),
+  ocr: (b) => (b.ocrLanguagePacks.length ? null : (b.ocrIssue ?? "No OCR language pack is installed.")),
 }
 
 export function deriveCapabilityStates(backend: AccessibilityBackend): Record<CapabilityId, CapabilityState> {
