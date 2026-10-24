@@ -227,9 +227,24 @@ export function ensureAltTextSchema(): Promise<void> {
       "ALTER TABLE alt_text_document_images ADD COLUMN context_confidence VARCHAR(12) NULL",
       "ALTER TABLE alt_text_document_images ADD COLUMN context_version INT NULL",
       "ALTER TABLE alt_text_document_images ADD COLUMN context_analyzed_at TIMESTAMP NULL",
+      // Phase 3 Task 10: persisted per-occurrence selection for processing + source review state.
+      "ALTER TABLE alt_text_document_images ADD COLUMN selected_for_processing TINYINT(1) NOT NULL DEFAULT 0",
+      "ALTER TABLE alt_text_document_images ADD COLUMN selection_updated_at TIMESTAMP NULL",
+      "ALTER TABLE alt_text_document_images ADD COLUMN selection_updated_by INT NULL",
+      "ALTER TABLE alt_text_document_images ADD COLUMN review_status VARCHAR(20) NOT NULL DEFAULT 'not_reviewed'",
+      "ALTER TABLE alt_text_document_images ADD COLUMN reviewed_at TIMESTAMP NULL",
+      "ALTER TABLE alt_text_document_images ADD COLUMN reviewed_by INT NULL",
     ]) {
       await query(ddl).catch((e: { code?: string }) => {
         if (e?.code !== "ER_DUP_FIELDNAME") throw e
+      })
+    }
+    for (const ddl of [
+      "ALTER TABLE alt_text_document_images ADD INDEX idx_alt_doc_images_selected (tenant_id, document_id, selected_for_processing)",
+      "ALTER TABLE alt_text_document_images ADD INDEX idx_alt_doc_images_hash (tenant_id, document_id, media_sha256)",
+    ]) {
+      await query(ddl).catch((e: { code?: string }) => {
+        if (e?.code !== "ER_DUP_KEYNAME") throw e
       })
     }
   })().catch((e) => {
