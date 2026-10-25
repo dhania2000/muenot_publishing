@@ -258,7 +258,7 @@ Category rows inherit dependencies from their profile. Acceptance uses the categ
 | REV-08 | EPUB → XML | — | EPUB | XML | Med | WS10 | B1 | R22 | C16, mapping | Schema validation | Valid | Missing | B |
 | REV-09 | EPUB → PDF | — | EPUB | PDF | Med | WS10 | B1 | — | Rendering engine | PDF checks | No PDF/UA claim without evidence | Conditional | D |
 | REV-10 | EPUB → DOCX | — | EPUB | DOCX | Med | WS10 | B1 | E14 (OOXML validation) | C16 | OOXML validation | Opens; structure kept | Planned | B |
-| REV-11 | EPUB → TXT | — | EPUB | TXT | Med | WS10 | B1 | — | C4 | Completeness | All text present | Missing | A |
+| REV-11 | EPUB → TXT | — | EPUB | TXT | Med | WS10 | B1 | �� | C4 | Completeness | All text present | Missing | A |
 | REV-12 | EPUB → accessible interchange | — | EPUB | DAISY etc. | Cond | WS10 | B1 | — | Accessible Formats module | Format validator | Valid | Conditional | D |
 | REV-13 | Kindle-compatible workflow | KDP profile | EPUB | KDP-ready EPUB | High | WS11 | B1 | — | Kindle Previewer (manual) | Checklist + Previewer | Checklist passed | Conditional | D |
 | REV-14 | Repair / remediation | EPUB 3.3 | Damaged EPUB | EPUB 3.3 | High | WS6 | B1 | E13 | C4 | Before/after | Repair log | Planned | A |
@@ -401,5 +401,7 @@ Extensions are additive. They do not change any approved task, and must be inser
 | WF | 27 |
 | NFR | 31 |
 | **Total** | **262** |
+| Class | A 119 · B 91 · C 21 · D 23 · E 8 |
+| Status | Planned 183 · Existing 18 · Missing 36 · Conditional 25 |
 
-Status and class totals are computed from the tables above (see `P1-T03-service-scope-and-boundaries.md` §2.2).
+Status and class totals are computed from the tables above. `P1-T03-service-scope-and-boundaries.md` §2.2 mirrors them.

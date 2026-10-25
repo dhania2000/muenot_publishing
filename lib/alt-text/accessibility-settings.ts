@@ -41,7 +41,7 @@ export const ACCESSIBILITY_CAPABILITIES = {
   classification_confidence: { label: "Classification confidence", dependency: "The vision model does not return calibrated classification confidence. Planned in Task 3." },
   advanced_description: { label: "Advanced description pipeline", dependency: "No advanced description engine is installed yet. Planned in a later Phase 3 task." },
   text_heavy_analysis: { label: "Text-heavy image analysis", dependency: "Depends on the OCR provider planned in Task 5." },
-  ocr: { label: "OCR text recognition", dependency: "Self-hosted Tesseract.js engine with an integrity-checked English language pack. Printed English text only." },
+  ocr: { label: "OCR text recognition", dependency: "Self-hosted Tesseract.js engine with integrity-checked English and Hindi language packs. Printed English, Hindi (Devanagari) and mixed English + Hindi text." },
   math_analysis: { label: "Mathematical equation analysis", dependency: "No mathematical recognizer is installed. Planned in Task 8." },
   math_ocr: { label: "Mathematical OCR", dependency: "No mathematical OCR is installed. Planned in Task 8." },
   math_verification: { label: "Formula verification", dependency: "No formula validator is installed. Planned in Task 9." },
@@ -71,6 +71,8 @@ export type AccessibilityBackend = {
   visionModelAvailable: boolean | null
   /** OCR language codes with an installed recognition pack. */
   ocrLanguagePacks: readonly string[]
+  /** OCR recognition modes (eng, hin, eng_hin) whose worker actually initialised. Absent = not reported. */
+  ocrModes?: readonly string[]
   /** Why the OCR engine failed its health check, when it did. */
   ocrIssue?: string | null
   /** Capabilities switched off by a mandatory platform or tenant policy. */
@@ -266,6 +268,15 @@ export const ACCESSIBILITY_SCHEMA = {
         default: ["en"],
         min: 1,
         max: 5,
+      },
+      {
+        kind: "choice",
+        key: "defaultLanguageMode",
+        label: "Default recognition mode",
+        help: "Used when a run does not choose a mode. A mode runs only when every language it needs is selected above and its engine passed start-up. This is the language of the text in the image, not the Alt Text output language.",
+        group: "Languages",
+        options: { eng: "English", hin: "Hindi", eng_hin: "English + Hindi" },
+        default: "eng",
       },
       flag("keepExtractedText", "Extracted text", true, { group: "Evidence to preserve" }),
       flag("keepTextRegions", "Text-region references", true, { group: "Evidence to preserve" }),
@@ -681,7 +692,7 @@ export type AccessibilitySettingsSnapshot = {
   modelId: string | null
   outputLanguage: string
   analysisTypes: string[]
-  ocr: { enabled: boolean; languages: string[] }
+  ocr: { enabled: boolean; languages: string[]; defaultLanguageMode: string | null }
   mathOutput: string
   guidelineVersion: null
   reviewPolicy: {
@@ -705,7 +716,7 @@ export function accessibilitySnapshot(resolved: EffectiveAccessibilitySettings, 
     modelId: extras.modelId,
     outputLanguage: resolved.outputLanguage,
     analysisTypes: [...e.general.analysisTypes],
-    ocr: { enabled: e.ocr.enabled, languages: e.ocr.enabled ? [...e.ocr.languages] : [] },
+    ocr: { enabled: e.ocr.enabled, languages: e.ocr.enabled ? [...e.ocr.languages] : [], defaultLanguageMode: e.ocr.enabled ? e.ocr.defaultLanguageMode : null },
     mathOutput: e.math.outputFormat,
     guidelineVersion: null,
     reviewPolicy: {

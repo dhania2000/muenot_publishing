@@ -46,6 +46,8 @@
 | Libraries available for reuse | `package.json`: `fast-xml-parser` 5, `exceljs` 4, `pdf-lib` 1.17.1, `ai` 7 | Confirmed |
 | PDF Conversion is UI only | P1-T01 §D / P1-T02 §1.1; unchanged since | Confirmed |
 
+**Re-verification at `e292e39` (`main`, 2026-10-25):** these findings were re-checked against the current `main` and are unchanged. Repository-wide `epub` references in `lib/`, `components/` and `app/` are the same five locations listed above. `app/api` still contains only `alt-text`, `health` and `jobs`. `BACKGROUND_JOB_TYPES` still contains only `alt_text.batch_processing` and `alt_text.document_preparation`. The upload allow-list still excludes `.epub`. `lib/guidelines/` still contains only `guideline-contracts.ts`. The intervening commits (`931d6bf` OCR probe budget, brand rename) do not affect EPUB scope. The OCR reuse item I3 remains valid.
+
 New since P1-T02: **EPUB 3.4** status verified externally as a W3C **Candidate Recommendation Draft** (CR 2026-07-21; latest draft 2026-10-22). It is treated as conditional scope (VER-08). No previous finding was found to be false. No existing service is duplicated by this scope.
 
 ---
@@ -76,14 +78,19 @@ New since P1-T02: **EPUB 3.4** status verified externally as a W3C **Candidate R
 
 | Class | Meaning | Count |
 | --- | --- | --- |
-| A | Core supported | 101 |
-| B | Advanced supported | 89 |
-| C | Publisher-specific | 22 |
-| D | Integration-dependent | 34 |
-| E | Conditional / experimental | 11 |
-| F | Out of scope / restricted | 5 (listed in `P1-T03-service-boundaries.md` §2F; exception routes only, not counted as deliverable requirements in the 262) |
+| A | Core supported | 119 |
+| B | Advanced supported | 91 |
+| C | Publisher-specific | 21 |
+| D | Integration-dependent | 23 |
+| E | Conditional / experimental | 8 |
+| **A–E total** | Deliverable requirements | **262** |
+| F | Out of scope / restricted | 5 restricted items, listed in `P1-T03-service-boundaries.md` §2F. They carry exception routes only and are not counted as deliverable requirements. |
 
-Counts per class come from the Scope column of `P1-T03-requirements-traceability.md`. A + B + C + D + E = 257, and the remaining 5 deliverable requirements (DST-08, DST-09, GDL-12, A11Y-21, NFR-MNT-01) are governance rules classified A. The classes therefore sum to 262.
+Counts are computed from the **Cls** column of `P1-T03-requirements-traceability.md` §1. That column is the single source of truth. Class labels in the other P1-T03 documents were cross-checked against it with no mismatches.
+
+**Status totals** (from the **Status** column): Planned 183 · Existing 18 · Missing 36 · Conditional 25 = 262. Every Missing requirement is listed in the gap register (§2 of the traceability document).
+
+Class D (23) counts only requirements whose primary delivery depends on an integration. Several class B rows also list an optional integration in their Dependencies column, but they stay class B because a native path exists.
 
 ### 2.3 Proposed default production profile (subject to blocker B4)
 

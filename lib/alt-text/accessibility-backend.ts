@@ -29,7 +29,7 @@ const OCR_PROBE_PENDING = "The OCR engine is still starting up. Reload this page
 const OCR_PROBE_FAILED = "The OCR engine health check failed. Reload this page to try again."
 
 type OcrProbe = Awaited<ReturnType<typeof probeOcrEngine>>
-type OcrSummary = { languages: readonly string[]; issue: string | null }
+type OcrSummary = { languages: readonly string[]; modes: readonly string[]; issue: string | null }
 
 async function probeOcrWithinBudget(): Promise<OcrSummary> {
   let timer: ReturnType<typeof setTimeout> | undefined
@@ -44,12 +44,14 @@ async function probeOcrWithinBudget(): Promise<OcrSummary> {
     const outcome = await Promise.race<OcrProbe | "timeout">([probe, timeout])
     if (outcome === "timeout") {
       console.warn("[alt-text/accessibility-backend] OCR probe exceeded budget", { budgetMs: OCR_PROBE_BUDGET_MS })
-      return { languages: [], issue: OCR_PROBE_PENDING }
+      return { languages: [], modes: [], issue: OCR_PROBE_PENDING }
     }
-    return outcome.status === "available" ? { languages: outcome.languages, issue: null } : { languages: [], issue: outcome.reason }
+    if (outcome.status !== "available") return { languages: [], modes: [], issue: outcome.reason }
+    const modes = Object.entries(outcome.modes).flatMap(([m, h]) => (h.status === "available" ? [m] : []))
+    return { languages: outcome.languages, modes, issue: null }
   } catch (err) {
     console.error("[alt-text/accessibility-backend] OCR probe failed", err instanceof Error ? err.name : "unknown")
-    return { languages: [], issue: OCR_PROBE_FAILED }
+    return { languages: [], modes: [], issue: OCR_PROBE_FAILED }
   } finally {
     if (timer) clearTimeout(timer)
   }
@@ -73,6 +75,7 @@ export async function detectAccessibilityBackend(tenantId: number, role: "admin"
     visionModelAvailable,
     // Only languages whose pack passed the engine's integrity check and worker start-up.
     ocrLanguagePacks: ocr.languages,
+    ocrModes: ocr.modes,
     ocrIssue: ocr.issue,
     disabledByPolicy: process.env.ALT_TEXT_OCR_DISABLED === "1" ? ["ocr"] : [],
   }

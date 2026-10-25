@@ -15,35 +15,41 @@ import { AlertCircle, Check, Copy, Info, ScanText } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Spinner } from "@/components/ui/spinner"
 import { ErrorState } from "@/components/enterprise/data-state"
 import { cn } from "@/lib/utils"
 import { AltTextApiError, altTextFetcher, altTextImageUrl, assetOcrUrl, runOcr, type OcrResponse } from "@/lib/alt-text/client"
-import { OCR_STATUS_LABELS, type OcrResult } from "@/lib/alt-text/ocr-contract"
+import { isOcrLanguageMode, OCR_LANGUAGE_MODES, OCR_STATUS_LABELS, type OcrLanguageMode, type OcrResult } from "@/lib/alt-text/ocr-contract"
 import { formatDateTime } from "./alt-text-history"
 
 const newRequestId = () => (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`)
 
 type RunTarget = { regionId: string | null; reprocess: boolean }
-const targetKey = (t: RunTarget) => `${t.regionId ?? "full"}:${t.reprocess ? 1 : 0}`
+const targetKey = (t: RunTarget, mode: string) => `${t.regionId ?? "full"}:${t.reprocess ? 1 : 0}:${mode}`
 
 export function ImageOcrPanel({ assetId, occurrenceId = null }: { assetId: number; occurrenceId?: number | null }) {
   const key = assetOcrUrl(assetId, occurrenceId)
   const { data, error, isLoading, mutate } = useSWR<OcrResponse, AltTextApiError>(key, altTextFetcher, { revalidateOnFocus: false })
   const [running, setRunning] = useState<string | null>(null)
   const [runError, setRunError] = useState<string | null>(null)
+  const [chosenMode, setChosenMode] = useState<OcrLanguageMode | null>(null)
   // Per-target request ids survive retries of a failed attempt so a lost response is replayed.
   const pending = useRef(new Map<string, string>())
+  const modes = data?.policy.modes ?? []
+  const languageMode: OcrLanguageMode = chosenMode ?? data?.policy.defaultMode ?? "eng"
+  const modeAvailable = modes.find((m) => m.id === languageMode)?.available ?? false
 
   async function run(target: RunTarget) {
-    const k = targetKey(target)
+    const k = targetKey(target, languageMode)
     const requestId = pending.current.get(k) ?? newRequestId()
     pending.current.set(k, requestId)
     setRunning(target.regionId ?? "full")
     setRunError(null)
     try {
-      const r = await runOcr(assetId, { requestId, occurrenceId, regionId: target.regionId, reprocess: target.reprocess })
+      const r = await runOcr(assetId, { requestId, occurrenceId, regionId: target.regionId, reprocess: target.reprocess, languageMode })
       if (!r.ok) {
         if (r.error.status >= 400 && r.error.status < 500) pending.current.delete(k)
         setRunError(r.error.message)
@@ -70,12 +76,41 @@ export function ImageOcrPanel({ assetId, occurrenceId = null }: { assetId: numbe
           Text in image (OCR)
         </h3>
         {data?.permissions.canRun ? (
-          <Button size="sm" variant="outline" onClick={() => run({ regionId: null, reprocess: !!data.full.active })} disabled={running !== null}>
+          <Button size="sm" variant="outline" onClick={() => run({ regionId: null, reprocess: !!data.full.active })} disabled={running !== null || !modeAvailable}>
             {running === "full" ? <Spinner className="size-4" /> : null}
             {running === "full" ? "Reading…" : data.full.active ? "Re-run OCR" : "Extract text"}
           </Button>
         ) : null}
       </div>
+
+      {data?.permissions.canRun && data.policy.enabled && modes.length ? (
+        <div className="flex flex-col gap-1.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <Label htmlFor={`ocr-mode-${assetId}`} className="text-xs text-muted-foreground">
+              Language
+            </Label>
+            <Select value={languageMode} onValueChange={(v) => isOcrLanguageMode(v) && setChosenMode(v)} disabled={running !== null}>
+              <SelectTrigger id={`ocr-mode-${assetId}`} size="sm" className="h-8 w-auto min-w-40 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {modes.map((m) => (
+                  <SelectItem key={m.id} value={m.id} disabled={!m.available} className="text-xs">
+                    {m.label}
+                    {m.id === data.policy.defaultMode ? " (default)" : ""}
+                    {m.available ? "" : " — unavailable"}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {!modeAvailable ? (
+            <p className="text-xs text-destructive">{modes.find((m) => m.id === languageMode)?.reason ?? "This language mode is not available."}</p>
+          ) : (
+            <p className="text-xs text-muted-foreground">Choose the language printed in the image. The language is not detected automatically.</p>
+          )}
+        </div>
+      ) : null}
 
       {isLoading ? (
         <div className="flex flex-col gap-2">
@@ -85,7 +120,7 @@ export function ImageOcrPanel({ assetId, occurrenceId = null }: { assetId: numbe
       ) : error ? (
         <ErrorState title="Could not load OCR results" message={error.message} onRetry={() => void mutate()} />
       ) : data ? (
-        <OcrBody data={data} assetId={assetId} running={running} onRun={run} />
+        <OcrBody data={data} assetId={assetId} running={running} canRunMode={modeAvailable} onRun={run} />
       ) : null}
 
       {runError ? (
@@ -99,7 +134,7 @@ export function ImageOcrPanel({ assetId, occurrenceId = null }: { assetId: numbe
   )
 }
 
-function OcrBody({ data, assetId, running, onRun }: { data: OcrResponse; assetId: number; running: string | null; onRun: (t: RunTarget) => void }) {
+function OcrBody({ data, assetId, running, canRunMode, onRun }: { data: OcrResponse; assetId: number; running: string | null; canRunMode: boolean; onRun: (t: RunTarget) => void }) {
   const textRegions = data.regions.filter((r) => r.eligible || r.active || r.latestFailure)
   return (
     <div className="flex flex-col gap-3">
@@ -112,7 +147,7 @@ function OcrBody({ data, assetId, running, onRun }: { data: OcrResponse; assetId
       ) : null}
 
       <p className="text-xs text-muted-foreground">
-        Recognised text is evidence for review. It is not alt text and is never added to the description automatically. Printed English only, using {data.engine.label}.
+        Recognised text is evidence for review. It is not alt text and is never added to the description automatically. Printed English and Hindi (Devanagari), using {data.engine.label}. Handwriting is not supported.
       </p>
 
       <ScopeResult title="Whole image" view={data.full} assetId={assetId} />
@@ -129,7 +164,7 @@ function OcrBody({ data, assetId, running, onRun }: { data: OcrResponse; assetId
                     <span className="font-medium">{r.label}</span>
                   </span>
                   {data.permissions.canRun && r.eligible ? (
-                    <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" disabled={running !== null} onClick={() => onRun({ regionId: r.regionId, reprocess: !!r.active })}>
+                    <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" disabled={running !== null || !canRunMode} onClick={() => onRun({ regionId: r.regionId, reprocess: !!r.active })}>
                       {running === r.regionId ? <Spinner className="size-3" /> : null}
                       {running === r.regionId ? "Reading…" : r.active ? "Re-read" : "Read text"}
                     </Button>
@@ -196,7 +231,13 @@ function ActiveResult({ result, assetId }: { result: OcrResult; assetId: number 
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
         <Badge variant={result.status === "completed" ? "secondary" : "outline"}>{OCR_STATUS_LABELS[result.status]}</Badge>
-        {result.meanConfidence !== null ? <span>Engine confidence {Math.round(result.meanConfidence)}/100</span> : null}
+        <span>{result.languageMode ? OCR_LANGUAGE_MODES[result.languageMode].label : "English"}</span>
+        {result.meanConfidence !== null ? (
+          <>
+            <span aria-hidden="true">·</span>
+            <span>Engine confidence {Math.round(result.meanConfidence)}/100</span>
+          </>
+        ) : null}
         <span aria-hidden="true">·</span>
         <span>Version {result.version}</span>
         <span aria-hidden="true">·</span>
@@ -226,7 +267,11 @@ function ActiveResult({ result, assetId }: { result: OcrResult; assetId: number 
 
       {result.normalizedText ? (
         <>
-          <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-md border bg-muted/40 p-3 font-mono text-xs leading-relaxed" aria-label={showRaw ? "Raw OCR output" : "Recognised text"}>
+          <pre
+            lang={result.languageMode === "hin" ? "hi" : result.languageMode === "eng_hin" ? undefined : "en"}
+            className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-md border bg-muted/40 p-3 font-sans text-sm leading-relaxed"
+            aria-label={showRaw ? "Raw OCR output" : "Recognised text"}
+          >
             {text}
           </pre>
           <div className="flex flex-wrap gap-2">
