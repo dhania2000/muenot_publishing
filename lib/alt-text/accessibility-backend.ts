@@ -19,10 +19,46 @@ import { isVisionCompatible } from "./vision-service"
  */
 export const IMPLEMENTED_ACCESSIBILITY_ENGINES: readonly CapabilityId[] = ["standard_description", "auto_classification", "region_detection", "ocr"]
 
+/**
+ * The OCR probe initialises real Tesseract workers for every language mode on a cold process, which
+ * can take longer than a request budget allows. Settings reads therefore wait at most this long; the
+ * probe keeps running in the background and caches its result, so the next read is instant.
+ */
+const OCR_PROBE_BUDGET_MS = 6_000
+const OCR_PROBE_PENDING = "The OCR engine is still starting up. Reload this page in a moment to see OCR availability."
+const OCR_PROBE_FAILED = "The OCR engine health check failed. Reload this page to try again."
+
+type OcrProbe = Awaited<ReturnType<typeof probeOcrEngine>>
+type OcrSummary = { languages: readonly string[]; issue: string | null }
+
+async function probeOcrWithinBudget(): Promise<OcrSummary> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const timeout = new Promise<"timeout">((resolve) => {
+    timer = setTimeout(() => resolve("timeout"), OCR_PROBE_BUDGET_MS)
+    timer.unref?.()
+  })
+  const probe = probeOcrEngine()
+  // Keep the probe alive past the budget so its result lands in the engine's in-process cache.
+  probe.catch(() => undefined)
+  try {
+    const outcome = await Promise.race<OcrProbe | "timeout">([probe, timeout])
+    if (outcome === "timeout") {
+      console.warn("[alt-text/accessibility-backend] OCR probe exceeded budget", { budgetMs: OCR_PROBE_BUDGET_MS })
+      return { languages: [], issue: OCR_PROBE_PENDING }
+    }
+    return outcome.status === "available" ? { languages: outcome.languages, issue: null } : { languages: [], issue: outcome.reason }
+  } catch (err) {
+    console.error("[alt-text/accessibility-backend] OCR probe failed", err instanceof Error ? err.name : "unknown")
+    return { languages: [], issue: OCR_PROBE_FAILED }
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
+}
+
 export async function detectAccessibilityBackend(tenantId: number, role: "admin" | "employee"): Promise<AccessibilityBackend> {
   let visionModelAvailable: boolean | null = null
   const [ocr] = await Promise.all([
-    probeOcrEngine(),
+    probeOcrWithinBudget(),
     (async () => {
       try {
         const resolved = await resolveTenantModels(tenantId, await getTenantAiSettings(), role)
@@ -36,8 +72,8 @@ export async function detectAccessibilityBackend(tenantId: number, role: "admin"
     implemented: IMPLEMENTED_ACCESSIBILITY_ENGINES,
     visionModelAvailable,
     // Only languages whose pack passed the engine's integrity check and worker start-up.
-    ocrLanguagePacks: ocr.status === "available" ? ocr.languages : [],
-    ocrIssue: ocr.status === "available" ? null : ocr.reason,
+    ocrLanguagePacks: ocr.languages,
+    ocrIssue: ocr.issue,
     disabledByPolicy: process.env.ALT_TEXT_OCR_DISABLED === "1" ? ["ocr"] : [],
   }
 }
