@@ -114,6 +114,8 @@ let idleTimer: ReturnType<typeof setTimeout> | null = null
 let queue: Promise<unknown> = Promise.resolve()
 let queued = 0
 let probeCache: { at: number; health: OcrEngineHealth } | null = null
+/** Worker start-up failures seen by recognition or probing, reported by the readiness check for a short TTL. */
+const initFailures = new Map<OcrLanguageMode, { at: number; health: OcrModeHealth }>()
 
 async function terminate(mode: OcrLanguageMode) {
   const p = workers.get(mode)
@@ -146,9 +148,13 @@ async function getWorker(mode: OcrLanguageMode): Promise<Worker> {
     return worker
   })()
   workers.set(mode, p)
-  p.catch(() => {
-    if (workers.get(mode) === p) workers.delete(mode)
-  })
+  p.then(
+    () => initFailures.delete(mode),
+    (e) => {
+      if (workers.get(mode) === p) workers.delete(mode)
+      initFailures.set(mode, { at: Date.now(), health: healthFromError(e) })
+    },
+  )
   return p
 }
 
@@ -221,6 +227,42 @@ export async function probeOcrEngine(): Promise<OcrEngineHealth> {
   }, false)
   probeCache = { at: Date.now(), health }
   return health
+}
+
+/**
+ * Lightweight availability check for request paths (settings, classification, regions, OCR).
+ * It never starts a Tesseract worker: on shared hosting, initialising WASM workers for every mode
+ * inside a page request can exhaust the process memory and take the whole app down (proxy 503).
+ * A mode counts as available when all of its pinned packs exist and pass their SHA-256 check and its
+ * worker has not recently failed to start. Results from a full probe or real recognition take precedence.
+ */
+export async function checkOcrReadiness(): Promise<OcrEngineHealth> {
+  const base = { engineVersion: OCR_ENGINE_VERSION, languageModel: OCR_LANGUAGE_MODEL }
+  if (process.env.ALT_TEXT_OCR_DISABLED === "1") return probeOcrEngine()
+  if (probeCache && (probeCache.health.status === "available" || Date.now() - probeCache.at < FAILED_PROBE_TTL_MS)) return probeCache.health
+  const modes = {} as Record<OcrLanguageMode, OcrModeHealth>
+  for (const mode of MODE_IDS) {
+    const failure = initFailures.get(mode)
+    if (failure && Date.now() - failure.at < FAILED_PROBE_TTL_MS) {
+      modes[mode] = failure.health
+      continue
+    }
+    try {
+      await Promise.all(OCR_LANGUAGE_MODES[mode].tesseract.map((code) => loadPack(code)))
+      modes[mode] = { status: "available", reason: null }
+    } catch (e) {
+      modes[mode] = healthFromError(e)
+    }
+  }
+  const ok = MODE_IDS.filter((m) => modes[m].status === "available")
+  const anyMisconfigured = MODE_IDS.some((m) => modes[m].status === "asset_missing" || modes[m].status === "integrity_failed")
+  return {
+    ...base,
+    status: ok.length ? "available" : anyMisconfigured ? "misconfigured" : "unavailable",
+    reason: ok.length ? null : (modes.eng.reason ?? "The OCR engine could not be started."),
+    languages: [...new Set(ok.flatMap((m) => [...OCR_LANGUAGE_MODES[m].languages]))],
+    modes,
+  }
 }
 
 /* ───────────── Recognition ───────────── */
@@ -304,5 +346,6 @@ export function recognizeImage(input: {
 export async function shutdownOcrEngine() {
   if (idleTimer) clearTimeout(idleTimer)
   probeCache = null
+  initFailures.clear()
   for (const m of [...workers.keys()]) await terminate(m)
 }

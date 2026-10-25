@@ -10,7 +10,7 @@ import "server-only"
 import { getTenantAiSettings } from "@/lib/ai/assistant-store"
 import { resolveTenantModels } from "@/lib/ai/model-catalog"
 import type { AccessibilityBackend, CapabilityId } from "./accessibility-settings"
-import { probeOcrEngine } from "./ocr-engine"
+import { checkOcrReadiness } from "./ocr-engine"
 import { isVisionCompatible } from "./vision-service"
 
 /**
@@ -19,48 +19,30 @@ import { isVisionCompatible } from "./vision-service"
  */
 export const IMPLEMENTED_ACCESSIBILITY_ENGINES: readonly CapabilityId[] = ["standard_description", "auto_classification", "region_detection", "ocr"]
 
-/**
- * The OCR probe initialises real Tesseract workers for every language mode on a cold process, which
- * can take longer than a request budget allows. Settings reads therefore wait at most this long; the
- * probe keeps running in the background and caches its result, so the next read is instant.
- */
-const OCR_PROBE_BUDGET_MS = 6_000
-const OCR_PROBE_PENDING = "The OCR engine is still starting up. Reload this page in a moment to see OCR availability."
-const OCR_PROBE_FAILED = "The OCR engine health check failed. Reload this page to try again."
+const OCR_CHECK_FAILED = "The OCR engine health check failed. Reload this page to try again."
 
-type OcrProbe = Awaited<ReturnType<typeof probeOcrEngine>>
 type OcrSummary = { languages: readonly string[]; modes: readonly string[]; issue: string | null }
 
-async function probeOcrWithinBudget(): Promise<OcrSummary> {
-  let timer: ReturnType<typeof setTimeout> | undefined
-  const timeout = new Promise<"timeout">((resolve) => {
-    timer = setTimeout(() => resolve("timeout"), OCR_PROBE_BUDGET_MS)
-    timer.unref?.()
-  })
-  const probe = probeOcrEngine()
-  // Keep the probe alive past the budget so its result lands in the engine's in-process cache.
-  probe.catch(() => undefined)
+/**
+ * Uses the lightweight readiness check, never the full worker probe: starting Tesseract WASM workers
+ * for every language mode inside a page request exhausted memory on the host and returned 503s.
+ */
+async function summarizeOcr(): Promise<OcrSummary> {
   try {
-    const outcome = await Promise.race<OcrProbe | "timeout">([probe, timeout])
-    if (outcome === "timeout") {
-      console.warn("[alt-text/accessibility-backend] OCR probe exceeded budget", { budgetMs: OCR_PROBE_BUDGET_MS })
-      return { languages: [], modes: [], issue: OCR_PROBE_PENDING }
-    }
-    if (outcome.status !== "available") return { languages: [], modes: [], issue: outcome.reason }
-    const modes = Object.entries(outcome.modes).flatMap(([m, h]) => (h.status === "available" ? [m] : []))
-    return { languages: outcome.languages, modes, issue: null }
+    const health = await checkOcrReadiness()
+    if (health.status !== "available") return { languages: [], modes: [], issue: health.reason }
+    const modes = Object.entries(health.modes).flatMap(([m, h]) => (h.status === "available" ? [m] : []))
+    return { languages: health.languages, modes, issue: null }
   } catch (err) {
-    console.error("[alt-text/accessibility-backend] OCR probe failed", err instanceof Error ? err.name : "unknown")
-    return { languages: [], modes: [], issue: OCR_PROBE_FAILED }
-  } finally {
-    if (timer) clearTimeout(timer)
+    console.error("[alt-text/accessibility-backend] OCR readiness check failed", err instanceof Error ? err.name : "unknown")
+    return { languages: [], modes: [], issue: OCR_CHECK_FAILED }
   }
 }
 
 export async function detectAccessibilityBackend(tenantId: number, role: "admin" | "employee"): Promise<AccessibilityBackend> {
   let visionModelAvailable: boolean | null = null
   const [ocr] = await Promise.all([
-    probeOcrWithinBudget(),
+    summarizeOcr(),
     (async () => {
       try {
         const resolved = await resolveTenantModels(tenantId, await getTenantAiSettings(), role)
