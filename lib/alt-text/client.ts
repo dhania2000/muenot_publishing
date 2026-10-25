@@ -406,12 +406,13 @@ export function detectRegions(assetId: number, payload: { requestId: string; occ
 export const assetOcrUrl = (id: number, occurrenceId?: number | null) => `/api/alt-text/assets/${id}/ocr${occurrenceId ? `?occurrenceId=${occurrenceId}` : ""}`
 
 /** Retries of one click reuse the same requestId so a dropped response replays the saved result. */
-export function runOcr(assetId: number, payload: { requestId: string; occurrenceId?: number | null; regionId?: string | null; reprocess?: boolean }) {
+export function runOcr(assetId: number, payload: { requestId: string; occurrenceId?: number | null; regionId?: string | null; reprocess?: boolean; languageMode?: string | null }) {
   return requestJson<RunOcrResponse>(`/api/alt-text/assets/${assetId}/ocr`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       requestId: payload.requestId,
+      ...(payload.languageMode ? { languageMode: payload.languageMode } : {}),
       ...(payload.occurrenceId ? { occurrenceId: payload.occurrenceId } : {}),
       ...(payload.regionId ? { regionId: payload.regionId } : {}),
       ...(payload.reprocess ? { reprocess: true } : {}),

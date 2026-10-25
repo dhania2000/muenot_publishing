@@ -24,7 +24,11 @@ import { withinScope, type HistoryActor, type HistoryFailure } from "./history"
 import { readImageHeader } from "./image-header"
 import {
   deriveOcrStatus,
+  deriveScriptHints,
+  isOcrLanguageMode,
   mapEngineLayout,
+  OCR_LANGUAGE_MODE_IDS,
+  OCR_LANGUAGE_MODES,
   meanWordConfidence,
   normalizeOcrText,
   OCR_ERROR_CATEGORIES,
@@ -40,11 +44,14 @@ import {
   sanitizeOcrText,
   truncateText,
   type OcrErrorCategory,
+  type OcrLanguageMode,
+  type OcrModelReference,
+  type OcrPageSegmentation,
   type OcrPixelBox,
   type OcrResult,
   type OcrResultStatus,
 } from "./ocr-contract"
-import { OCR_ENGINE_VERSION, OCR_LANGUAGE_MODEL, OcrEngineError, recognizeImage } from "./ocr-engine"
+import { OCR_ENGINE_VERSION, OCR_LANGUAGE_MODEL, OcrEngineError, modelsForMode, recognizeImage } from "./ocr-engine"
 import { openAltTextImage } from "./preview"
 import { REGION_TYPES, type ImageRegion, type RegionType } from "./region-analysis"
 import { toAnalysisView } from "./region-service"
@@ -53,6 +60,7 @@ import { findReusableOcrResult, getAsset, getLatestRegionAnalysis, getOcrResultB
 export type OcrActor = HistoryActor & { tenantId: number; role: "admin" | "employee" }
 
 export type OcrScopeView = { active: OcrResult | null; latestFailure: OcrResult | null }
+export type OcrLanguageModeOption = { id: OcrLanguageMode; label: string; available: boolean; reason: string | null }
 export type OcrRegionOption = {
   regionId: string
   index: number
@@ -68,8 +76,8 @@ export type OcrResponse = {
   occurrenceId: number | null
   capability: CapabilityState
   /** Tenant OCR policy after capability gating (Accessibility settings → OCR). */
-  policy: { enabled: boolean; languages: string[]; reason: string | null }
-  engine: { label: string; version: string; languageModel: string }
+  policy: { enabled: boolean; languages: string[]; reason: string | null; defaultMode: OcrLanguageMode; modes: OcrLanguageModeOption[] }
+  engine: { label: string; version: string; languageModel: string; models: Record<OcrLanguageMode, OcrModelReference[]> }
   settingsRevision: number
   full: OcrScopeView
   regionAnalysis: { analysisId: string; version: number } | null
@@ -101,21 +109,48 @@ function scopeView(rows: StoredOcrRow[]): OcrScopeView {
 
 type Policy = { capability: CapabilityState; policy: OcrResponse["policy"]; revision: number }
 
+const LANGUAGE_NAMES: Record<string, string> = { en: "English", hi: "Hindi" }
+
+/**
+ * Which language modes may run, and the tenant default. A mode is available only when the engine
+ * initialised it AND every language it needs is allowed by the tenant's OCR languages. There is no
+ * automatic detection and no fallback: an unavailable default is reported, never silently replaced.
+ * Pure so it is unit tested.
+ */
+export function resolveOcrLanguageModes(input: { languages: readonly string[]; engineModes: readonly string[] | undefined; defaultMode: unknown }) {
+  const allowed = new Set(input.languages)
+  const modes: OcrLanguageModeOption[] = OCR_LANGUAGE_MODE_IDS.map((id) => {
+    const def = OCR_LANGUAGE_MODES[id]
+    const missing = def.languages.filter((l) => !allowed.has(l))
+    const reason =
+      input.engineModes && !input.engineModes.includes(id)
+        ? `The ${def.label} recognizer did not pass start-up in this deployment.`
+        : missing.length
+          ? `${missing.map((l) => LANGUAGE_NAMES[l] ?? l).join(" and ")} ${missing.length === 1 ? "is" : "are"} not selected as an OCR language in Accessibility settings.`
+          : null
+    return { id, label: def.label, available: !reason, reason }
+  })
+  const defaultMode: OcrLanguageMode = isOcrLanguageMode(input.defaultMode) ? input.defaultMode : "eng"
+  return { modes, defaultMode }
+}
+
 async function ocrPolicy(actor: OcrActor): Promise<Policy> {
   const [record, backend] = await Promise.all([getSettingsRecord(), detectAccessibilityBackend(actor.tenantId, actor.role)])
   const resolved = resolveEffectiveAccessibilitySettings({ storedAccessibility: record.accessibility, revision: record.revision, tenant: record.settings, backend })
   const capability = resolved.capabilities?.ocr ?? { status: "not_configured", label: "OCR text recognition", reason: "Capability state could not be resolved." }
   const enabled = resolved.effective.ocr.enabled === true
   const languages = enabled ? [...(resolved.effective.ocr.languages as string[])] : []
+  const { modes, defaultMode } = resolveOcrLanguageModes({ languages, engineModes: backend.ocrModes, defaultMode: (resolved.effective.ocr as Record<string, unknown>).defaultLanguageMode })
+  const anyMode = modes.some((m) => m.available)
   const reason =
     capability.status !== "available"
       ? (capability.reason ?? "OCR is not available in this deployment.")
       : !enabled
         ? "OCR is turned off in Accessibility settings. An administrator can enable it under OCR."
-        : !languages.includes("en")
-          ? "English is not selected as an OCR language in Accessibility settings."
+        : !anyMode
+          ? "No OCR recognition mode is available for the selected languages."
           : null
-  return { capability, policy: { enabled: enabled && languages.includes("en"), languages, reason }, revision: record.revision }
+  return { capability, policy: { enabled: enabled && anyMode, languages, reason, defaultMode, modes }, revision: record.revision }
 }
 
 type Target = { asset: NonNullable<Awaited<ReturnType<typeof getAsset>>> }
@@ -158,7 +193,12 @@ async function buildResponse(assetId: number, occurrenceId: number | null, p: Po
     occurrenceId,
     capability: p.capability,
     policy: p.policy,
-    engine: { label: OCR_PROVIDER_LABEL, version: OCR_ENGINE_VERSION, languageModel: OCR_LANGUAGE_MODEL },
+    engine: {
+      label: OCR_PROVIDER_LABEL,
+      version: OCR_ENGINE_VERSION,
+      languageModel: OCR_LANGUAGE_MODEL,
+      models: Object.fromEntries(OCR_LANGUAGE_MODE_IDS.map((m) => [m, modelsForMode(m)])) as Record<OcrLanguageMode, OcrModelReference[]>,
+    },
     settingsRevision: p.revision,
     full: scopeView(byScope.get("full") ?? []),
     regionAnalysis: analysis ? { analysisId: analysis.analysisId, version: analysis.version } : null,
@@ -181,7 +221,15 @@ export async function readOcrResults(assetId: number, occurrenceId: number | nul
 
 export type RunOcrDeps = { recognize?: typeof recognizeImage; now?: () => Date }
 
-const ENGINE_FAILURE_STATUS: Partial<Record<OcrErrorCategory, number>> = { engine_busy: 503, engine_unavailable: 503 }
+/** Environment failures: reported to the caller, never stored as an attempt on the image. */
+const ENGINE_FAILURE: Partial<Record<OcrErrorCategory, { status: number; code: string }>> = {
+  engine_busy: { status: 503, code: "OCR_BUSY" },
+  engine_unavailable: { status: 503, code: "OCR_UNAVAILABLE" },
+  language_unavailable: { status: 503, code: "OCR_LANGUAGE_UNAVAILABLE" },
+  language_asset_missing: { status: 503, code: "OCR_LANGUAGE_UNAVAILABLE" },
+  language_asset_invalid: { status: 503, code: "OCR_LANGUAGE_UNAVAILABLE" },
+  language_init_failed: { status: 503, code: "OCR_LANGUAGE_UNAVAILABLE" },
+}
 
 export async function runOcr(assetId: number, body: unknown, actor: OcrActor, deps: RunOcrDeps = {}): Promise<Ok<RunOcrResponse> | HistoryFailure> {
   const parsed = parseOcrRunRequest(body)
@@ -193,10 +241,11 @@ export async function runOcr(assetId: number, body: unknown, actor: OcrActor, de
   if ("ok" in target) return target
   if (!actor.updateScope || !withinScope(actor.updateScope, actor.userId, target.asset)) return fail(403, "FORBIDDEN", "You do not have permission to run OCR on this image.")
 
-  // 2. Idempotent replay, bound to (asset, occurrence, scope).
+  // 2. Idempotent replay, bound to (asset, occurrence, scope, language mode).
   const scopeKey = regionId ?? "full"
-  const requestId = `ocr:${assetId}_${occurrenceId ?? 0}_${scopeKey}_${parsed.value.requestId}`
   const p = await ocrPolicy(actor)
+  const languageMode: OcrLanguageMode = parsed.value.languageMode ?? p.policy.defaultMode
+  const requestId = `ocr:${assetId}_${occurrenceId ?? 0}_${scopeKey}_${languageMode}_${parsed.value.requestId}`
   const respond = async (row: StoredOcrRow, flags: { replayed: boolean; reused: boolean }): Promise<Ok<RunOcrResponse> | HistoryFailure> => {
     const result = toOcrView(row)
     if (!result) return fail(500, "OCR_RESULT_INVALID", "The saved OCR result could not be read.")
@@ -208,6 +257,10 @@ export async function runOcr(assetId: number, body: unknown, actor: OcrActor, de
   // 3. Capability + tenant processing policy.
   if (p.capability.status !== "available") return fail(409, "OCR_UNAVAILABLE", p.policy.reason ?? "OCR is not available.", { capabilityStatus: p.capability.status })
   if (!p.policy.enabled) return fail(409, "OCR_DISABLED", p.policy.reason ?? "OCR is turned off.")
+  const modeOption = p.policy.modes.find((m) => m.id === languageMode)
+  if (!modeOption?.available) {
+    return fail(409, "OCR_LANGUAGE_UNAVAILABLE", modeOption?.reason ?? OCR_ERROR_CATEGORIES.language_unavailable, { languageMode, requested: parsed.value.languageMode !== null })
+  }
   if (settingsRevision != null && settingsRevision !== p.revision) return fail(409, "SETTINGS_CHANGED", "Accessibility settings changed. Reload and try again.")
 
   // 4. Private bytes (bounded) + header-only format, size and orientation checks.
@@ -246,7 +299,13 @@ export async function runOcr(assetId: number, body: unknown, actor: OcrActor, de
 
   // 6. Reuse an identical earlier result unless reprocessing was requested.
   const inputSha256 = sha256(bytes)
-  const configFingerprint = sha256(JSON.stringify({ p: OCR_PROVIDER_ID, e: OCR_ENGINE_VERSION, m: OCR_LANGUAGE_MODEL, mode: "printed_text", lang: "en", crop, s: OCR_SCHEMA_VERSION }))
+  // Every input that changes recognition is part of the fingerprint, so modes never share a cache entry.
+  const segmentation: OcrPageSegmentation = crop ? "single_block" : "auto"
+  const languageModels = modelsForMode(languageMode)
+  const loadedLanguages = OCR_LANGUAGE_MODES[languageMode].tesseract.join("+")
+  const configFingerprint = sha256(
+    JSON.stringify({ p: OCR_PROVIDER_ID, e: OCR_ENGINE_VERSION, mode: "printed_text", lm: languageMode, l: loadedLanguages, models: languageModels.map((m) => m.sha256), psm: segmentation, crop, s: OCR_SCHEMA_VERSION }),
+  )
   const cacheKey = sha256(`${inputSha256}:${configFingerprint}`)
   if (!reprocess) {
     const reusable = await findReusableOcrResult(assetId, occurrenceId, scopeKey, cacheKey)
@@ -263,8 +322,13 @@ export async function runOcr(assetId: number, body: unknown, actor: OcrActor, de
     region,
     providerId: OCR_PROVIDER_ID,
     engineVersion: OCR_ENGINE_VERSION,
-    languageModel: OCR_LANGUAGE_MODEL,
-    language: "en" as const,
+    languageModel: languageModels.map((m) => m.reference).join("+"),
+    language: OCR_LANGUAGE_MODES[languageMode].languages[0],
+    languageMode,
+    languages: [...OCR_LANGUAGE_MODES[languageMode].languages],
+    loadedLanguages,
+    languageModels,
+    segmentation,
     mode: "printed_text" as const,
     confidenceScale: "tesseract_0_100" as const,
     source,
@@ -276,12 +340,13 @@ export async function runOcr(assetId: number, body: unknown, actor: OcrActor, de
 
   let built: Omit<OcrResult, "resultId" | "version">
   try {
-    const rec = await (deps.recognize ?? recognizeImage)({ bytes, rectangle: crop })
-    built = { ...base, ...buildRecognitionResult(rec, { orientationMatches, orientation: header.orientation, orientationUnknown: header.orientationUnknown }) }
+    const rec = await (deps.recognize ?? recognizeImage)({ bytes, rectangle: crop, languageMode, segmentation })
+    built = { ...base, ...buildRecognitionResult(rec, { orientationMatches, orientation: header.orientation, orientationUnknown: header.orientationUnknown, languageMode }) }
   } catch (e) {
     const category: OcrErrorCategory = e instanceof OcrEngineError ? e.category : "engine_error"
-    if (ENGINE_FAILURE_STATUS[category]) return fail(ENGINE_FAILURE_STATUS[category]!, category === "engine_busy" ? "OCR_BUSY" : "OCR_UNAVAILABLE", OCR_ERROR_CATEGORIES[category])
-    console.error("[alt-text/ocr] recognition failed", { assetId, category })
+    const env = ENGINE_FAILURE[category]
+    if (env) return fail(env.status, env.code, OCR_ERROR_CATEGORIES[category], { languageMode })
+    console.error("[alt-text/ocr] recognition failed", { assetId, category, languageMode })
     built = {
       ...base,
       status: "failed",
@@ -311,11 +376,32 @@ export async function runOcr(assetId: number, body: unknown, actor: OcrActor, de
   return respond(row, { replayed: false, reused: false })
 }
 
+/** A Devanagari dependent sign (matra, virama, nukta, anusvara…) not attached to a Devanagari base. */
+const ORPHAN_DEVANAGARI_MARK = /(^|[^\u0900-\u097F\uA8E0-\uA8FF\u200C\u200D])[\u0900-\u0903\u093A-\u094F\u0951-\u0957\u0962\u0963]/mu
+const MIXED_DIGIT_SCRIPTS = /[0-9][\u0966-\u096F]|[\u0966-\u096F][0-9]/u
+
+/**
+ * Review warnings specific to multilingual text. They flag; they never change the text.
+ * Pure so it is unit tested.
+ */
+export function multilingualWarnings(text: string, possibleColumns: boolean, languageMode?: OcrLanguageMode): string[] {
+  const out: string[] = []
+  if (!text) return out
+  const hints = deriveScriptHints(text)
+  if (languageMode === "hin" && hints.devanagari === 0 && hints.latin > 0) {
+    out.push("Hindi was selected but no Devanagari text was recognised. Check that the language mode matches the text in the image.")
+  }
+  if (ORPHAN_DEVANAGARI_MARK.test(text)) out.push("Some Devanagari vowel signs or marks are not attached to a letter. A character may have been split; check against the image.")
+  if (MIXED_DIGIT_SCRIPTS.test(text)) out.push("A number mixes Latin and Devanagari digits. Check it against the image.")
+  if (possibleColumns) out.push("Text blocks sit side by side (possible columns or a table). Check the reading order against the image.")
+  return out
+}
+
 /** Engine output → persisted fields. Pure so normalisation and warnings are unit tested. */
 export function buildRecognitionResult(
   rec: { text: string; blocks: unknown; durationMs: number },
-  frame: { orientationMatches: boolean; orientation: number; orientationUnknown: boolean },
-): Pick<OcrResult, "status" | "errorCategory" | "rawText" | "normalizedText" | "meanConfidence" | "lowConfidenceWordCount" | "layout" | "warnings" | "durationMs"> {
+  frame: { orientationMatches: boolean; orientation: number; orientationUnknown: boolean; languageMode?: OcrLanguageMode },
+): Pick<OcrResult, "status" | "errorCategory" | "rawText" | "normalizedText" | "meanConfidence" | "lowConfidenceWordCount" | "layout" | "warnings" | "durationMs" | "scriptHints"> {
   const raw = truncateText(sanitizeOcrText(rec.text))
   const normalized = truncateText(normalizeOcrText(rec.text))
   const layout = mapEngineLayout(rec.blocks, frame.orientationMatches)
@@ -331,8 +417,11 @@ export function buildRecognitionResult(
   if (raw.truncated || normalized.truncated) warnings.push(`Text was truncated at ${OCR_LIMITS.maxTextChars.toLocaleString("en-US")} characters.`)
   if (layout.truncated) warnings.push("Layout detail was truncated; the full text is still recorded up to the character limit.")
   if (low > 0) warnings.push(`${low} word${low === 1 ? " has" : "s have"} low engine confidence. Check them against the image.`)
+  warnings.push(...multilingualWarnings(normalized.text, layout.possibleColumns === true, frame.languageMode))
+  const scriptHints = normalized.text ? deriveScriptHints(normalized.text) : null
   const status = deriveOcrStatus({ normalizedText: normalized.text, meanConfidence: mean, warnings })
   return {
+    scriptHints,
     status,
     errorCategory: null,
     rawText: raw.text,
