@@ -1,0 +1,2 @@
+patchedDependencies:
+  tesseract.js@7.0.0: patches/tesseract.js@7.0.0.patch

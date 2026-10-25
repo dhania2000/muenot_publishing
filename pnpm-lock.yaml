@@ -4,6 +4,11 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  tesseract.js@7.0.0:
+    hash: 099172144c6ab81e0397c535957ebd0d4ff6e7acbc4ea3327107f0214dc78ed8
+    path: patches/tesseract.js@7.0.0.patch
+
 importers:
 
   .:
@@ -73,7 +78,7 @@ importers:
         version: 3.7.0
       tesseract.js:
         specifier: 7.0.0
-        version: 7.0.0
+        version: 7.0.0(patch_hash=099172144c6ab81e0397c535957ebd0d4ff6e7acbc4ea3327107f0214dc78ed8)
       tw-animate-css:
         specifier: ^1.4.0
         version: 1.4.0
@@ -4187,7 +4192,7 @@ snapshots:
 
   tesseract.js-core@7.0.0: {}
 
-  tesseract.js@7.0.0:
+  tesseract.js@7.0.0(patch_hash=099172144c6ab81e0397c535957ebd0d4ff6e7acbc4ea3327107f0214dc78ed8):
     dependencies:
       bmp-js: 0.1.0
       idb-keyval: 6.3.0
