@@ -11,6 +11,7 @@ import {readImageHeader} from "./image-header"
 import {equationCrop,MATH_LIMITS,parseMathRequest,type MathCrop,type MathRequest,type MathResponse} from "./math-contract"
 import {enqueueMathEvidence,listMathEvidence} from "./math-store"
 import {currentTenantId} from "@/lib/tenant-scope"
+import {readEquationValidations} from "./math-validation-store"
 
 export class MathRequestError extends Error{constructor(readonly status:number,readonly code:string,message:string){super(message);this.name="MathRequestError"}}
 export async function mathPolicy(){
@@ -42,10 +43,11 @@ export async function resolveEquationSource(assetId:number,occurrenceId:number|n
 }
 export async function readMathResults(assetId:number,occurrenceId:number|null,actor:HistoryActor):Promise<MathResponse>{
  const asset=await authorize(assetId,occurrenceId,actor)
- const [policy,row,results]=await Promise.all([mathPolicy(),getLatestRegionAnalysis(assetId,occurrenceId),listMathEvidence(assetId,occurrenceId)])
+ const [policy,row,records,validations]=await Promise.all([mathPolicy(),getLatestRegionAnalysis(assetId,occurrenceId),listMathEvidence(assetId,occurrenceId),readEquationValidations(assetId,occurrenceId)])
+ const results=records.map((r)=>({...r,validation:validations.find((v)=>v.result.sourceEvidenceId===r.id)??null}))
  const analysis=row?toAnalysisView(row):null
  return {success:true,assetId,occurrenceId,...policy,canRun:!!actor.updateScope&&withinScope(actor.updateScope,actor.userId,asset),
-  regions:(analysis?.regions??[]).filter((r)=>r.primaryType==="equation_region").map((r,i)=>({id:r.id,analysisId:analysis!.analysisId,label:`Equation region ${i+1}${r.needsReview?" · review position":""}`,box:r.box,eligible:r.locationStatus==="verified_frame"&&analysis!.source.orientation===1&&!analysis!.source.orientationUnknown})),results,activeJobs:results.some((r)=>["queued","recognizing"].includes(r.status))}
+  regions:(analysis?.regions??[]).filter((r)=>r.primaryType==="equation_region").map((r,i)=>({id:r.id,analysisId:analysis!.analysisId,label:`Equation region ${i+1}${r.needsReview?" · review position":""}`,box:r.box,sourceWidth:analysis!.source.storedWidth,sourceHeight:analysis!.source.storedHeight,eligible:r.locationStatus==="verified_frame"&&analysis!.source.orientation===1&&!analysis!.source.orientationUnknown})),results,activeJobs:results.some((r)=>["queued","recognizing"].includes(r.status))}
 }
 export async function startMathRecognition(assetId:number,body:unknown,actor:HistoryActor){
  const request=parseMathRequest(body)

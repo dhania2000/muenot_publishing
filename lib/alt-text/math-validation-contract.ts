@@ -1,0 +1,3 @@
+export type MathIssue={code:string;severity:"error"|"warning";message:string;position:number|null}
+export type MathValidation={schemaVersion:1;sourceEvidenceId:number;originalCandidate:string;selectedLatex:string;parserInput:string;delimiterHandling:"none"|"outer_math_delimiters";syntaxStatus:"valid"|"failed"|"unsupported";renderStatus:"rendered"|"failed"|"not_attempted";mathmlStatus:"generated"|"failed"|"not_attempted";presentationMathml:string|null;mathmlKind:"presentation";humanVerified:false;sourceMatchVerified:false;renderer:{id:"katex";version:string;policyVersion:1};issues:MathIssue[];createdAt:string;reviewReference:null}
+export type MathValidationRecord={id:number;version:number;result:MathValidation}

@@ -4,6 +4,7 @@ vi.mock("@/lib/alt-text/store",()=>({getAsset:d.asset,occurrenceBelongsToAsset:d
 vi.mock("@/lib/alt-text/math-engine",()=>({checkMathReadiness:d.health,MATH_MODEL:{revision:"pinned"}}))
 vi.mock("@/lib/alt-text/preview",()=>({openAltTextImage:d.open}))
 vi.mock("@/lib/alt-text/math-store",()=>({enqueueMathEvidence:d.enqueue,listMathEvidence:d.list}))
+vi.mock("@/lib/alt-text/math-validation-store",()=>({readEquationValidations:async()=>[]}))
 const {runForTenant}=await import("@/lib/tenant-scope")
 const service=await import("@/lib/alt-text/math-service")
 const actor={userId:7,viewScope:"added",updateScope:"added"} as const

@@ -18,7 +18,7 @@ import { checkMathReadiness } from "./math-engine"
  * Engines implemented today: Phase 1 vision generation (which also returns an image
  * classification), Phase 3 Task 4 vision region detection and Phase 3 Task 5 self-hosted OCR.
  */
-export const IMPLEMENTED_ACCESSIBILITY_ENGINES: readonly CapabilityId[] = ["standard_description", "auto_classification", "region_detection", "ocr", "math_analysis", "math_ocr"]
+export const IMPLEMENTED_ACCESSIBILITY_ENGINES: readonly CapabilityId[] = ["standard_description", "auto_classification", "region_detection", "ocr", "math_analysis", "math_ocr", "latex_output", "mathml_output"]
 
 const OCR_CHECK_FAILED = "The OCR engine health check failed. Reload this page to try again."
 

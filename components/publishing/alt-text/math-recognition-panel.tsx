@@ -4,6 +4,7 @@ import useSWR from "swr"
 import {Button} from "@/components/ui/button"
 import {altTextFetcher,altTextImageUrl} from "@/lib/alt-text/client"
 import type {MathResponse} from "@/lib/alt-text/math-contract"
+import {EquationValidationPanel} from "./equation-validation-panel"
 
 /** Read saved evidence on mount; inference requires an explicit action for one equation region. */
 export function MathRecognitionPanel({assetId,occurrenceId=null}:{assetId:number;occurrenceId?:number|null}){
@@ -33,7 +34,7 @@ export function MathRecognitionPanel({assetId,occurrenceId=null}:{assetId:number
     <label className="flex flex-col gap-1 text-xs">Equation region
      <select className="rounded border bg-background p-2" value={region?.id??""} onChange={(e)=>setSelected(e.target.value)}>{data.regions.map((r)=><option key={r.id} value={r.id}>{r.label}</option>)}</select>
     </label>
-    {region&&<svg viewBox={`${region.box.x} ${region.box.y} ${region.box.width} ${region.box.height}`} className="h-32 w-full rounded border bg-white" role="img" aria-label="Estimated equation crop from source image" preserveAspectRatio="xMidYMid meet"><image href={altTextImageUrl(assetId)} x="0" y="0" width="1" height="1" preserveAspectRatio="none" /></svg>}
+    {region&&<svg viewBox={`${region.box.x*region.sourceWidth} ${region.box.y*region.sourceHeight} ${region.box.width*region.sourceWidth} ${region.box.height*region.sourceHeight}`} className="h-32 w-full rounded border bg-white" role="img" aria-label="Estimated equation crop from source image" preserveAspectRatio="xMidYMid meet"><image href={altTextImageUrl(assetId)} x="0" y="0" width={region.sourceWidth} height={region.sourceHeight} preserveAspectRatio="none" /></svg>}
     <p className="text-xs text-muted-foreground">Estimated source crop · confidence is not reported by this recognizer.</p>
     {data.canRun&&<Button size="sm" variant="outline" disabled={busy||data.activeJobs||!data.enabled||!region?.eligible} onClick={()=>run(!!latest)}>{busy?"Submitting…":data.activeJobs?"Recognition queued or running…":latest?"Recognize again":"Recognize equation"}</Button>}
    </>}
@@ -45,7 +46,8 @@ export function MathRecognitionPanel({assetId,occurrenceId=null}:{assetId:number
      <p className="mt-2 font-medium">{record.result.candidateLatex?"LaTeX candidate / raw recognizer output":"Raw recognizer output"}</p>
      <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-all rounded bg-muted p-2">{record.result.rawOutput||"No expression returned."}</pre>
      {record.result.candidateLatex&&<Button size="sm" variant="ghost" onClick={()=>navigator.clipboard.writeText(record.result!.candidateLatex!).then(()=>setMessage("Candidate copied; review it before use.")).catch(()=>setMessage("Copy failed. Select the text to copy it."))}>Copy candidate</Button>}
-     {record.result.warnings.map((warning)=><p key={warning} className="mt-1 text-muted-foreground">{warning}</p>)}</>}
+     {record.result.warnings.map((warning)=><p key={warning} className="mt-1 text-muted-foreground">{warning}</p>)}
+     {record.result.candidateLatex&&<EquationValidationPanel assetId={assetId} occurrenceId={occurrenceId} record={record} canEdit={data.canRun} onSaved={()=>mutate()} />}</>}
    </article>)}</div>
   </>}
  </section>
