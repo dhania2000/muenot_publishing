@@ -10,6 +10,7 @@
  *   through the existing Alt Text APIs.
  */
 import { useEffect, useRef, useState } from "react"
+import {OcrReviewHistory} from "./ocr-review-history"
 import { useSWRConfig } from "swr"
 import { FileText, History, ImagePlus, Layers, Settings2, SlidersHorizontal, Sparkles } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
@@ -115,10 +116,12 @@ export function AltTextWorkspace() {
   const { mutate } = useSWRConfig()
   const [tab, setTab] = useState("generate")
   const [settingsDirty, setSettingsDirty] = useState(false)
+  const [ocrReviewDirty,setOcrReviewDirty]=useState(false)
+  const [ocrReviewKey,setOcrReviewKey]=useState(0)
   const [settingsKey, setSettingsKey] = useState(0)
   const [pendingTab, setPendingTab] = useState<string | null>(null)
   const changeTab = (next: string) => {
-    if (tab === "settings" && next !== "settings" && settingsDirty) setPendingTab(next)
+    if ((tab === "settings" && next !== "settings" && settingsDirty)||(tab==="history"&&next!=="history"&&ocrReviewDirty)) setPendingTab(next)
     else setTab(next)
   }
   const [batchRequest, setBatchRequest] = useState<{ id: string; nonce: number } | null>(null)
@@ -426,7 +429,7 @@ export function AltTextWorkspace() {
         </TabsContent>
 
         <TabsContent value="history" className="mt-0 min-h-0 flex-1">
-          <AltTextHistory onOpenInEditor={requestOpen} />
+          <OcrReviewHistory key={ocrReviewKey} onOpenInEditor={requestOpen} onDirtyChange={setOcrReviewDirty}/>
         </TabsContent>
 
         <TabsContent value="settings" className="mt-0 min-h-0 flex-1">
@@ -437,8 +440,8 @@ export function AltTextWorkspace() {
       <AlertDialog open={pendingTab !== null} onOpenChange={(o) => !o && setPendingTab(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Leave with unsaved settings?</AlertDialogTitle>
-            <AlertDialogDescription>Your Accessibility Settings changes have not been saved and will be discarded.</AlertDialogDescription>
+            <AlertDialogTitle>Leave with unsaved changes?</AlertDialogTitle>
+            <AlertDialogDescription>Your {tab==="history"?"OCR correction":"Accessibility Settings"} changes have not been saved and will be discarded.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Keep editing</AlertDialogCancel>
@@ -447,6 +450,8 @@ export function AltTextWorkspace() {
                 const target = pendingTab
                 setPendingTab(null)
                 setSettingsDirty(false)
+                setOcrReviewDirty(false)
+                if(tab==="history")setOcrReviewKey((n)=>n+1)
                 setSettingsKey((k) => k + 1)
                 if (target) setTab(target)
               }}

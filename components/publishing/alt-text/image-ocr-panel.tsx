@@ -9,6 +9,7 @@
  *   OCR text is review evidence: it is never inserted into alt text or marked as approved.
  */
 import { useRef, useState } from "react"
+import {OcrEvidenceReviewButton} from "./ocr-evidence-review"
 import useSWR from "swr"
 import { toast } from "sonner"
 import { AlertCircle, Check, Copy, Info, ScanText } from "lucide-react"
@@ -207,6 +208,7 @@ function ResultDetails({ view, assetId }: { view: OcrResponse["full"]; assetId: 
         </p>
       ) : null}
       {active ? <ActiveResult result={active} assetId={assetId} /> : null}
+      {!active&&latestFailure&&<OcrEvidenceReviewButton target={{kind:"image_ocr",sourceId:latestFailure.resultId,assetId:latestFailure.assetId,occurrenceId:latestFailure.occurrenceId,documentId:null,pageIndex:null}}/>}
     </div>
   )
 }
@@ -264,6 +266,7 @@ function ActiveResult({ result, assetId }: { result: OcrResult; assetId: number 
           </div>
         </div>
       ) : null}
+      <OcrEvidenceReviewButton target={{kind:"image_ocr",sourceId:result.resultId,assetId:result.assetId,occurrenceId:result.occurrenceId,documentId:null,pageIndex:null}}/>
 
       {result.normalizedText ? (
         <>

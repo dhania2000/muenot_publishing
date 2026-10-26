@@ -5,6 +5,7 @@ import {Button} from "@/components/ui/button"
 import {altTextFetcher,altTextImageUrl} from "@/lib/alt-text/client"
 import type {MathResponse} from "@/lib/alt-text/math-contract"
 import {EquationValidationPanel} from "./equation-validation-panel"
+import {OcrEvidenceReviewButton} from "./ocr-evidence-review"
 
 /** Read saved evidence on mount; inference requires an explicit action for one equation region. */
 export function MathRecognitionPanel({assetId,occurrenceId=null}:{assetId:number;occurrenceId?:number|null}){
@@ -41,6 +42,7 @@ export function MathRecognitionPanel({assetId,occurrenceId=null}:{assetId:number
    {message&&<p role="alert" className="text-sm text-destructive">{message}</p>}
    <div className="flex flex-col gap-3" aria-live="polite">{data.results.filter((r)=>!region||r.regionId===region.id).map((record)=><article key={record.id} className="rounded border p-3 text-xs">
     <p className="font-medium">Version {record.version} · {record.status.replaceAll("_"," ")} · unverified</p>
+    {!["queued","recognizing"].includes(record.status)&&<OcrEvidenceReviewButton target={{kind:"math_ocr",sourceId:String(record.id),assetId,occurrenceId,documentId:null,pageIndex:null}}/>}
     {record.errorCode&&<p className="text-destructive">Recognition could not finish ({record.errorCode}).</p>}
     {record.result&&<><p className="mt-2 break-all text-muted-foreground">{record.result.modelId} · {record.result.modelRevision.slice(0,12)}</p>
      <p className="mt-2 font-medium">{record.result.candidateLatex?"LaTeX candidate / raw recognizer output":"Raw recognizer output"}</p>

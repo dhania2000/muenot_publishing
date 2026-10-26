@@ -9,7 +9,7 @@ import type {MathCrop,MathEvidenceRecord,MathRecognitionResult,MathRequest} from
 /** Versioned region evidence references existing assets/occurrences; it is not another asset store.
  * Other evidence kinds can extend this table in later tasks without duplicating source documents. */
 export const ACCESSIBILITY_EVIDENCE_DDL=`CREATE TABLE IF NOT EXISTS alt_text_accessibility_evidence (
- id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,tenant_id BIGINT UNSIGNED NOT NULL,asset_id BIGINT UNSIGNED NOT NULL,
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,tenant_id BIGINT UNSIGNED NOT NULL,asset_id BIGINT UNSIGNED NULL,
  occurrence_key BIGINT UNSIGNED NOT NULL DEFAULT 0,region_id VARCHAR(48) NOT NULL,kind VARCHAR(48) NOT NULL,
  version INT UNSIGNED NOT NULL,analysis_id VARCHAR(40) NOT NULL,request_key CHAR(64) NOT NULL,config_key CHAR(64) NOT NULL,
  status VARCHAR(32) NOT NULL,input_json JSON NOT NULL,result_json JSON NULL,error_code VARCHAR(64) NULL,

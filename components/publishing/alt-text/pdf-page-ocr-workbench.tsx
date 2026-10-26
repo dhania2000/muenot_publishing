@@ -1,4 +1,5 @@
 "use client"
+import {OcrEvidenceReviewButton} from "./ocr-evidence-review"
 import { useState } from "react"
 import useSWR from "swr"
 import { toast } from "sonner"
@@ -88,6 +89,7 @@ function PageOcrPanel({ document: doc }: { document: DocumentRecord }) {
           {page && <><p className="my-2 text-xs">{PAGE_OCR_STATUS_LABELS[page.status]} · {page.attempts} attempts{result ? ` · ${OCR_LANGUAGE_MODES[result.languageMode].label} · engine confidence ${result.meanConfidence ?? "unavailable"}` : ""}</p>
             {page.classification.reasons.map((r) => <p key={r} className="text-xs text-muted-foreground">{r}</p>)}
             {page.nativeText && <details className="my-2 text-xs"><summary>Native PDF text (unchanged)</summary><pre className="max-h-40 overflow-auto whitespace-pre-wrap">{page.nativeText}</pre></details>}
+            {(result||["failed","cancelled"].includes(page.status))&&<OcrEvidenceReviewButton target={{kind:"page_ocr",sourceId:result?.identity??`failure_${page.jobId??0}`,assetId:null,occurrenceId:null,documentId:doc.id,pageIndex:page.pageIndex}}/>}
             {result ? <><p className="my-2 text-xs">OCR page text · run {result.runId} · {result.render.dpi} DPI{result.runId !== page.jobId ? " · previous successful result" : ""}</p><div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => setRaw(!raw)}>{raw ? "Show normalized text" : "Show raw text"}</Button><Button size="sm" variant="outline" onClick={() => navigator.clipboard.writeText(raw ? result.rawText : result.normalizedText).then(() => toast.success("Text copied")).catch(() => toast.error("Copy failed"))}>Copy text</Button></div><pre className="my-3 max-h-80 overflow-auto whitespace-pre-wrap break-words text-sm" lang={result.languageMode === "hin" ? "hi" : undefined}>{raw ? result.rawText : result.normalizedText || "No text detected."}</pre>{result.warnings.map((w) => <p key={w} className="mt-1 text-xs">{w}</p>)}<details className="mt-2 text-xs"><summary>Supported page coordinates and lines</summary><pre className="max-h-48 overflow-auto whitespace-pre-wrap">{JSON.stringify({ coordinateSystems: result.coordinateSystems, viewportTransform: result.render.viewportTransform, lines: result.lines }, null, 2)}</pre></details></> : <p className="mt-3 text-xs">No saved OCR result for this page.</p>}</>}
         </div>
       </div>
