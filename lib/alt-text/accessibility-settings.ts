@@ -75,6 +75,8 @@ export type AccessibilityBackend = {
   ocrModes?: readonly string[]
   /** Why the OCR engine failed its health check, when it did. */
   ocrIssue?: string | null
+  mathReady?: boolean
+  mathIssue?: string | null
   /** Capabilities switched off by a mandatory platform or tenant policy. */
   disabledByPolicy: readonly CapabilityId[]
 }
@@ -87,7 +89,10 @@ const RUNTIME_REQUIREMENTS: Partial<Record<CapabilityId, (b: AccessibilityBacken
     b.visionModelAvailable === true ? null : b.visionModelAvailable === false ? "No approved vision-capable model is available to this tenant." : "Vision model availability could not be verified.",
   auto_classification: (b) => (b.visionModelAvailable === true ? null : "Requires an available vision model."),
   region_detection: (b) => (b.visionModelAvailable === true ? null : "Requires an available vision model."),
+  chart_analysis: (b) => b.visionModelAvailable===true?null:"Requires an authorized, configured vision model.",
   ocr: (b) => (b.ocrLanguagePacks.length ? null : (b.ocrIssue ?? "No OCR language pack is installed.")),
+  math_analysis: (b) => b.mathReady === true ? null : (b.mathIssue ?? "The local mathematical recognizer has not passed its runtime check."),
+  math_ocr: (b) => b.mathReady === true ? null : (b.mathIssue ?? "The local mathematical recognizer has not passed its runtime check."),
 }
 
 export function deriveCapabilityStates(backend: AccessibilityBackend): Record<CapabilityId, CapabilityState> {

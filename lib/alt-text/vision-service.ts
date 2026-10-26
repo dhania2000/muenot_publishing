@@ -215,14 +215,19 @@ export type RegionDetectionResult = Omit<VisionGenerationResult, "output"> & { r
  * Phase 3 Task 4 — asks an authorised vision model to localise regions in the actual image bytes.
  * Output is shape-checked here; geometry and hierarchy are validated by `finalizeRegions`.
  */
-export async function detectRegionsFromImage(input: {
+type EvidenceVisionInput = {
   image: { bytes: Uint8Array; mediaType: SupportedImageType }
   model: CatalogModel
   prompt: { instructions: string; prompt: string }
   maxFileMb: number
   timeoutMs?: number
   abortSignal?: AbortSignal
-}): Promise<RegionDetectionResult> {
+}
+export async function detectRegionsFromImage(input:EvidenceVisionInput):Promise<RegionDetectionResult>{
+  return analyzeVisionEvidence(input,parseRegionProviderOutput)
+}
+/** Shared governed image transport. Callers own strict feature-specific parsing and existing metering. */
+export async function analyzeVisionEvidence<T>(input:EvidenceVisionInput,parseOutput:(text:string)=>T):Promise<Omit<VisionGenerationResult,"output">&{raw:T}> {
   const { image, model } = input
   if (!isVisionCompatible(model)) throw new AiError("model_not_allowed", "The selected model cannot analyse images or its provider is not configured.", { modelId: model.id })
   const check = validateImage({ type: image.mediaType, size: image.bytes?.length ?? 0, name: "" }, image.bytes ?? new Uint8Array(), input.maxFileMb)
@@ -254,15 +259,15 @@ export async function detectRegionsFromImage(input: {
     throw toProviderError(e, model.id)
   }
 
-  let raw: RawRegionOutput
+  let raw:T
   try {
-    raw = parseRegionProviderOutput(result.text)
+    raw = parseOutput(result.text)
   } catch (e) {
     if (e instanceof RegionOutputError) {
       console.error("[alt-text] invalid region output", { modelId: model.id, code: e.code })
       throw new AiError("provider_error", "The AI returned an invalid region response. No regions were saved.", { modelId: model.id, reason: "invalid_output", outputError: e.code })
     }
-    throw e
+    throw new AiError("provider_error", "The AI returned invalid visual evidence. No analysis was accepted.", {modelId:model.id,reason:"invalid_output"})
   }
 
   const u = (result.usage ?? {}) as Record<string, unknown> & { inputTokenDetails?: { cacheReadTokens?: unknown } }

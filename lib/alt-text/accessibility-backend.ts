@@ -12,12 +12,13 @@ import { resolveTenantModels } from "@/lib/ai/model-catalog"
 import type { AccessibilityBackend, CapabilityId } from "./accessibility-settings"
 import { checkOcrReadiness } from "./ocr-engine"
 import { isVisionCompatible } from "./vision-service"
+import { checkMathReadiness } from "./math-engine"
 
 /**
  * Engines implemented today: Phase 1 vision generation (which also returns an image
  * classification), Phase 3 Task 4 vision region detection and Phase 3 Task 5 self-hosted OCR.
  */
-export const IMPLEMENTED_ACCESSIBILITY_ENGINES: readonly CapabilityId[] = ["standard_description", "auto_classification", "region_detection", "ocr"]
+export const IMPLEMENTED_ACCESSIBILITY_ENGINES: readonly CapabilityId[] = ["standard_description", "auto_classification", "region_detection", "ocr", "math_analysis", "math_ocr", "latex_output", "mathml_output", "chart_analysis"]
 
 const OCR_CHECK_FAILED = "The OCR engine health check failed. Reload this page to try again."
 
@@ -41,8 +42,9 @@ async function summarizeOcr(): Promise<OcrSummary> {
 
 export async function detectAccessibilityBackend(tenantId: number, role: "admin" | "employee"): Promise<AccessibilityBackend> {
   let visionModelAvailable: boolean | null = null
-  const [ocr] = await Promise.all([
+  const [ocr, math] = await Promise.all([
     summarizeOcr(),
+    checkMathReadiness(),
     (async () => {
       try {
         const resolved = await resolveTenantModels(tenantId, await getTenantAiSettings(), role)
@@ -59,6 +61,8 @@ export async function detectAccessibilityBackend(tenantId: number, role: "admin"
     ocrLanguagePacks: ocr.languages,
     ocrModes: ocr.modes,
     ocrIssue: ocr.issue,
-    disabledByPolicy: process.env.ALT_TEXT_OCR_DISABLED === "1" ? ["ocr"] : [],
+    mathReady: math.available,
+    mathIssue: math.reason,
+    disabledByPolicy: [...(process.env.ALT_TEXT_OCR_DISABLED === "1" ? ["ocr" as const] : []), ...(process.env.ALT_TEXT_MATH_DISABLED === "1" ? ["math_analysis" as const,"math_ocr" as const] : []),...(process.env.ALT_TEXT_ADVANCED_DISABLED==="1"?["chart_analysis" as const]:[])],
   }
 }

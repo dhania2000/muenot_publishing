@@ -8,7 +8,10 @@ const nextConfig = {
   // into the standalone output.
   serverExternalPackages: ['tesseract.js', 'tesseract.js-core', 'pdfjs-dist', '@napi-rs/canvas'],
   outputFileTracingIncludes: {
+    '/api/**': ['./scripts/math-ocr-worker.py', './models/math/model-lock.json'],
     '/api/alt-text/**': [
+      './scripts/math-ocr-worker.py',
+      './models/math/model-lock.json',
       './node_modules/tesseract.js/src/worker-script/**',
       './node_modules/tesseract.js-core/*.{js,wasm}',
       './node_modules/@tesseract.js-data/eng/4.0.0_best_int/**',

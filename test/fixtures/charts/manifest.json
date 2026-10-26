@@ -1,0 +1,173 @@
+{
+  "purpose": "Labelled fixtures, not measured model accuracy. No paid AI is invoked by generation or tests.",
+  "samples": [
+    {
+      "id": "line",
+      "file": "line.png",
+      "expectedType": "line",
+      "synthetic": true,
+      "notes": ""
+    },
+    {
+      "id": "bar",
+      "file": "bar.png",
+      "expectedType": "bar",
+      "synthetic": true,
+      "notes": ""
+    },
+    {
+      "id": "column",
+      "file": "column.png",
+      "expectedType": "column",
+      "synthetic": true,
+      "notes": ""
+    },
+    {
+      "id": "grouped_bar",
+      "file": "grouped_bar.png",
+      "expectedType": "grouped_bar",
+      "synthetic": true,
+      "notes": ""
+    },
+    {
+      "id": "stacked_bar",
+      "file": "stacked_bar.png",
+      "expectedType": "stacked_bar",
+      "synthetic": true,
+      "notes": ""
+    },
+    {
+      "id": "stacked_100_percent",
+      "file": "stacked_100_percent.png",
+      "expectedType": "stacked_100_percent",
+      "synthetic": true,
+      "notes": ""
+    },
+    {
+      "id": "pie",
+      "file": "pie.png",
+      "expectedType": "pie",
+      "synthetic": true,
+      "notes": ""
+    },
+    {
+      "id": "doughnut",
+      "file": "doughnut.png",
+      "expectedType": "doughnut",
+      "synthetic": true,
+      "notes": ""
+    },
+    {
+      "id": "scatter",
+      "file": "scatter.png",
+      "expectedType": "scatter",
+      "synthetic": true,
+      "notes": ""
+    },
+    {
+      "id": "bubble",
+      "file": "bubble.png",
+      "expectedType": "bubble",
+      "synthetic": true,
+      "notes": ""
+    },
+    {
+      "id": "area",
+      "file": "area.png",
+      "expectedType": "area",
+      "synthetic": true,
+      "notes": ""
+    },
+    {
+      "id": "histogram",
+      "file": "histogram.png",
+      "expectedType": "histogram",
+      "synthetic": true,
+      "notes": ""
+    },
+    {
+      "id": "box_whisker",
+      "file": "box_whisker.png",
+      "expectedType": "box_whisker",
+      "synthetic": true,
+      "notes": ""
+    },
+    {
+      "id": "heatmap",
+      "file": "heatmap.png",
+      "expectedType": "heatmap",
+      "synthetic": true,
+      "notes": ""
+    },
+    {
+      "id": "waterfall",
+      "file": "waterfall.png",
+      "expectedType": "waterfall",
+      "synthetic": true,
+      "notes": ""
+    },
+    {
+      "id": "time_series",
+      "file": "time_series.png",
+      "expectedType": "time_series",
+      "synthetic": true,
+      "notes": ""
+    },
+    {
+      "id": "multi_axis",
+      "file": "multi_axis.png",
+      "expectedType": "multi_axis",
+      "synthetic": true,
+      "notes": ""
+    },
+    {
+      "id": "combination",
+      "file": "combination.png",
+      "expectedType": "combination",
+      "synthetic": true,
+      "notes": ""
+    },
+    {
+      "id": "unknown",
+      "file": "unknown.png",
+      "expectedType": "unknown",
+      "synthetic": true,
+      "notes": ""
+    },
+    {
+      "id": "multi-panel",
+      "file": "multi-panel.png",
+      "expectedType": "mixed",
+      "synthetic": true,
+      "notes": "Two graph regions must be analyzed separately."
+    },
+    {
+      "id": "surrounding-paragraph",
+      "file": "surrounding-paragraph.png",
+      "expectedType": "line",
+      "synthetic": true,
+      "notes": ""
+    },
+    {
+      "id": "scientific-diagram",
+      "file": "scientific-diagram.png",
+      "expectedType": "not_chart",
+      "synthetic": true,
+      "notes": ""
+    },
+    {
+      "id": "incomplete-axes",
+      "file": "incomplete-axes.png",
+      "expectedType": "line",
+      "synthetic": true,
+      "notes": ""
+    },
+    {
+      "id": "low-resolution",
+      "file": "low-resolution.png",
+      "expectedType": "line",
+      "synthetic": true,
+      "notes": "Degraded resolution; no measured recognition accuracy."
+    }
+  ]
+}

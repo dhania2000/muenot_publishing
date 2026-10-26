@@ -1,0 +1,149 @@
+{
+  "synthetic": true,
+  "samples": [
+    {
+      "id": "limit",
+      "file": "limit.png",
+      "expected": "\\lim_{x\\to 0}\\frac{\\sin x}{x}=1",
+      "renderer": "matplotlib.mathtext"
+    },
+    {
+      "id": "double-integral",
+      "file": "double-integral.png",
+      "expected": "\\int\\int f(x,y)\\,dx\\,dy",
+      "renderer": "matplotlib.mathtext"
+    },
+    {
+      "id": "vector",
+      "file": "vector.png",
+      "expected": "\\vec{a}\\cdot\\vec{b}=0",
+      "renderer": "matplotlib.mathtext"
+    },
+    {
+      "id": "arithmetic",
+      "file": "arithmetic.png",
+      "expected": "1+2=3",
+      "renderer": "matplotlib.mathtext"
+    },
+    {
+      "id": "algebra",
+      "file": "algebra.png",
+      "expected": "x^2+y^2=z^2",
+      "renderer": "matplotlib.mathtext"
+    },
+    {
+      "id": "fraction",
+      "file": "fraction.png",
+      "expected": "\\frac{a+b}{c}",
+      "renderer": "matplotlib.mathtext"
+    },
+    {
+      "id": "nested-fraction",
+      "file": "nested-fraction.png",
+      "expected": "\\frac{1}{1+\\frac{1}{x}}",
+      "renderer": "matplotlib.mathtext"
+    },
+    {
+      "id": "radical",
+      "file": "radical.png",
+      "expected": "\\sqrt{x^2+1}",
+      "renderer": "matplotlib.mathtext"
+    },
+    {
+      "id": "integral",
+      "file": "integral.png",
+      "expected": "\\int_0^1 x^2\\,dx=\\frac{1}{3}",
+      "renderer": "matplotlib.mathtext"
+    },
+    {
+      "id": "summation",
+      "file": "summation.png",
+      "expected": "\\sum_{i=1}^{n}i=\\frac{n(n+1)}{2}",
+      "renderer": "matplotlib.mathtext"
+    },
+    {
+      "id": "greek",
+      "file": "greek.png",
+      "expected": "\\alpha+\\beta=\\gamma",
+      "renderer": "matplotlib.mathtext"
+    },
+    {
+      "id": "subscript",
+      "file": "subscript.png",
+      "expected": "a_{n+1}=a_n+1",
+      "renderer": "matplotlib.mathtext"
+    },
+    {
+      "id": "derivative",
+      "file": "derivative.png",
+      "expected": "\\frac{\\partial f}{\\partial x}=2x",
+      "renderer": "matplotlib.mathtext"
+    },
+    {
+      "id": "trigonometry",
+      "file": "trigonometry.png",
+      "expected": "\\sin^2 x+\\cos^2 x=1",
+      "renderer": "matplotlib.mathtext"
+    },
+    {
+      "id": "logarithm",
+      "file": "logarithm.png",
+      "expected": "\\log(ab)=\\log a+\\log b",
+      "renderer": "matplotlib.mathtext"
+    },
+    {
+      "id": "inequality",
+      "file": "inequality.png",
+      "expected": "x\\leq y",
+      "renderer": "matplotlib.mathtext"
+    },
+    {
+      "id": "set",
+      "file": "set.png",
+      "expected": "A\\cup B",
+      "renderer": "matplotlib.mathtext"
+    },
+    {
+      "id": "probability",
+      "file": "probability.png",
+      "expected": "P(A\\mid B)=\\frac{P(A\\cap B)}{P(B)}",
+      "renderer": "matplotlib.mathtext"
+    },
+    {
+      "id": "matrix",
+      "file": "matrix.png",
+      "expected": "\\begin{bmatrix}1&2\\\\3&4\\end{bmatrix}",
+      "renderer": "matplotlib.mathtext + Pillow composition"
+    },
+    {
+      "id": "multiline",
+      "file": "multiline.png",
+      "expected": "\\begin{aligned}x+y&=3\\\\x-y&=1\\end{aligned}",
+      "renderer": "matplotlib.mathtext + Pillow composition"
+    },
+    {
+      "id": "multiple-equations",
+      "file": "multiple-equations.png",
+      "expected": "x=1\\qquad y=2",
+      "renderer": "matplotlib.mathtext + Pillow composition"
+    },
+    {
+      "id": "rotated",
+      "file": "rotated.png",
+      "expected": "x^2+y^2=z^2",
+      "renderer": "Pillow perturbation"
+    },
+    {
+      "id": "poor-quality",
+      "file": "poor-quality.png",
+      "expected": "x^2+y^2=z^2",
+      "renderer": "Pillow perturbation"
+    },
+    {
+      "id": "surrounding-english-hindi",
+      "file": "surrounding-english-hindi.png",
+      "expected": "1+2=3",
+      "renderer": "Pillow Nirmala font; surrounding prose is a distractor"
+    }
+  ]
+}

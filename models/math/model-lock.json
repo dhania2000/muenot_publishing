@@ -1,0 +1,18 @@
+{
+  "codeLicense": "Apache-2.0 (Transformers)",
+  "modelId": "MixTex/ZhEn-Latex-OCR",
+  "provider": "mixtex_transformers_cpu",
+  "revision": "37da0497956ac97f0a81f4da001f000d5295b77c",
+  "weightsLicense": "Apache-2.0",
+  "schemaVersion": 1,
+  "files": {
+    "merges.txt": "e7be6d278151980d0f9f8a1040835bbfcf4e15f29295c77b13681254398ac2d6",
+    "generation_config.json": "f0aa7b33993715f6442b2d6210aa5d288cbd5669d4804fb5b648f3eb061b146d",
+    "model.safetensors": "cb737c91081caf47666e4d64c1e62d715c8c63727c1c7a6b4204214c8a7e930c",
+    "preprocessor_config.json": "cf6e76f0ba3fd8ce5790ea0984dc1c6e59d2a7c8937096f7b4deabb3893adfab",
+    "tokenizer_config.json": "8aeb13c0b29be00bcc75386a134ed6ad0f84713c54accdc9b1ac24b2fe339d78",
+    "config.json": "a7a2128b4782a006cb16ef8ae6e92b7504eeee79e7c79a9da78025b03122a9e8",
+    "vocab.json": "11966c857496962c93c0dae69e5d3bcda3b6fdd90ff1bbd5fdc1acc046758892",
+    "README.md": "2ea212d07aa830db1beaef4151547822437fb2926695fc82cddb78b230bc9ddd"
+  }
+}
