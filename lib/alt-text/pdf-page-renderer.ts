@@ -74,7 +74,27 @@ function withTimeout<T>(p: Promise<T>, ms: number, onTimeout: () => void): Promi
   ]).finally(() => clearTimeout(timer))
 }
 
+let handleBusy = false
+export async function rendererAvailable(): Promise<boolean> {
+  try {
+    const { canvas } = await loadLibs()
+    return (await canvas.createCanvas(1,1).encode("png")).length >= 33
+  } catch { return false }
+}
+/** Rendering and interactive previews share one in-process raster slot. Durable jobs retry busy
+ * renderers; request paths never allocate an unbounded queue of full PDF buffers. */
 export async function openPdfForRender(bytes: Uint8Array): Promise<PdfRenderHandle> {
+  if (handleBusy) throw new PageRenderError("RENDER_UNAVAILABLE", "The page renderer is busy. Try again shortly.")
+  handleBusy = true
+  try {
+    const handle = await openPdfForRenderInternal(bytes)
+    let destroyed = false
+    return { numPages: handle.numPages, renderPage: handle.renderPage,
+      async destroy() { if (destroyed) return; destroyed = true; try { await handle.destroy() } finally { handleBusy = false } } }
+  } catch (err) { handleBusy = false; throw err }
+}
+
+async function openPdfForRenderInternal(bytes: Uint8Array): Promise<PdfRenderHandle> {
   const { pdfjs, canvas } = await loadLibs()
   // pdf.js transfers (detaches) the buffer it is given; hand it a copy so the caller's bytes survive.
   const task = pdfjs.getDocument({
@@ -83,15 +103,20 @@ export async function openPdfForRender(bytes: Uint8Array): Promise<PdfRenderHand
     enableXfa: false,
     disableFontFace: true,
     useSystemFonts: false,
+    useWorkerFetch: false,
+    disableAutoFetch: true,
+    disableStream: true,
+    disableRange: true,
     stopAtErrors: false,
     maxImageSize: PAGE_RENDER_LIMITS.maxPixels,
     verbosity: 0,
   })
   let doc: Awaited<typeof task.promise>
   try {
-    doc = await task.promise
+    doc = await withTimeout(task.promise, PAGE_RENDER_LIMITS.renderTimeoutMs, () => { void task.destroy().catch(() => undefined) })
   } catch (err) {
     await task.destroy().catch(() => undefined)
+    if (err instanceof PageRenderError) throw err
     if (err instanceof Error && err.name === "PasswordException") throw new PageRenderError("PASSWORD_PROTECTED", "The PDF is password protected.")
     throw new PageRenderError("RENDER_FAILED", "The PDF could not be opened for page rendering.")
   }
@@ -104,7 +129,7 @@ export async function openPdfForRender(bytes: Uint8Array): Promise<PdfRenderHand
     async renderPage(pageNumber, opts = {}) {
       if (!Number.isInteger(pageNumber) || pageNumber < 1 || pageNumber > doc.numPages) throw new PageRenderError("INVALID_PAGE", "That page does not exist.")
       const started = Date.now()
-      const page = await doc.getPage(pageNumber)
+      const page = await withTimeout(doc.getPage(pageNumber), PAGE_RENDER_LIMITS.renderTimeoutMs, () => { void doc.destroy().catch(() => undefined) })
       try {
         const base = page.getViewport({ scale: 1 })
         const plan: RenderPlan = planRender(base.width, base.height, { targetDpi: opts.targetDpi })

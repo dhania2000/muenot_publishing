@@ -46,6 +46,7 @@ import { ImageDetailsSheet, type DetailsTarget } from "./image-details-sheet"
 import { ImageReadinessSummary } from "./image-readiness-summary"
 import { locationLabel, sourceName } from "./image-review-ui"
 import { useImageReview } from "./use-image-review"
+import { PdfPageOcrWorkbench } from "./pdf-page-ocr-workbench"
 
 const EXTRACTABLE = new Set(["pdf", "pptx"])
 const REVIEWABLE = new Set(["pdf", "pptx", "docx"])
@@ -260,6 +261,7 @@ export function ExtractedImagesPanel({ openRequest }: { openRequest?: DocumentOp
               </Select>
             </div>
             <div role="group" aria-label="Document actions" className="flex flex-wrap gap-2">
+              {doc?.documentType === "pdf" && doc.securityStatus === "clean" && <PdfPageOcrWorkbench key={doc.id} document={doc} />}
               <Button size="sm" onClick={extract} disabled={!doc || !isExtractable(doc) || running || prep.active}>
                 {running || prep.active ? <Loader2 className="animate-spin" aria-hidden="true" /> : <ScanSearch aria-hidden="true" />}
                 {running ? "Starting…" : prep.active ? "Processing…" : "Process Document"}

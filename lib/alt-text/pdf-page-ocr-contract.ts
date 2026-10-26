@@ -8,17 +8,17 @@
  * Coordinate systems (persisted with every result as `coordinateSystems`):
  * - `raster_px`   OCR raster pixels, origin top-left, y down, exactly the rendered image.
  * - `page_norm`   0..1 of the displayed (rotated, crop-boxed) page, origin top-left, y down.
- * - `pdf_user`    PDF default user space of the page (points, origin bottom-left of the coordinate
+ * - `pdf_user`    PDF default user space of the page (one unit = UserUnit points, origin bottom-left of the coordinate
  *                 system, y up; includes the CropBox offset and ignores /Rotate).
  * `viewportTransform` [a,b,c,d,e,f] maps pdf_user → raster_px (pdf.js viewport.transform); conversion
  * back uses its inverse. Nothing is converted without that recorded matrix.
  */
-import { createHash } from "node:crypto"
-import type { OcrLanguageMode, OcrPixelBox } from "./ocr-contract"
+
+import type { OcrPixelBox } from "./ocr-contract"
 
 export const PAGE_OCR_SCHEMA_VERSION = 1
 /** Bump when render or preprocessing behaviour changes so older results are not reused as equivalent. */
-export const PAGE_RENDER_POLICY_VERSION = "pdfjs-render-v1"
+export const PAGE_RENDER_POLICY_VERSION = "pdfjs-source-dpi-v2"
 
 export const PAGE_OCR_STATUSES = [
   "not_required",
@@ -89,10 +89,13 @@ export type PageEvidence = {
   textCoverage: number
   undecodableRuns: number
   imageCount: number
+  totalImagePixels?: number
   /** Largest single image coverage of the visible page (0..1). */
   maxImageCoverage: number
   /** True when the parser flagged a full-page raster (`likely_scanned_page`). */
   fullPageRaster: boolean
+  /** Existing full-image OCR, matched to this image's hash, established readable text. */
+  confirmedRasterText?: boolean
   /** Page draws vector paths but no raster image (pdf-package report). */
   vectorOnly: boolean
 }
@@ -116,8 +119,8 @@ export const CLASSIFICATION_THRESHOLDS = {
 } as const
 
 /**
- * Page-level classification. Deliberately conservative: only full-page rasters without meaningful
- * native text are auto-eligible. Photos, diagrams and mixed pages are flagged for review instead of
+ * Page-level classification. Only full-page rasters without meaningful native text and with
+ * hash-matched existing image OCR evidence are auto-eligible. Photos, diagrams and mixed pages are flagged for review instead of
  * being assumed to be text.
  */
 export function classifyPage(e: PageEvidence): PageClassification {
@@ -129,8 +132,9 @@ export function classifyPage(e: PageEvidence): PageClassification {
 
   if (e.fullPageRaster && !hasText) {
     reasons.push("A raster image covers the page and no meaningful selectable text was found.")
+    reasons.push(e.confirmedRasterText ? "Existing hash-matched image OCR confirmed printed text in this page image." : "This is a scan candidate; a full-page photograph cannot be ruled out. Review before selecting OCR.")
     if (e.textChars > 0) reasons.push(`Only ${e.textChars} selectable characters exist (e.g. a page number).`)
-    return { pageClass: "scanned", ocrRecommended: true, needsReview: false, reasons }
+    return { pageClass: "scanned", ocrRecommended: true, needsReview: !e.confirmedRasterText, reasons }
   }
   if (e.fullPageRaster && hasText) {
     reasons.push("A full-page raster image already has a selectable text layer.")
@@ -171,6 +175,7 @@ export function classifyPage(e: PageEvidence): PageClassification {
 /** Document-level label from actual page classes, never from the first page alone. */
 export function classifyDocument(classes: readonly PageClass[]): DocumentClass {
   if (classes.length === 0) return "unsupported"
+  if (classes.every((c) => c === "unsupported")) return "unsupported"
   const count = (c: PageClass) => classes.filter((x) => x === c).length
   const scanned = count("scanned")
   const layered = count("scanned_with_text_layer")
@@ -210,7 +215,8 @@ export function planRender(displayWidthPt: number, displayHeightPt: number, opts
   if (!(displayWidthPt > 0) || !(displayHeightPt > 0) || !Number.isFinite(displayWidthPt) || !Number.isFinite(displayHeightPt)) {
     return { ok: false, code: "PAGE_PIXEL_LIMIT", message: "The page has invalid dimensions." }
   }
-  const target = Math.min(L.maxDpi, Math.max(L.minDpi, Math.round(opts.targetDpi ?? L.targetDpi)))
+  const requested = opts.targetDpi == null || !Number.isFinite(opts.targetDpi) ? L.targetDpi : opts.targetDpi
+  const target = Math.min(L.maxDpi, Math.max(L.minDpi, Math.round(requested)))
   const at = (dpi: number) => ({ w: Math.ceil((displayWidthPt * dpi) / 72), h: Math.ceil((displayHeightPt * dpi) / 72) })
   const fits = (dpi: number) => {
     const { w, h } = at(dpi)
@@ -251,7 +257,7 @@ export type PageGeometry = {
 export const COORDINATE_SYSTEMS = {
   raster_px: "OCR raster pixels; origin top-left, y down.",
   page_norm: "0..1 of the displayed page (rotation and CropBox applied); origin top-left, y down.",
-  pdf_user: "PDF default user space in points; y up; CropBox offset included; /Rotate not applied.",
+  pdf_user: "PDF default user-space units (one unit = UserUnit points); y up; CropBox offset included; /Rotate not applied.",
 } as const
 
 export function invertMatrix(m: Matrix6): Matrix6 | null {
@@ -281,10 +287,12 @@ export function rasterBoxToPdf(box: OcrPixelBox, viewportTransform: Matrix6): Pd
 
 /** raster_px box → page_norm, validated against the raster bounds. Null when outside the page. */
 export function rasterBoxToNorm(box: OcrPixelBox, rasterWidth: number, rasterHeight: number): NormRect | null {
+  if (![box.left, box.top, box.width, box.height, rasterWidth, rasterHeight].every(Number.isFinite)) return null
   if (!(rasterWidth > 0) || !(rasterHeight > 0) || !(box.width > 0) || !(box.height > 0)) return null
+  if (box.left >= rasterWidth || box.top >= rasterHeight) return null
   if (box.left < 0 || box.top < 0 || box.left + box.width > rasterWidth + 1 || box.top + box.height > rasterHeight + 1) return null
   const r = (v: number) => Math.round(Math.min(1, Math.max(0, v)) * 1e5) / 1e5
-  return { x: r(box.left / rasterWidth), y: r(box.top / rasterHeight), width: r(box.width / rasterWidth), height: r(box.height / rasterHeight) }
+  return { x: r(box.left / rasterWidth), y: r(box.top / rasterHeight), width: r(Math.min(box.width,rasterWidth-box.left) / rasterWidth), height: r(Math.min(box.height,rasterHeight-box.top) / rasterHeight) }
 }
 
 const roundRect = (r: PdfRect): PdfRect => ({ x0: round2(r.x0), y0: round2(r.y0), x1: round2(r.x1), y1: round2(r.y1) })
@@ -292,35 +300,7 @@ const round2 = (v: number) => Math.round(v * 100) / 100
 
 /* ───────────────────────── Identity & progress ───────────────────────── */
 
-/**
- * OCR execution identity: a completed result is reused only when every input that can change the
- * output is identical (source bytes, page, language, engine + model hashes, render policy, PSM).
- */
-export function pageOcrIdentity(input: {
-  documentId: number
-  sourceSha256: string
-  pageIndex: number
-  languageMode: OcrLanguageMode
-  engineVersion: string
-  modelSha256s: readonly string[]
-  dpi: number
-  segmentation: string
-}): string {
-  const canonical = JSON.stringify([
-    PAGE_OCR_SCHEMA_VERSION,
-    PAGE_RENDER_POLICY_VERSION,
-    input.documentId,
-    input.sourceSha256,
-    input.pageIndex,
-    input.languageMode,
-    input.engineVersion,
-    [...input.modelSha256s].sort(),
-    input.dpi,
-    input.segmentation,
-  ])
-  return createHash("sha256").update(canonical).digest("hex")
-}
-
+/** Aggregate status vocabulary. The server narrows percentage/outcome to pages with OCR work. */
 export type PageOcrProgress = {
   totalPages: number
   eligible: number

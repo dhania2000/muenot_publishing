@@ -113,7 +113,8 @@ describe("real end-to-end page OCR (render → local OCR)", () => {
     it(`${mode}: ${id}`, async () => {
       const handle = await openPdfForRender(await scannedPdf([id], { margin: 18 }))
       try {
-        const r = await handle.renderPage(1, { targetDpi: 300 })
+        // These fixtures are embedded at 200 DPI. Avoid introducing resampling artifacts.
+        const r = await handle.renderPage(1, { targetDpi: 200 })
         const ocr = await recognizeImage({ bytes: r.png, languageMode: mode, timeoutMs: 120_000 })
         const e = errorRates(sample(id).expected, ocr.text)
         results[id] = { cer: e.cer, wer: e.wer, text: ocr.text.trim() }

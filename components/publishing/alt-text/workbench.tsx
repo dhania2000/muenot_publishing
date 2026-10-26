@@ -119,7 +119,7 @@ export function StepNav<T extends string>({
   )
 }
 
-const DRAWER_WIDTH = { md: "sm:max-w-md", lg: "sm:max-w-xl", xl: "sm:max-w-3xl" } as const
+const DRAWER_WIDTH = { md: "sm:max-w-md", lg: "sm:max-w-xl", xl: "sm:max-w-3xl", full: "sm:max-w-[96vw]" } as const
 
 /**
  * Standard right-side drawer. Children stay mounted only while open; callers keep the

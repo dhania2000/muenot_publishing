@@ -174,7 +174,7 @@ export type PdfTextRole = { role: string; structRef: string | null; order: numbe
 
 export type PdfTextLayout = {
   title: string | null
-  pages: { pageIndex: number; runs: PdfTextRun[]; undecodable: number; rotate: number; width: number; height: number; pageRef: string | null }[]
+  pages: { pageIndex: number; runs: PdfTextRun[]; undecodable: number; rotate: number; width: number; height: number; pageRef: string | null; vectorOnly?: boolean }[]
   roles: Map<string, PdfTextRole>
   truncated: boolean
 }
@@ -974,7 +974,8 @@ export async function readPdfPackage(bytes: Uint8Array, options: { collectText?:
   try {
     doc = await PDFDocument.load(bytes, { ignoreEncryption: false, updateMetadata: false, throwOnInvalidObject: false })
   } catch (err) {
-    if (err instanceof EncryptedPDFError) throw new PdfPackageError("ENCRYPTED_DOCUMENT", "Password-protected or encrypted PDFs cannot be inspected safely.")
+    // ESM/CJS consumers can load separate copies of pdf-lib's error constructor.
+    if (err instanceof EncryptedPDFError || (err instanceof Error && err.message.startsWith("Input document to `PDFDocument.load` is encrypted."))) throw new PdfPackageError("ENCRYPTED_DOCUMENT", "Password-protected or encrypted PDFs cannot be inspected safely.")
     throw new PdfPackageError("INVALID_DOCUMENT", "The PDF is damaged and could not be read.")
   }
   if (doc.isEncrypted) throw new PdfPackageError("ENCRYPTED_DOCUMENT", "Password-protected or encrypted PDFs cannot be inspected safely.")
@@ -1047,6 +1048,7 @@ export async function readPdfPackage(bytes: Uint8Array, options: { collectText?:
           width: page.box[2] - page.box[0],
           height: page.box[3] - page.box[1],
           pageRef: page.ref,
+          vectorOnly: drafts.length === 0 && stats.pathPaints > 0,
         })
       }
     } catch (err) {

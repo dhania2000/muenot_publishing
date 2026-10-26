@@ -27,6 +27,7 @@ import { readPdfPackage } from "./pdf-package"
 import { readPptxPackage } from "./pptx-package"
 import { getSettings } from "./store"
 import { ALT_TEXT_UPLOAD_MAX_MB } from "./upload"
+import { addPageOcrEvidence } from "./pdf-page-ocr-context"
 
 export const CONTEXT_ANALYSIS_LIMITS = {
   /** Same synchronous ceiling as extraction; larger files need background processing (not in scope). */
@@ -111,13 +112,14 @@ export async function analyzeDocumentContexts(
   const summary: ContextAnalysisSummary = { analyzed: 0, unavailable: 0, failed: 0, total: occurrences.length }
   let single: DocumentImageContext | null = null
   for (const occ of occurrences) {
-    const ev = byLocator.get(occ.sourceLocator)
+    let ev = byLocator.get(occ.sourceLocator)
     if (!ev) {
       // The occurrence no longer maps to the parsed document (should not happen for an unchanged original).
       entries.push({ imageId: occ.id, status: "failed", confidence: "unavailable", version: DOCUMENT_CONTEXT_VERSION, context: null })
       summary.failed++
       continue
     }
+    if (doc.documentType === "pdf" && ev.location?.page != null) ev = await addPageOcrEvidence(doc.id, ev.location.page, ev)
     const meta = occ.sourceMetadata as Record<string, unknown> | null
     const rawAlt = meta?.originalDescription ?? meta?.altText
     const sourceAlt = typeof rawAlt === "string" && rawAlt.trim() ? rawAlt : null
