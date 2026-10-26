@@ -1,0 +1,15 @@
+import {beforeEach,it,expect,vi} from "vitest"
+const d=vi.hoisted(()=>({parent:vi.fn(),current:vi.fn(),policy:vi.fn(),write:vi.fn(),extract:vi.fn(),guard:vi.fn()}))
+vi.mock("@/lib/alt-text/advanced-evidence-store",()=>({writeAdvancedEvidence:d.write}))
+vi.mock("@/lib/alt-text/chart-data-service",()=>({authorizedChartDataParent:d.parent,assertChartDataCurrent:d.current,chartDataPolicy:d.policy,CHART_DATA_ENGINE:"local_reviewed_labels_v1"}))
+vi.mock("@/lib/alt-text/chart-data-analysis",()=>({extractChartLabelData:d.extract}))
+const {runChartDataDelivery}=await import("@/lib/alt-text/chart-data-job")
+const parent={axes:{id:9,version:2},chart:{id:8,version:1}},input={assetId:1,occurrenceId:2,kind:"chart_data",dataParent:parent,modelId:"local_reviewed_labels_v1"},job={id:11,tenant_id:5,worker_id:"worker1"},actor={userId:7,viewScope:"all",updateScope:"all"}
+const run=()=>runChartDataDelivery(input as any,job as any,10,actor as any,d.guard)
+beforeEach(()=>{vi.clearAllMocks();d.parent.mockResolvedValue({parent});d.policy.mockResolvedValue({enabled:true});d.current.mockResolvedValue({});d.extract.mockReturnValue({kind:"chart_data",datasetApproved:false});d.guard.mockResolvedValue(undefined)})
+it("persists a local result through the leased existing evidence writer",async()=>{expect(await run()).toEqual({evidenceId:10,status:"completed"});expect(d.parent).toHaveBeenCalledWith(1,2,9,actor,true);expect(d.current).toHaveBeenCalledWith(parent,actor);expect(d.write).toHaveBeenNthCalledWith(1,job,10,"running");expect(d.write).toHaveBeenLastCalledWith(job,10,"completed",{kind:"chart_data",datasetApproved:false});expect(d.guard).toHaveBeenCalledTimes(2)})
+it("stops on revoked policy and stale chart/axis lineage",async()=>{d.policy.mockResolvedValueOnce({enabled:false});await expect(run()).rejects.toMatchObject({code:"DATA_DISABLED"});d.parent.mockResolvedValue({parent:{...parent,axes:{id:9,version:3}}});await expect(run()).rejects.toMatchObject({code:"DATA_PARENT_CHANGED"});expect(d.extract).not.toHaveBeenCalled()})
+it("stops on changed image/OCR before extraction and preserves cancellation/lease fencing",async()=>{d.current.mockRejectedValueOnce(new Error("SOURCE_CHANGED"));await expect(run()).rejects.toThrow("SOURCE_CHANGED");expect(d.extract).not.toHaveBeenCalled();d.guard.mockRejectedValueOnce(new Error("ADVANCED_LEASE_LOST"));await expect(run()).rejects.toThrow("ADVANCED_LEASE_LOST");expect(d.write).not.toHaveBeenCalled()})
+it("does not commit after cancellation between extraction and completion",async()=>{d.guard.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error("ADVANCED_CANCELLED"));await expect(run()).rejects.toThrow("ADVANCED_CANCELLED");expect(d.write).toHaveBeenCalledTimes(1)})
+
+it("rejects changed trend settings rather than silently changing a queued interpretation",async()=>{d.policy.mockResolvedValue({enabled:true,trendsEnabled:true});await expect(run()).rejects.toMatchObject({code:"DATA_POLICY_CHANGED"});expect(d.extract).not.toHaveBeenCalled()})

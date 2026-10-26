@@ -1,0 +1,254 @@
+{
+  "purpose": "Renderer-labelled synthetic tick/scale validation. Text recognition and data-extraction accuracy are not measured.",
+  "samples": [
+    {
+      "id": "linear",
+      "file": "linear.png",
+      "expectedScale": "linear_numeric",
+      "ticks": [
+        {
+          "text": "0",
+          "position": 84.08712121212122
+        },
+        {
+          "text": "10",
+          "position": 370.2361111111112
+        },
+        {
+          "text": "20",
+          "position": 656.3851010101012
+        }
+      ],
+      "synthetic": true
+    },
+    {
+      "id": "non-zero",
+      "file": "non-zero.png",
+      "expectedScale": "linear_numeric",
+      "ticks": [
+        {
+          "text": "40",
+          "position": 84.08712121212119
+        },
+        {
+          "text": "60",
+          "position": 370.23611111111103
+        },
+        {
+          "text": "80",
+          "position": 656.3851010101009
+        }
+      ],
+      "synthetic": true
+    },
+    {
+      "id": "reversed",
+      "file": "reversed.png",
+      "expectedScale": "linear_numeric",
+      "ticks": [
+        {
+          "text": "80",
+          "position": 84.08712121212125
+        },
+        {
+          "text": "60",
+          "position": 370.2361111111111
+        },
+        {
+          "text": "40",
+          "position": 656.3851010101009
+        }
+      ],
+      "synthetic": true
+    },
+    {
+      "id": "logarithmic",
+      "file": "logarithmic.png",
+      "expectedScale": "logarithmic",
+      "ticks": [
+        {
+          "text": "1",
+          "position": 75.7348484848485
+        },
+        {
+          "text": "10",
+          "position": 269.1523569023569
+        },
+        {
+          "text": "100",
+          "position": 462.5698653198653
+        },
+        {
+          "text": "1000",
+          "position": 655.9873737373737
+        }
+      ],
+      "synthetic": true
+    },
+    {
+      "id": "percentage",
+      "file": "percentage.png",
+      "expectedScale": "percentage",
+      "ticks": [
+        {
+          "text": "0%",
+          "position": 84.08712121212122
+        },
+        {
+          "text": "50%",
+          "position": 370.2361111111111
+        },
+        {
+          "text": "100%",
+          "position": 656.385101010101
+        }
+      ],
+      "synthetic": true
+    },
+    {
+      "id": "scientific",
+      "file": "scientific.png",
+      "expectedScale": "scientific_notation",
+      "ticks": [
+        {
+          "text": "1e-3",
+          "position": 84.08712121212119
+        },
+        {
+          "text": "2e-3",
+          "position": 370.23611111111114
+        },
+        {
+          "text": "3e-3",
+          "position": 656.3851010101012
+        }
+      ],
+      "synthetic": true
+    },
+    {
+      "id": "date",
+      "file": "date.png",
+      "expectedScale": "date_time",
+      "ticks": [
+        {
+          "text": "2026-01-01",
+          "position": 83.38980716253444
+        },
+        {
+          "text": "2026-01-02",
+          "position": 362.5656565656565
+        },
+        {
+          "text": "2026-01-03",
+          "position": 641.7415059687786
+        }
+      ],
+      "synthetic": true
+    },
+    {
+      "id": "clock",
+      "file": "clock.png",
+      "expectedScale": "date_time",
+      "ticks": [
+        {
+          "text": "10:00",
+          "position": 84.08712121212122
+        },
+        {
+          "text": "11:00",
+          "position": 370.2361111111111
+        },
+        {
+          "text": "12:00",
+          "position": 656.385101010101
+        }
+      ],
+      "synthetic": true
+    },
+    {
+      "id": "categorical",
+      "file": "categorical.png",
+      "expectedScale": "categorical",
+      "ticks": [
+        {
+          "text": "A",
+          "position": 84.08712121212122
+        },
+        {
+          "text": "B",
+          "position": 370.2361111111111
+        },
+        {
+          "text": "C",
+          "position": 656.385101010101
+        }
+      ],
+      "synthetic": true
+    },
+    {
+      "id": "hindi-digits",
+      "file": "hindi-digits.png",
+      "expectedScale": "linear_numeric",
+      "ticks": [
+        {
+          "text": "०",
+          "position": 84.08712121212122
+        },
+        {
+          "text": "१०",
+          "position": 370.2361111111112
+        },
+        {
+          "text": "२०",
+          "position": 656.3851010101012
+        }
+      ],
+      "synthetic": true
+    },
+    {
+      "id": "unsupported-spacing",
+      "file": "unsupported-spacing.png",
+      "expectedScale": "unknown",
+      "ticks": [
+        {
+          "text": "0",
+          "position": 84.08712121212122
+        },
+        {
+          "text": "10",
+          "position": 370.2361111111111
+        },
+        {
+          "text": "100",
+          "position": 656.385101010101
+        }
+      ],
+      "synthetic": true
+    },
+    {
+      "id": "ocr-confusable",
+      "file": "ocr-confusable.png",
+      "expectedScale": "unknown",
+      "ticks": [
+        {
+          "text": "0",
+          "position": 84.08712121212122
+        },
+        {
+          "text": "1O",
+          "position": 370.2361111111111
+        },
+        {
+          "text": "20",
+          "position": 656.385101010101
+        }
+      ],
+      "synthetic": true
+    }
+  ],
+  "additionalFigures": [
+    "dual-axis-similar-colors.png",
+    "rotated-labels-missing-legend.png",
+    "hindi-title.png"
+  ]
+}

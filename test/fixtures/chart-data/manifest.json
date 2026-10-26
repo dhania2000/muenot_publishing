@@ -1,0 +1,650 @@
+{
+  "purpose": "Exact numeric interpretation of supplied synthetic reviewed visible labels only. Does not measure OCR, label-role recognition, pixel calibration or mark association.",
+  "tolerance": 0,
+  "samples": [
+    {
+      "id": "positive-negative-line",
+      "family": "line",
+      "file": "positive-negative-line.png",
+      "labels": [
+        {
+          "id": "d0",
+          "text": "-10",
+          "groundTruth": -10,
+          "box": {
+            "left": 202,
+            "top": 266,
+            "width": 33,
+            "height": 16
+          },
+          "reviewed": true
+        },
+        {
+          "id": "d1",
+          "text": "0",
+          "groundTruth": 0,
+          "box": {
+            "left": 422,
+            "top": 176,
+            "width": 12,
+            "height": 16
+          },
+          "reviewed": true
+        },
+        {
+          "id": "d2",
+          "text": "20",
+          "groundTruth": 20,
+          "box": {
+            "left": 642,
+            "top": 96,
+            "width": 24,
+            "height": 16
+          },
+          "reviewed": true
+        }
+      ],
+      "synthetic": true,
+      "nativeDataLinked": false,
+      "pixelCalibrationVerified": false
+    },
+    {
+      "id": "non-zero-baseline",
+      "family": "bar",
+      "file": "non-zero-baseline.png",
+      "labels": [
+        {
+          "id": "d0",
+          "text": "40",
+          "groundTruth": 40,
+          "box": {
+            "left": 202,
+            "top": 266,
+            "width": 24,
+            "height": 16
+          },
+          "reviewed": true
+        },
+        {
+          "id": "d1",
+          "text": "60",
+          "groundTruth": 60,
+          "box": {
+            "left": 422,
+            "top": 176,
+            "width": 24,
+            "height": 16
+          },
+          "reviewed": true
+        },
+        {
+          "id": "d2",
+          "text": "80",
+          "groundTruth": 80,
+          "box": {
+            "left": 642,
+            "top": 96,
+            "width": 24,
+            "height": 16
+          },
+          "reviewed": true
+        }
+      ],
+      "synthetic": true,
+      "nativeDataLinked": false,
+      "pixelCalibrationVerified": false
+    },
+    {
+      "id": "linear",
+      "family": "line",
+      "file": "linear.png",
+      "labels": [
+        {
+          "id": "d0",
+          "text": "10",
+          "groundTruth": 10,
+          "box": {
+            "left": 202,
+            "top": 266,
+            "width": 24,
+            "height": 16
+          },
+          "reviewed": true
+        },
+        {
+          "id": "d1",
+          "text": "20",
+          "groundTruth": 20,
+          "box": {
+            "left": 422,
+            "top": 176,
+            "width": 24,
+            "height": 16
+          },
+          "reviewed": true
+        },
+        {
+          "id": "d2",
+          "text": "30",
+          "groundTruth": 30,
+          "box": {
+            "left": 642,
+            "top": 96,
+            "width": 24,
+            "height": 16
+          },
+          "reviewed": true
+        }
+      ],
+      "synthetic": true,
+      "nativeDataLinked": false,
+      "pixelCalibrationVerified": false
+    },
+    {
+      "id": "logarithmic",
+      "family": "line",
+      "file": "logarithmic.png",
+      "labels": [
+        {
+          "id": "d0",
+          "text": "1",
+          "groundTruth": 1,
+          "box": {
+            "left": 202,
+            "top": 266,
+            "width": 12,
+            "height": 16
+          },
+          "reviewed": true
+        },
+        {
+          "id": "d1",
+          "text": "10",
+          "groundTruth": 10,
+          "box": {
+            "left": 422,
+            "top": 176,
+            "width": 24,
+            "height": 16
+          },
+          "reviewed": true
+        },
+        {
+          "id": "d2",
+          "text": "100",
+          "groundTruth": 100,
+          "box": {
+            "left": 642,
+            "top": 96,
+            "width": 36,
+            "height": 16
+          },
+          "reviewed": true
+        }
+      ],
+      "synthetic": true,
+      "nativeDataLinked": false,
+      "pixelCalibrationVerified": false
+    },
+    {
+      "id": "multi-series",
+      "family": "line",
+      "file": "multi-series.png",
+      "labels": [
+        {
+          "id": "d0",
+          "text": "12",
+          "groundTruth": 12,
+          "box": {
+            "left": 202,
+            "top": 266,
+            "width": 24,
+            "height": 16
+          },
+          "reviewed": true
+        },
+        {
+          "id": "d1",
+          "text": "18",
+          "groundTruth": 18,
+          "box": {
+            "left": 422,
+            "top": 176,
+            "width": 24,
+            "height": 16
+          },
+          "reviewed": true
+        },
+        {
+          "id": "d2",
+          "text": "15",
+          "groundTruth": 15,
+          "box": {
+            "left": 642,
+            "top": 96,
+            "width": 24,
+            "height": 16
+          },
+          "reviewed": true
+        }
+      ],
+      "synthetic": true,
+      "nativeDataLinked": false,
+      "pixelCalibrationVerified": false
+    },
+    {
+      "id": "scatter",
+      "family": "scatter",
+      "file": "scatter.png",
+      "labels": [
+        {
+          "id": "d0",
+          "text": "4",
+          "groundTruth": 4,
+          "box": {
+            "left": 202,
+            "top": 266,
+            "width": 12,
+            "height": 16
+          },
+          "reviewed": true
+        },
+        {
+          "id": "d1",
+          "text": "9",
+          "groundTruth": 9,
+          "box": {
+            "left": 422,
+            "top": 176,
+            "width": 12,
+            "height": 16
+          },
+          "reviewed": true
+        },
+        {
+          "id": "d2",
+          "text": "7",
+          "groundTruth": 7,
+          "box": {
+            "left": 642,
+            "top": 96,
+            "width": 12,
+            "height": 16
+          },
+          "reviewed": true
+        }
+      ],
+      "synthetic": true,
+      "nativeDataLinked": false,
+      "pixelCalibrationVerified": false
+    },
+    {
+      "id": "stacked-bars",
+      "family": "stacked_bar",
+      "file": "stacked-bars.png",
+      "labels": [
+        {
+          "id": "d0",
+          "text": "10",
+          "groundTruth": 10,
+          "box": {
+            "left": 202,
+            "top": 266,
+            "width": 24,
+            "height": 16
+          },
+          "reviewed": true
+        },
+        {
+          "id": "d1",
+          "text": "20",
+          "groundTruth": 20,
+          "box": {
+            "left": 422,
+            "top": 176,
+            "width": 24,
+            "height": 16
+          },
+          "reviewed": true
+        },
+        {
+          "id": "d2",
+          "text": "30",
+          "groundTruth": 30,
+          "box": {
+            "left": 642,
+            "top": 96,
+            "width": 24,
+            "height": 16
+          },
+          "reviewed": true
+        }
+      ],
+      "synthetic": true,
+      "nativeDataLinked": false,
+      "pixelCalibrationVerified": false
+    },
+    {
+      "id": "labelled-pie",
+      "family": "pie",
+      "file": "labelled-pie.png",
+      "labels": [
+        {
+          "id": "d0",
+          "text": "20",
+          "groundTruth": 20,
+          "box": {
+            "left": 542,
+            "top": 186,
+            "width": 24,
+            "height": 16
+          },
+          "reviewed": true
+        },
+        {
+          "id": "d1",
+          "text": "30",
+          "groundTruth": 30,
+          "box": {
+            "left": 402,
+            "top": 296,
+            "width": 24,
+            "height": 16
+          },
+          "reviewed": true
+        },
+        {
+          "id": "d2",
+          "text": "50",
+          "groundTruth": 50,
+          "box": {
+            "left": 312,
+            "top": 146,
+            "width": 24,
+            "height": 16
+          },
+          "reviewed": true
+        }
+      ],
+      "synthetic": true,
+      "nativeDataLinked": false,
+      "pixelCalibrationVerified": false
+    },
+    {
+      "id": "missing-ticks",
+      "family": "line",
+      "file": "missing-ticks.png",
+      "labels": [
+        {
+          "id": "d0",
+          "text": "5",
+          "groundTruth": 5,
+          "box": {
+            "left": 202,
+            "top": 266,
+            "width": 12,
+            "height": 16
+          },
+          "reviewed": true
+        },
+        {
+          "id": "d1",
+          "text": "10",
+          "groundTruth": 10,
+          "box": {
+            "left": 422,
+            "top": 176,
+            "width": 24,
+            "height": 16
+          },
+          "reviewed": true
+        },
+        {
+          "id": "d2",
+          "text": "15",
+          "groundTruth": 15,
+          "box": {
+            "left": 642,
+            "top": 96,
+            "width": 24,
+            "height": 16
+          },
+          "reviewed": true
+        }
+      ],
+      "synthetic": true,
+      "nativeDataLinked": false,
+      "pixelCalibrationVerified": false
+    },
+    {
+      "id": "dual-axis",
+      "family": "line",
+      "file": "dual-axis.png",
+      "labels": [
+        {
+          "id": "d0",
+          "text": "10",
+          "groundTruth": 10,
+          "box": {
+            "left": 202,
+            "top": 266,
+            "width": 24,
+            "height": 16
+          },
+          "reviewed": true
+        },
+        {
+          "id": "d1",
+          "text": "20",
+          "groundTruth": 20,
+          "box": {
+            "left": 422,
+            "top": 176,
+            "width": 24,
+            "height": 16
+          },
+          "reviewed": true
+        },
+        {
+          "id": "d2",
+          "text": "30",
+          "groundTruth": 30,
+          "box": {
+            "left": 642,
+            "top": 96,
+            "width": 24,
+            "height": 16
+          },
+          "reviewed": true
+        }
+      ],
+      "synthetic": true,
+      "nativeDataLinked": false,
+      "pixelCalibrationVerified": false
+    },
+    {
+      "id": "blurred-labels",
+      "family": "line",
+      "file": "blurred-labels.png",
+      "labels": [
+        {
+          "id": "d0",
+          "text": "10",
+          "groundTruth": 10,
+          "box": {
+            "left": 202,
+            "top": 266,
+            "width": 24,
+            "height": 16
+          },
+          "reviewed": false
+        },
+        {
+          "id": "d1",
+          "text": "20",
+          "groundTruth": 20,
+          "box": {
+            "left": 422,
+            "top": 176,
+            "width": 24,
+            "height": 16
+          },
+          "reviewed": false
+        },
+        {
+          "id": "d2",
+          "text": "30",
+          "groundTruth": 30,
+          "box": {
+            "left": 642,
+            "top": 96,
+            "width": 24,
+            "height": 16
+          },
+          "reviewed": false
+        }
+      ],
+      "synthetic": true,
+      "nativeDataLinked": false,
+      "pixelCalibrationVerified": false
+    },
+    {
+      "id": "hindi-categories",
+      "family": "bar",
+      "file": "hindi-categories.png",
+      "labels": [
+        {
+          "id": "d0",
+          "text": "10",
+          "groundTruth": 10,
+          "box": {
+            "left": 202,
+            "top": 266,
+            "width": 24,
+            "height": 16
+          },
+          "reviewed": true
+        },
+        {
+          "id": "d1",
+          "text": "20",
+          "groundTruth": 20,
+          "box": {
+            "left": 422,
+            "top": 176,
+            "width": 24,
+            "height": 16
+          },
+          "reviewed": true
+        },
+        {
+          "id": "d2",
+          "text": "30",
+          "groundTruth": 30,
+          "box": {
+            "left": 642,
+            "top": 96,
+            "width": 24,
+            "height": 16
+          },
+          "reviewed": true
+        }
+      ],
+      "synthetic": true,
+      "nativeDataLinked": false,
+      "pixelCalibrationVerified": false
+    },
+    {
+      "id": "overlapping-marks",
+      "family": "scatter",
+      "file": "overlapping-marks.png",
+      "labels": [
+        {
+          "id": "d0",
+          "text": "20",
+          "groundTruth": 20,
+          "box": {
+            "left": 202,
+            "top": 266,
+            "width": 24,
+            "height": 16
+          },
+          "reviewed": true
+        },
+        {
+          "id": "d1",
+          "text": "20",
+          "groundTruth": 20,
+          "box": {
+            "left": 202,
+            "top": 266,
+            "width": 24,
+            "height": 16
+          },
+          "reviewed": true
+        },
+        {
+          "id": "d2",
+          "text": "30",
+          "groundTruth": 30,
+          "box": {
+            "left": 642,
+            "top": 96,
+            "width": 24,
+            "height": 16
+          },
+          "reviewed": true
+        }
+      ],
+      "synthetic": true,
+      "nativeDataLinked": false,
+      "pixelCalibrationVerified": false
+    },
+    {
+      "id": "ambiguous-scale",
+      "family": "line",
+      "file": "ambiguous-scale.png",
+      "labels": [
+        {
+          "id": "d0",
+          "text": "10",
+          "groundTruth": 10,
+          "box": {
+            "left": 202,
+            "top": 266,
+            "width": 24,
+            "height": 16
+          },
+          "reviewed": true
+        },
+        {
+          "id": "d1",
+          "text": "20",
+          "groundTruth": 20,
+          "box": {
+            "left": 422,
+            "top": 176,
+            "width": 24,
+            "height": 16
+          },
+          "reviewed": true
+        },
+        {
+          "id": "d2",
+          "text": "30",
+          "groundTruth": 30,
+          "box": {
+            "left": 642,
+            "top": 96,
+            "width": 24,
+            "height": 16
+          },
+          "reviewed": true
+        }
+      ],
+      "synthetic": true,
+      "nativeDataLinked": false,
+      "pixelCalibrationVerified": false
+    }
+  ]
+}
