@@ -11,6 +11,7 @@ import { requireFeatureInModule } from "@/lib/api-auth"
 import { getActionScope, getScope } from "@/lib/permission-store"
 import { currentTenantIdOrNull } from "@/lib/tenant-scope"
 import { storeErrorToFailure, type HistoryActor, type HistoryFailure } from "./history"
+import type { PermissionScope } from "@/lib/permission-model"
 
 const NO_STORE = { "Cache-Control": "private, no-store" }
 
@@ -32,7 +33,7 @@ export async function gateAltTextHistory(
     /** Also resolve edit/review capability flags for the UI (never trusted for enforcement). */
     withPermissions?: boolean
   } = {},
-): Promise<{ ok: true; actor: HistoryActor; permissions?: ReviewPermissions } | { ok: false; response: NextResponse }> {
+): Promise<{ ok: true; actor: HistoryActor; permissions?: ReviewPermissions; uploadScope?: PermissionScope } | { ok: false; response: NextResponse }> {
   const gate = await requireFeatureInModule("publishing", "publishing.view_alt_text")
   if (!gate.ok) {
     const code = "code" in gate ? String(gate.code) : gate.status === 401 ? "UNAUTHENTICATED" : gate.status === 404 ? "NOT_FOUND" : "FORBIDDEN"
@@ -47,8 +48,9 @@ export async function gateAltTextHistory(
       const exportScope = await getActionScope(session.userId, session.role, "publishing.alt_text", "export")
       if (exportScope === "none") return { ok: false, response: jsonError({ status: 403, code: "FORBIDDEN", error: "You do not have permission to export alt text." }) }
     }
+    let uploadScope: PermissionScope | undefined
     if (opts.upload) {
-      const uploadScope = await getActionScope(session.userId, session.role, "publishing.alt_text", "upload")
+      uploadScope = await getActionScope(session.userId, session.role, "publishing.alt_text", "upload")
       if (uploadScope === "none") return { ok: false, response: jsonError({ status: 403, code: "FORBIDDEN", error: "You do not have permission to process documents." }) }
     }
     let permissions: ReviewPermissions | undefined
@@ -62,7 +64,7 @@ export async function gateAltTextHistory(
         return { ok: false, response: jsonError({ status: 403, code: "FORBIDDEN", error: "You do not have permission to review or approve alt text." }) }
       }
     }
-    if (!opts.edit) return { ok: true, actor: { userId: session.userId, viewScope }, ...(permissions ? { permissions } : {}) }
+    if (!opts.edit) return { ok: true, actor: { userId: session.userId, viewScope }, ...(uploadScope ? { uploadScope } : {}), ...(permissions ? { permissions } : {}) }
     const updateScope = await getScope(session.userId, session.role, "publishing.alt_text", "update")
     if (updateScope === "none") return { ok: false, response: jsonError({ status: 403, code: "FORBIDDEN", error: "You do not have permission to edit alt text." }) }
     return { ok: true, actor: { userId: session.userId, viewScope, updateScope }, ...(permissions ? { permissions } : {}) }

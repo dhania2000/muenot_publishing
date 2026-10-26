@@ -9,7 +9,7 @@ import { query, withTransaction } from "@/lib/db"
 import { classifyJobFailure, JobCancelledError, JobDeferredError, retryDisposition } from "@/lib/job-retry-policy"
 import { assertEnqueueAllowed, jobLimitsFromEnv, payloadBytes } from "@/lib/observability/job-limits"
 
-export const BACKGROUND_JOB_TYPES = ["alt_text.batch_processing", "alt_text.document_preparation"] as const
+export const BACKGROUND_JOB_TYPES = ["alt_text.batch_processing", "alt_text.document_preparation", "alt_text.pdf_page_ocr"] as const
 export type BackgroundJobType = (typeof BACKGROUND_JOB_TYPES)[number]
 export const BACKGROUND_JOB_STATUSES = ["queued", "running", "completed", "failed", "dead_letter", "cancelled"] as const
 export type BackgroundJobStatus = (typeof BACKGROUND_JOB_STATUSES)[number]
@@ -17,7 +17,8 @@ export type BackgroundJobStatus = (typeof BACKGROUND_JOB_STATUSES)[number]
 export type AltTextBatchJobPayload = { batchId: string }
 /** Phase 3 Task 11: staged extraction → location mapping → context → AI readiness for one document. */
 export type DocumentPreparationJobPayload = { documentId: number }
-export type BackgroundJobPayload = AltTextBatchJobPayload | DocumentPreparationJobPayload
+export type PdfPageOcrJobPayload = { documentId: number; request: import("./alt-text/pdf-page-ocr-types").PageOcrRequest }
+export type BackgroundJobPayload = AltTextBatchJobPayload | DocumentPreparationJobPayload | PdfPageOcrJobPayload
 
 /** Cluster-wide running cap for document preparation (memory-heavy parsing). Phase 2 types keep their own policy. */
 export const documentPreparationGlobalCap = () => bounded(process.env.ALT_TEXT_DOCUMENT_JOBS_GLOBAL_MAX, 2, 1, 20)
@@ -94,6 +95,10 @@ function validatePayload(type: BackgroundJobType, payload: unknown): BackgroundJ
   if (type === "alt_text.batch_processing" && typeof batchId === "string" && batchId.length > 0 && batchId.length <= 64) return { batchId }
   const documentId = (payload as { documentId?: unknown })?.documentId
   if (type === "alt_text.document_preparation" && Number.isSafeInteger(documentId) && (documentId as number) > 0) return { documentId: documentId as number }
+  if (type === "alt_text.pdf_page_ocr" && Number.isSafeInteger(documentId) && (documentId as number) > 0) {
+    const request = (payload as PdfPageOcrJobPayload).request
+    if (request && ["inspect", "recognize"].includes(request.action)) return { documentId: documentId as number, request }
+  }
   throw new Error("Invalid background job payload")
 }
 
@@ -218,6 +223,10 @@ type JobHandlerContext = { signal: AbortSignal; job: BackgroundJob }
 type JobHandler = (payload: BackgroundJobPayload, context: JobHandlerContext) => Promise<Record<string, unknown> | void>
 
 const JOB_HANDLERS: Record<BackgroundJobType, JobHandler> = {
+  async "alt_text.pdf_page_ocr"(payload, context) {
+    const { runPdfPageOcrJob } = await import("@/lib/alt-text/pdf-page-ocr-job")
+    return runPdfPageOcrJob(payload as PdfPageOcrJobPayload, context)
+  },
   async "alt_text.batch_processing"(payload, context) {
     const [{ runAltTextBatchJob }, { processAltTextBatch }] = await Promise.all([import("@/lib/alt-text/batch-job"), import("@/lib/alt-text/batch-processor")])
     return runAltTextBatchJob(payload as AltTextBatchJobPayload, context, { processor: processAltTextBatch })
@@ -265,6 +274,11 @@ export async function requestBackgroundJobCancel(jobId: number, tenantId: number
 }
 
 async function afterSettle(job: BackgroundJob, status: BackgroundJobStatus) {
+  if (job.job_type === "alt_text.pdf_page_ocr") {
+    const { settlePageOcr } = await import("@/lib/alt-text/pdf-page-ocr-store")
+    await settlePageOcr(job, status)
+    return
+  }
   if (job.job_type === "alt_text.document_preparation") {
     try {
       const { onDocumentPreparationJobSettled } = await import("@/lib/alt-text/document-preparation-job")
@@ -291,10 +305,19 @@ async function recoverExpiredLeases() {
        completed_at = IF(attempts >= max_attempts, UTC_TIMESTAMP(), NULL)
      WHERE status = 'running' AND lease_expires_at IS NOT NULL AND lease_expires_at < UTC_TIMESTAMP()`,
   )
+  // A final crashed OCR delivery has no handler left to settle its unfinished pages.
+  await query(`UPDATE alt_text_document_page_ocr p JOIN platform_background_jobs j ON p.job_id=j.id AND p.tenant_id=j.tenant_id
+    SET p.status='failed',p.error_code='LEASE_EXPIRED' WHERE j.job_type='alt_text.pdf_page_ocr' AND j.status='dead_letter'
+      AND p.status IN ('queued','rendering','recognizing')`).catch((e) => {
+    if ((e as { code?: string }).code !== "ER_NO_SUCH_TABLE") throw e
+  })
 }
 
 async function claimNext(workerId: string): Promise<BackgroundJob | null> {
   return withTransaction(async (conn) => {
+    // Every claimant locks the same existing OCR queue row until commit. Without a shared lock,
+    // two claim transactions could both observe zero running OCR jobs and allocate two rasters.
+    await conn.query("SELECT id FROM platform_background_jobs WHERE job_type='alt_text.pdf_page_ocr' ORDER BY id LIMIT 1 FOR UPDATE")
     const [rows] = await conn.query<any[]>(
       `SELECT j.* FROM platform_background_jobs j
         WHERE j.status = 'queued' AND j.available_at <= UTC_TIMESTAMP()
@@ -304,6 +327,9 @@ async function claimNext(workerId: string): Promise<BackgroundJob | null> {
           AND (j.job_type <> 'alt_text.document_preparation' OR (
             SELECT COUNT(*) FROM platform_background_jobs g WHERE g.status = 'running' AND g.job_type = 'alt_text.document_preparation'
           ) < ?)
+          AND (j.job_type <> 'alt_text.pdf_page_ocr' OR (
+            SELECT COUNT(*) FROM platform_background_jobs o WHERE o.status='running' AND o.job_type='alt_text.pdf_page_ocr'
+          ) < 1)
         ORDER BY j.priority DESC, j.available_at ASC, j.id ASC
         LIMIT 1 FOR UPDATE SKIP LOCKED`,
       [documentPreparationGlobalCap()],

@@ -1,0 +1,58 @@
+{
+  "policy": "Synthetic samples only. NFC, collapsed whitespace, case/punctuation/digit script preserved; CER over code points, WER over words. No database/API smoke was performed in this suite.",
+  "samples": [
+    {
+      "sample": "eng-clean",
+      "languageMode": "eng",
+      "expected": "The quick brown fox jumps over the lazy dog 123",
+      "actual": "The quick brown fox jumps over the lazy dog 123\n",
+      "cer": 0,
+      "wer": 0,
+      "dpi": 200,
+      "models": [
+        {
+          "code": "eng",
+          "reference": "@tesseract.js-data/eng@1.0.0/4.0.0_best_int",
+          "sha256": "45b4cb346724ac1774f1c36f42f182b887bcdb28ebe63e6fff90ac41f3fcff91"
+        }
+      ]
+    },
+    {
+      "sample": "hin-paragraph",
+      "languageMode": "hin",
+      "expected": "प्रकाश एक प्रकार की ऊर्जा है।\nयह सीधी रेखा में चलता है।\nदर्पण प्रकाश को परावर्तित करता है।",
+      "actual": "प्रकाश एक प्रकार कीऊर्जाहि।\nयह सीधीरेखामें चलताहै।\nदर्पण प्रकाश कोपरब्चर्ति करताहै।\n",
+      "cer": 0.13333333333333333,
+      "wer": 0.6666666666666666,
+      "dpi": 200,
+      "models": [
+        {
+          "code": "hin",
+          "reference": "@tesseract.js-data/hin@1.0.0/4.0.0_best_int",
+          "sha256": "f3b6a0d320df38d886178cdd727b90dbf9df3db053adb32bd9cf73f0463cda07"
+        }
+      ]
+    },
+    {
+      "sample": "bi-01",
+      "languageMode": "eng_hin",
+      "expected": "कक्षा 10 Science",
+      "actual": "कक्षा40 Science\n",
+      "cer": 0.125,
+      "wer": 0.6666666666666666,
+      "dpi": 200,
+      "models": [
+        {
+          "code": "hin",
+          "reference": "@tesseract.js-data/hin@1.0.0/4.0.0_best_int",
+          "sha256": "f3b6a0d320df38d886178cdd727b90dbf9df3db053adb32bd9cf73f0463cda07"
+        },
+        {
+          "code": "eng",
+          "reference": "@tesseract.js-data/eng@1.0.0/4.0.0_best_int",
+          "sha256": "45b4cb346724ac1774f1c36f42f182b887bcdb28ebe63e6fff90ac41f3fcff91"
+        }
+      ]
+    }
+  ]
+}

@@ -8,8 +8,8 @@
  *
  * - Language packs ship as npm packages (`@tesseract.js-data/eng`, `@tesseract.js-data/hin`, MIT,
  *   from the official naptha/tessdata project). Each file is SHA-256 checked once, and the verified
- *   bytes themselves are handed to the worker (`{ code, data }`), so what was checked is exactly what
- *   is loaded and nothing is ever fetched at runtime.
+ *   bytes are staged in a private temporary directory and loaded by language code, so what was
+ *   checked is exactly what is loaded and nothing is ever fetched at runtime.
  * - One recognition at a time across all modes (shared queue, `engine_busy` beyond MAX_QUEUED), a hard
  *   timeout that terminates the worker, and at most MAX_WORKERS initialised workers kept warm
  *   (least-recently-used evicted). English-only requests keep using an English-only worker.
@@ -17,7 +17,8 @@
  */
 import "server-only"
 import { createHash } from "node:crypto"
-import { readFile } from "node:fs/promises"
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
+import { tmpdir } from "node:os"
 import path from "node:path"
 import { createWorker, OEM, PSM, type Worker } from "tesseract.js"
 import { OCR_LANGUAGE_MODES, OCR_LIMITS, type OcrErrorCategory, type OcrLanguageMode, type OcrModelReference, type OcrPageSegmentation, type OcrPixelBox } from "./ocr-contract"
@@ -139,12 +140,30 @@ async function getWorker(mode: OcrLanguageMode): Promise<Worker> {
   while (workers.size >= MAX_WORKERS) await terminate(workers.keys().next().value as OcrLanguageMode)
   const p = (async () => {
     const langs = await Promise.all(OCR_LANGUAGE_MODES[mode].tesseract.map(async (code) => ({ code, data: await loadPack(code) })))
-    // cacheMethod "none": never write traineddata to disk. errorHandler: without it tesseract.js
+    // Tesseract.js 7 initialises object languages using `l.data` as the language name. Supply
+    // language codes instead, with only the integrity-checked bytes in a private local directory.
+    // An absolute local langPath prevents CDN downloads; the worker loads all packs before cleanup.
+    const tempRoot = path.resolve(tmpdir())
+    const languageDir = await mkdtemp(path.join(tempRoot, "muenot-ocr-"))
+    // cacheMethod "none": no persistent engine cache. errorHandler: without it tesseract.js
     // rethrows job rejections from the worker message listener as uncaught exceptions.
-    const worker = await createWorker(langs, OEM.LSTM_ONLY, { cacheMethod: "none", errorHandler: () => undefined }).catch((e) => {
-      throw e instanceof OcrEngineError ? e : new OcrEngineError("language_init_failed", `The ${OCR_LANGUAGE_MODES[mode].label} OCR worker could not be initialised.`)
-    })
-    await worker.setParameters({ preserve_interword_spaces: "1" })
+    let worker: Worker | undefined
+    try {
+      await Promise.all(langs.map(({ code, data }) => writeFile(path.join(languageDir, `${code}.traineddata.gz`), data, { mode: 0o600 })))
+      worker = await createWorker(langs.map((l) => l.code).join("+"), OEM.LSTM_ONLY, { langPath: languageDir, cacheMethod: "none", errorHandler: () => undefined }).catch((e) => {
+        throw e instanceof OcrEngineError ? e : new OcrEngineError("language_init_failed", `The ${OCR_LANGUAGE_MODES[mode].label} OCR worker could not be initialised.`)
+      })
+    } finally {
+      try {
+        if (path.dirname(path.resolve(languageDir)) !== tempRoot) throw new Error("Invalid OCR temporary directory.")
+        await rm(languageDir, { recursive: true, force: true })
+      } catch (err) {
+        await worker?.terminate().catch(() => undefined)
+        throw err
+      }
+    }
+    try { await worker.setParameters({ preserve_interword_spaces: "1" }) }
+    catch (err) { await worker.terminate().catch(() => undefined); throw err }
     return worker
   })()
   workers.set(mode, p)
