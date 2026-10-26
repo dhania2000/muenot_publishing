@@ -49,6 +49,7 @@ import { ImageClassificationPanel } from "./image-classification-panel"
 import { ImageOcrPanel } from "./image-ocr-panel"
 import { ImageRegionsPanel } from "./image-regions-panel"
 import { MathRecognitionPanel } from "./math-recognition-panel"
+import {ChartStructurePanel} from "./chart-structure-panel"
 
 export type DrawerFocus = "view" | "edit" | "versions"
 
@@ -314,6 +315,7 @@ function DrawerBody({
 
       <ImageOcrPanel assetId={asset.id} />
       <MathRecognitionPanel key={`math-${asset.id}`} assetId={asset.id} />
+      <ChartStructurePanel key={`chart-${asset.id}`} assetId={asset.id}/>
 
       <Separator />
 

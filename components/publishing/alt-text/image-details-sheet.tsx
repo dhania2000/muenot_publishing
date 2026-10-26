@@ -18,6 +18,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { altTextFetcher, documentReviewImagesUrl } from "@/lib/alt-text/client"
 import { ImageRegionsPanel } from "./image-regions-panel"
 import { MathRecognitionPanel } from "./math-recognition-panel"
+import {ChartStructurePanel} from "./chart-structure-panel"
 import {
   ELIGIBILITY_WARNINGS,
   INELIGIBLE_REASONS,
@@ -151,6 +152,7 @@ export function ImageDetailsSheet({
               {img.altTextAssetId && <details className="rounded border p-3"><summary className="cursor-pointer text-sm font-medium">Image regions and equations</summary><div className="mt-3 flex flex-col gap-4">
                 <ImageRegionsPanel key={`regions-${img.id}`} assetId={img.altTextAssetId} occurrenceId={img.id} />
                 <MathRecognitionPanel key={`math-${img.id}`} assetId={img.altTextAssetId} occurrenceId={img.id} />
+                <ChartStructurePanel key={`chart-${img.id}`} assetId={img.altTextAssetId} occurrenceId={img.id}/>
               </div></details>}
               <section aria-labelledby="existing-alt" className="flex flex-col gap-1.5">
                 <h3 id="existing-alt" className="text-sm font-semibold">

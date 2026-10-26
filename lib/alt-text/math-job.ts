@@ -1,5 +1,5 @@
 import "server-only"
-import {createCanvas,loadImage} from "@napi-rs/canvas"
+import {cropRegionImage} from "./region-image-crop"
 import {query} from "@/lib/db"
 import {runForTenant} from "@/lib/tenant-scope"
 import {isBackgroundJobCancelRequested,type BackgroundJob,type MathRecognitionJobPayload} from "@/lib/background-jobs"
@@ -11,10 +11,7 @@ import type {MathRecognitionResult} from "./math-contract"
 
 /** Private in-memory crop. Image orientation and bounds were validated against the saved region. */
 export async function cropEquationImage(bytes:Uint8Array,box:{left:number;top:number;width:number;height:number}){
- const image=await loadImage(Buffer.from(bytes)),surface=createCanvas(box.width,box.height),ctx=surface.getContext("2d")
- ctx.fillStyle="#ffffff";ctx.fillRect(0,0,box.width,box.height)
- ctx.drawImage(image,box.left,box.top,box.width,box.height,0,0,box.width,box.height)
- return new Uint8Array(await surface.encode("png"))
+ return cropRegionImage(bytes,box)
 }
 export async function runMathRecognitionJob(payload:MathRecognitionJobPayload,{job,signal}:{job:BackgroundJob;signal:AbortSignal}){
  return runForTenant({tenantId:job.tenant_id},async()=>{

@@ -9,7 +9,7 @@ import { query, withTransaction } from "@/lib/db"
 import { classifyJobFailure, JobCancelledError, JobDeferredError, retryDisposition } from "@/lib/job-retry-policy"
 import { assertEnqueueAllowed, jobLimitsFromEnv, payloadBytes } from "@/lib/observability/job-limits"
 
-export const BACKGROUND_JOB_TYPES = ["alt_text.batch_processing", "alt_text.document_preparation", "alt_text.pdf_page_ocr", "alt_text.math_recognition"] as const
+export const BACKGROUND_JOB_TYPES = ["alt_text.batch_processing", "alt_text.document_preparation", "alt_text.pdf_page_ocr", "alt_text.math_recognition", "alt_text.advanced_analysis"] as const
 export type BackgroundJobType = (typeof BACKGROUND_JOB_TYPES)[number]
 export const BACKGROUND_JOB_STATUSES = ["queued", "running", "completed", "failed", "dead_letter", "cancelled"] as const
 export type BackgroundJobStatus = (typeof BACKGROUND_JOB_STATUSES)[number]
@@ -19,6 +19,7 @@ export type AltTextBatchJobPayload = { batchId: string }
 export type DocumentPreparationJobPayload = { documentId: number }
 export type PdfPageOcrJobPayload = { documentId: number; request: import("./alt-text/pdf-page-ocr-types").PageOcrRequest }
 export type MathRecognitionJobPayload = { evidenceId: number }
+export type AdvancedAnalysisJobPayload = {evidenceId:number}
 export type BackgroundJobPayload = AltTextBatchJobPayload | DocumentPreparationJobPayload | PdfPageOcrJobPayload | MathRecognitionJobPayload
 
 /** Cluster-wide running cap for document preparation (memory-heavy parsing). Phase 2 types keep their own policy. */
@@ -93,7 +94,7 @@ function mapJob(row: any): BackgroundJob {
 
 function validatePayload(type: BackgroundJobType, payload: unknown): BackgroundJobPayload {
   const evidenceId = (payload as MathRecognitionJobPayload)?.evidenceId
-  if (type === "alt_text.math_recognition" && Number.isSafeInteger(evidenceId) && evidenceId > 0) return { evidenceId }
+  if (["alt_text.math_recognition","alt_text.advanced_analysis"].includes(type) && Number.isSafeInteger(evidenceId) && evidenceId > 0) return { evidenceId }
   const batchId = (payload as { batchId?: unknown })?.batchId
   if (type === "alt_text.batch_processing" && typeof batchId === "string" && batchId.length > 0 && batchId.length <= 64) return { batchId }
   const documentId = (payload as { documentId?: unknown })?.documentId
@@ -226,6 +227,10 @@ type JobHandlerContext = { signal: AbortSignal; job: BackgroundJob }
 type JobHandler = (payload: BackgroundJobPayload, context: JobHandlerContext) => Promise<Record<string, unknown> | void>
 
 const JOB_HANDLERS: Record<BackgroundJobType, JobHandler> = {
+  async "alt_text.advanced_analysis"(payload,context){
+    const {runAdvancedEvidenceJob}=await import("@/lib/alt-text/advanced-evidence-job")
+    return runAdvancedEvidenceJob(payload as AdvancedAnalysisJobPayload,context)
+  },
   async "alt_text.math_recognition"(payload, context) {
     const { runMathRecognitionJob } = await import("@/lib/alt-text/math-job")
     return runMathRecognitionJob(payload as MathRecognitionJobPayload, context)
@@ -281,6 +286,11 @@ export async function requestBackgroundJobCancel(jobId: number, tenantId: number
 }
 
 async function afterSettle(job: BackgroundJob, status: BackgroundJobStatus) {
+  if(job.job_type==="alt_text.advanced_analysis"){
+    const {settleAdvancedEvidence}=await import("@/lib/alt-text/advanced-evidence-store")
+    await settleAdvancedEvidence(job,status)
+    return
+  }
   if (job.job_type === "alt_text.math_recognition") {
     const { settleMathEvidence } = await import("@/lib/alt-text/math-store")
     await settleMathEvidence(job, status)
@@ -328,13 +338,16 @@ async function recoverExpiredLeases() {
       AND e.kind='math_recognition' AND e.status IN ('queued','recognizing')`).catch((e) => {
     if ((e as { code?: string }).code !== "ER_NO_SUCH_TABLE") throw e
   })
+  await query(`UPDATE alt_text_accessibility_evidence e JOIN platform_background_jobs j ON e.job_id=j.id AND e.tenant_id=j.tenant_id
+    SET e.status='failed',e.error_code='LEASE_EXPIRED' WHERE j.job_type='alt_text.advanced_analysis' AND j.status='dead_letter'
+      AND e.status IN ('queued','running','received')`).catch((e)=>{if((e as {code?:string}).code!=="ER_NO_SUCH_TABLE")throw e})
 }
 
 async function claimNext(workerId: string): Promise<BackgroundJob | null> {
   return withTransaction(async (conn) => {
     // Every claimant locks the same existing OCR queue row until commit. Without a shared lock,
     // two claim transactions could both observe zero running OCR jobs and allocate two rasters.
-    await conn.query("SELECT id FROM platform_background_jobs WHERE job_type IN ('alt_text.pdf_page_ocr','alt_text.math_recognition') ORDER BY id LIMIT 1 FOR UPDATE")
+    await conn.query("SELECT id FROM platform_background_jobs WHERE job_type IN ('alt_text.pdf_page_ocr','alt_text.math_recognition','alt_text.advanced_analysis') ORDER BY id LIMIT 1 FOR UPDATE")
     const [rows] = await conn.query<any[]>(
       `SELECT j.* FROM platform_background_jobs j
         WHERE j.status = 'queued' AND j.available_at <= UTC_TIMESTAMP()
@@ -344,8 +357,8 @@ async function claimNext(workerId: string): Promise<BackgroundJob | null> {
           AND (j.job_type <> 'alt_text.document_preparation' OR (
             SELECT COUNT(*) FROM platform_background_jobs g WHERE g.status = 'running' AND g.job_type = 'alt_text.document_preparation'
           ) < ?)
-          AND (j.job_type NOT IN ('alt_text.pdf_page_ocr','alt_text.math_recognition') OR (
-            SELECT COUNT(*) FROM platform_background_jobs o WHERE o.status='running' AND o.job_type IN ('alt_text.pdf_page_ocr','alt_text.math_recognition')
+          AND (j.job_type NOT IN ('alt_text.pdf_page_ocr','alt_text.math_recognition','alt_text.advanced_analysis') OR (
+            SELECT COUNT(*) FROM platform_background_jobs o WHERE o.status='running' AND o.job_type IN ('alt_text.pdf_page_ocr','alt_text.math_recognition','alt_text.advanced_analysis')
           ) < 1)
         ORDER BY j.priority DESC, j.available_at ASC, j.id ASC
         LIMIT 1 FOR UPDATE SKIP LOCKED`,
