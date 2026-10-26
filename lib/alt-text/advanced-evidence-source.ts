@@ -41,7 +41,7 @@ export async function advancedRegionSource(assetId:number,request:AdvancedRegion
  const included=new Set([region.id]),traversable=new Set([region.id])
  for(let depth=0;depth<5;depth++)for(const child of analysis.regions)if(child.parentId&&traversable.has(child.parentId)){
   included.add(child.id)
-  if(child.primaryType!=="graph_region")traversable.add(child.id)
+  if(child.primaryType!=="graph_region"&&!["scientific_diagram_region","chemical_structure_region","circuit_region"].includes(child.primaryType))traversable.add(child.id)
  }
  // An attached label/caption may sit outside the chart crop. It remains a referenced region and
  // is never presented as a confirmed title or label without review.
@@ -50,7 +50,7 @@ export async function advancedRegionSource(assetId:number,request:AdvancedRegion
   if(candidate&&["caption_region","heading_region","chart_label_region","text_region"].includes(candidate.primaryType))included.add(id)
  }
  const regions=analysis.regions.filter((r)=>included.has(r.id)&&r.locationStatus==="verified_frame")
- return {bytes,source,region,regions,complexity:analysis.complexityAtAnalysis}
+ return {bytes,source,region,regions,relationships:analysis.relationships.filter((r)=>included.has(r.from)&&included.has(r.to)),complexity:analysis.complexityAtAnalysis}
 }
 /** No full-image prose is mixed into another panel's chart. Only region-scoped OCR is supplied. */
 export async function chartOcrEvidence(assetId:number,occurrenceId:number|null,regions:ImageRegion[]){

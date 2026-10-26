@@ -18,6 +18,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { altTextFetcher, documentReviewImagesUrl } from "@/lib/alt-text/client"
 import { ImageRegionsPanel } from "./image-regions-panel"
 import { MathRecognitionPanel } from "./math-recognition-panel"
+import {ScientificStructureSection} from "./scientific-structure-panel"
 import {ChartStructurePanel} from "./chart-structure-panel"
 import {
   ELIGIBILITY_WARNINGS,
@@ -153,6 +154,7 @@ export function ImageDetailsSheet({
                 <ImageRegionsPanel key={`regions-${img.id}`} assetId={img.altTextAssetId} occurrenceId={img.id} />
                 <MathRecognitionPanel key={`math-${img.id}`} assetId={img.altTextAssetId} occurrenceId={img.id} />
                 <ChartStructurePanel key={`chart-${img.id}`} assetId={img.altTextAssetId} occurrenceId={img.id}/>
+                <ScientificStructureSection key={`science-${img.id}`} assetId={img.altTextAssetId} occurrenceId={img.id}/>
               </div></details>}
               <section aria-labelledby="existing-alt" className="flex flex-col gap-1.5">
                 <h3 id="existing-alt" className="text-sm font-semibold">

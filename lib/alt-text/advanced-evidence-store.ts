@@ -7,14 +7,15 @@ import {ensureBackgroundJobSchema,enqueueBackgroundJobInTransaction,type Backgro
 import type {AdvancedRegionRequest} from "./advanced-evidence-source"
 import type {ChartStructureResult} from "./chart-contract"
 import type {MathCrop} from "./math-contract"
-import type {ImageRegion} from "./region-analysis"
+import type {ImageRegion,RegionRelationship} from "./region-analysis"
 import type {ComplexityLevel} from "./classification"
 import type {ChartAxesResult,ReviewedChartLabel} from "./chart-axis-contract"
 import type {ChartAxisOptions} from "./chart-axis-analysis"
 import type {ChartDataResult,ChartDataParent} from "./chart-data-contract"
-export type AdvancedResultMap={chart_structure:ChartStructureResult;chart_axes:ChartAxesResult;chart_data:ChartDataResult}
+import type {ScientificStructureResult,ScienceOptions} from "./scientific-structure-contract"
+export type AdvancedResultMap={chart_structure:ChartStructureResult;chart_axes:ChartAxesResult;chart_data:ChartDataResult;scientific_structure:ScientificStructureResult}
 export type AdvancedEvidenceKind=keyof AdvancedResultMap
-export type AdvancedEvidenceInput={kind:AdvancedEvidenceKind;assetId:number;occurrenceId:number|null;request:AdvancedRegionRequest;source:MathCrop;actorId:number;modelId:string;regions:ImageRegion[];regionParentId:string|null;complexity:ComplexityLevel;support:Pick<ChartStructureResult,"ocrEvidence"|"reviewEvidence">;parentEvidence?:{id:number;version:number;result:ChartStructureResult};reviewedLabels?:ReviewedChartLabel[];axisOptions?:ChartAxisOptions;dataParent?:ChartDataParent;dataTrendEnabled?:boolean}
+export type AdvancedEvidenceInput={kind:AdvancedEvidenceKind;assetId:number;occurrenceId:number|null;request:AdvancedRegionRequest;source:MathCrop;actorId:number;modelId:string;regions:ImageRegion[];regionParentId:string|null;complexity:ComplexityLevel;support:Pick<ChartStructureResult,"ocrEvidence"|"reviewEvidence">;parentEvidence?:{id:number;version:number;result:ChartStructureResult};reviewedLabels?:ReviewedChartLabel[];axisOptions?:ChartAxisOptions;dataParent?:ChartDataParent;dataTrendEnabled?:boolean;scienceOptions?:ScienceOptions;regionRelationships?:RegionRelationship[]}
 export type AdvancedEvidenceRecord<K extends AdvancedEvidenceKind=AdvancedEvidenceKind>={id:number;version:number;regionId:string;status:string;jobId:number|null;errorCode:string|null;result:AdvancedResultMap[K]|null;createdAt:string;parentEvidenceId:number|null}
 const hash=(v:unknown)=>createHash("sha256").update(JSON.stringify(v)).digest("hex")
 const parse=(v:any)=>typeof v==="string"?JSON.parse(v):v
@@ -32,7 +33,7 @@ export async function getCompletedAdvancedEvidence<K extends AdvancedEvidenceKin
 export async function enqueueAdvancedEvidence(input:AdvancedEvidenceInput){
  await ensureEvidenceSchema();await ensureBackgroundJobSchema()
  const tenant=currentTenantId(),requestKey=hash([input.kind,input.assetId,input.occurrenceId,input.request.requestId])
- const config=hash(input.kind==="chart_data"?[1,input.kind,input.source,input.modelId,input.dataParent,input.dataTrendEnabled]:input.kind==="chart_structure"?[1,input.kind,input.source,input.modelId,input.support]:[1,input.kind,input.source,input.modelId,input.support,input.parentEvidence?.id,input.parentEvidence?.version,input.reviewedLabels,input.axisOptions])
+ const config=hash(input.kind==="scientific_structure"?[1,input.kind,input.source,input.modelId,input.support,input.scienceOptions,input.regionRelationships]:input.kind==="chart_data"?[1,input.kind,input.source,input.modelId,input.dataParent,input.dataTrendEnabled]:input.kind==="chart_structure"?[1,input.kind,input.source,input.modelId,input.support]:[1,input.kind,input.source,input.modelId,input.support,input.parentEvidence?.id,input.parentEvidence?.version,input.reviewedLabels,input.axisOptions])
  return withTransaction(async(conn)=>{
   const [assets]=await conn.query<any[]>("SELECT id FROM alt_text_assets WHERE tenant_id=? AND id=? FOR UPDATE",[tenant,input.assetId])
   if(!assets.length)throw new Error("ADVANCED_SOURCE_MISSING")
@@ -53,7 +54,7 @@ export async function enqueueAdvancedEvidence(input:AdvancedEvidenceInput){
 }
 export async function getAdvancedEvidenceWork(job:BackgroundJob,evidenceId:number){
  await ensureEvidenceSchema()
- const rows=await query<any[]>("SELECT * FROM alt_text_accessibility_evidence WHERE tenant_id=? AND id=? AND job_id=? AND kind IN ('chart_structure','chart_axes','chart_data')",[job.tenant_id,evidenceId,job.id])
+ const rows=await query<any[]>("SELECT * FROM alt_text_accessibility_evidence WHERE tenant_id=? AND id=? AND job_id=? AND kind IN ('chart_structure','chart_axes','chart_data','scientific_structure')",[job.tenant_id,evidenceId,job.id])
  return rows[0]?{row:rows[0],input:parse(rows[0].input_json) as AdvancedEvidenceInput,saved:parse(rows[0].result_json)}:null
 }
 export async function writeAdvancedEvidence(job:BackgroundJob,id:number,status:string,result:unknown=null,error:string|null=null){
@@ -66,5 +67,5 @@ export async function writeAdvancedEvidence(job:BackgroundJob,id:number,status:s
 export async function settleAdvancedEvidence(job:BackgroundJob,status:string){
  if(!["failed","dead_letter","cancelled"].includes(status))return
  await query(`UPDATE alt_text_accessibility_evidence e JOIN platform_background_jobs j ON e.job_id=j.id AND e.tenant_id=j.tenant_id SET e.status=?,e.error_code=?
-  WHERE e.tenant_id=? AND e.job_id=? AND e.kind IN ('chart_structure','chart_axes','chart_data') AND e.status IN ('queued','running','received') AND j.status=?`,[status==="cancelled"?"cancelled":"failed",status==="cancelled"?null:"ADVANCED_JOB_FAILED",job.tenant_id,job.id,status])
+  WHERE e.tenant_id=? AND e.job_id=? AND e.kind IN ('chart_structure','chart_axes','chart_data','scientific_structure') AND e.status IN ('queued','running','received') AND j.status=?`,[status==="cancelled"?"cancelled":"failed",status==="cancelled"?null:"ADVANCED_JOB_FAILED",job.tenant_id,job.id,status])
 }
