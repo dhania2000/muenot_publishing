@@ -147,17 +147,23 @@ async function getWorker(mode: OcrLanguageMode): Promise<Worker> {
     const languageDir = await mkdtemp(path.join(tempRoot, "muenot-ocr-"))
     // cacheMethod "none": no persistent engine cache. errorHandler: without it tesseract.js
     // rethrows job rejections from the worker message listener as uncaught exceptions.
-    let worker: Worker
+    let worker: Worker | undefined
     try {
       await Promise.all(langs.map(({ code, data }) => writeFile(path.join(languageDir, `${code}.traineddata.gz`), data, { mode: 0o600 })))
       worker = await createWorker(langs.map((l) => l.code).join("+"), OEM.LSTM_ONLY, { langPath: languageDir, cacheMethod: "none", errorHandler: () => undefined }).catch((e) => {
         throw e instanceof OcrEngineError ? e : new OcrEngineError("language_init_failed", `The ${OCR_LANGUAGE_MODES[mode].label} OCR worker could not be initialised.`)
       })
     } finally {
-      if (path.dirname(path.resolve(languageDir)) !== tempRoot) throw new Error("Invalid OCR temporary directory.")
-      await rm(languageDir, { recursive: true, force: true })
+      try {
+        if (path.dirname(path.resolve(languageDir)) !== tempRoot) throw new Error("Invalid OCR temporary directory.")
+        await rm(languageDir, { recursive: true, force: true })
+      } catch (err) {
+        await worker?.terminate().catch(() => undefined)
+        throw err
+      }
     }
-    await worker.setParameters({ preserve_interword_spaces: "1" })
+    try { await worker.setParameters({ preserve_interword_spaces: "1" }) }
+    catch (err) { await worker.terminate().catch(() => undefined); throw err }
     return worker
   })()
   workers.set(mode, p)

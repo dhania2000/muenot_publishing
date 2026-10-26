@@ -99,12 +99,17 @@ export async function saveInspectedPages(documentId: number, pages: PageOcrPage[
     if (!lease.length) throw new Error("OCR_LEASE_LOST")
     for (const p of pages) {
       const { result: _r, ...evidence } = p
-      await conn.query(`INSERT INTO alt_text_document_page_ocr (tenant_id,document_id,page_index,source_sha256,page_class,status,evidence_json)
-        VALUES (?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE
+      await conn.query(`INSERT INTO alt_text_document_page_ocr (tenant_id,document_id,page_index,source_sha256,page_class,status,evidence_json,error_code)
+        VALUES (?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE
           status=IF(source_sha256=VALUES(source_sha256),status,VALUES(status)),
           result_json=IF(source_sha256=VALUES(source_sha256),result_json,NULL),
+          job_id=IF(source_sha256=VALUES(source_sha256),job_id,NULL),
+          error_code=IF(source_sha256=VALUES(source_sha256),error_code,VALUES(error_code)),
+          attempts=IF(source_sha256=VALUES(source_sha256),attempts,0),
+          run_attempts=IF(source_sha256=VALUES(source_sha256),run_attempts,0),
+          next_attempt_at=IF(source_sha256=VALUES(source_sha256),next_attempt_at,NULL),
           page_class=VALUES(page_class),evidence_json=VALUES(evidence_json),source_sha256=VALUES(source_sha256)`,
-        [job.tenant_id, documentId, p.pageIndex, p.sourceSha256, p.classification.pageClass, p.status, JSON.stringify(evidence)])
+        [job.tenant_id, documentId, p.pageIndex, p.sourceSha256, p.classification.pageClass, p.status, JSON.stringify(evidence), p.errorCode])
     }
   })
 }
