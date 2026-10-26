@@ -79,7 +79,7 @@ export async function openPdfForRender(bytes: Uint8Array): Promise<PdfRenderHand
   // pdf.js transfers (detaches) the buffer it is given; hand it a copy so the caller's bytes survive.
   const task = pdfjs.getDocument({
     data: new Uint8Array(bytes),
-    isEvalSupported: false,
+    // PDF.js 5.7+ removed isEvalSupported along with its eval-based PostScript compiler.
     enableXfa: false,
     disableFontFace: true,
     useSystemFonts: false,
