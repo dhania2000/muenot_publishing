@@ -1,0 +1,6 @@
+# Install into a dedicated worker environment, never into the Next.js runtime.
+# CPU torch: pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cpu
+transformers==4.56.2
+safetensors==0.6.2
+numpy==2.2.6
+Pillow==11.3.0
