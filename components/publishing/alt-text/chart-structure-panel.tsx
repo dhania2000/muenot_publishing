@@ -4,6 +4,7 @@ import useSWR from "swr"
 import {Button} from "@/components/ui/button"
 import {altTextFetcher,altTextImageUrl} from "@/lib/alt-text/client"
 import type {ChartResponse} from "@/lib/alt-text/chart-service"
+import {ChartAxisSection} from "./chart-axis-panel"
 export function ChartStructurePanel({assetId,occurrenceId=null}:{assetId:number;occurrenceId?:number|null}){
  const url=`/api/alt-text/assets/${assetId}/charts${occurrenceId?`?occurrenceId=${occurrenceId}`:""}`
  const {data,error,mutate}=useSWR<ChartResponse>(url,altTextFetcher,{revalidateOnFocus:false,refreshInterval:(d)=>d?.activeJobs?3000:0})
@@ -32,7 +33,7 @@ export function ChartStructurePanel({assetId,occurrenceId=null}:{assetId:number;
    {data.results.filter((r)=>!region||r.regionId===region.id).map((r)=><article key={r.id} className="rounded border p-3 text-xs"><p className="font-medium">Version {r.version} · {r.status.replaceAll("_"," ")}</p>{r.errorCode&&<p>{r.errorCode==="PAID_RESULT_UNAVAILABLE"?"A billed result needs administrator reconciliation. This request will not automatically call the provider again.":`Analysis could not finish (${r.errorCode}).`}</p>}
     {r.result&&<><p className="mt-2">Chart type: <strong>{r.result.output.chartType.replaceAll("_"," ")}</strong> · {r.result.output.subtype} · review required</p><p>Visible series hint: {r.result.output.series.approximateCount??"unknown"} · {r.result.output.series.grouping} · {r.result.output.series.appearance}</p><p>Existing complexity: {r.result.complexity.level}</p>
      <details className="mt-2"><summary>Referenced plot, axis, title and legend regions</summary><pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all">{JSON.stringify({plot:r.result.output.plotRegionIds,title:r.result.output.titleRegionIds,axes:r.result.output.axisRegionIds,legends:r.result.output.legendRegionIds,labels:r.result.output.labelRegionIds,series:r.result.output.series,complexitySignals:r.result.output.complexitySignals},null,2)}</pre></details>
-     {r.result.warnings.map((w)=><p key={w} className="mt-1 text-muted-foreground">{w}</p>)}{r.result.output.warnings.map((w)=><p key={w}>{w.replaceAll("_"," ")}</p>)}<p className="mt-2 break-all text-muted-foreground">{r.result.modelId} · {r.result.createdAt}</p><p className="mt-1 text-muted-foreground">Axis interpretation and numerical extraction become available in later tasks.</p></>}
+     {r.result.warnings.map((w)=><p key={w} className="mt-1 text-muted-foreground">{w}</p>)}{r.result.output.warnings.map((w)=><p key={w}>{w.replaceAll("_"," ")}</p>)}<p className="mt-2 break-all text-muted-foreground">{r.result.modelId} · {r.result.createdAt}</p><ChartAxisSection assetId={assetId} occurrenceId={occurrenceId} parentId={r.id}/></>}
    </article>)}
   </>}
  </section>

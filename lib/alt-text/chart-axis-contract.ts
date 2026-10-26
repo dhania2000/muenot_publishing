@@ -1,0 +1,12 @@
+import type {NormalizedBox} from "./region-analysis"
+import type {OcrPixelBox} from "./ocr-contract"
+export type ReviewedChartLabel={id:string;regionId:string;sourceRegionId:string|null;text:string;box:OcrPixelBox|null;geometryBasis:"ocr_line"|"ocr_word"|"region_box_estimate"|"unmapped";reviewId:number;reviewVersion:number;sourceOcrId:string;sourceOcrVersion:number;sourceRef:string;verifiedText:true}
+export type AxisScalar={kind:"number"|"percentage"|"scientific"|"date"|"time"|"category"|"unknown";value:number|null;unit:string|null;raw:string;warning:string|null}
+export type AxisTick={labelId:string;text:string;position:number;scalar:AxisScalar}
+export type AxisScale={kind:"linear_numeric"|"logarithmic"|"date_time"|"categorical"|"percentage"|"scientific_notation"|"unknown";direction:"increasing_with_pixel"|"decreasing_with_pixel"|"unknown";unit:string|null;model:{transform:"identity"|"log10"|"utc_milliseconds"|"clock_milliseconds";slope:number;intercept:number;pixelRange:[number,number];valueAtPixelRange:[number,number];normalizedResidual:number}|null;sourceLabelIds:string[];candidate:true;usableForPixelExtraction:false;warnings:string[]}
+export type ChartAxisEvidence={id:string;regionId:string;box:NormalizedBox;orientation:"horizontal"|"vertical"|"unknown";role:"x_candidate"|"y_left_candidate"|"y_right_candidate"|"unknown";titleLabelIds:string[];unit:string|null;ticks:AxisTick[];scale:AxisScale;visibleIntersection:{x:number;y:number;basis:"region_centerline_estimate"}|null;gridlines:{status:"unknown";regionIds:string[]};warnings:string[]}
+export type ChartAxesResult={schemaVersion:1;kind:"chart_axes";method:"reviewed_ocr_geometry";assetId:number;occurrenceId:number|null;chartRegionId:string;parentChartEvidenceId:number;parentChartVersion:number;regionAnalysisId:string;sourceSha256:string;sourceWidth:number;sourceHeight:number;coordinateSystems:{regions:typeof import("./region-analysis").REGION_COORDINATE_SYSTEM;labels:"stored_pixels_top_left";positionsAreEstimates:true};axes:ChartAxisEvidence[];labels:ReviewedChartLabel[];plotBounds:{regionId:string;box:NormalizedBox;estimated:true}[];titles:string[];subtitles:string[]|null;captions:string[];annotations:string[];footnotes:string[]|null;legends:{regionId:string;entries:{labelId:string;text:string;candidateMarkerRegionIds:string[];linePattern:null;color:null;candidateSeriesIds:string[];association:"unverified"}[]}[];needsReview:true;numericalDataExtracted:false;warnings:string[];createdAt:string}
+
+
+
+

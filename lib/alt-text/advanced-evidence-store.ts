@@ -9,20 +9,29 @@ import type {ChartStructureResult} from "./chart-contract"
 import type {MathCrop} from "./math-contract"
 import type {ImageRegion} from "./region-analysis"
 import type {ComplexityLevel} from "./classification"
-export type AdvancedEvidenceKind="chart_structure"
-export type AdvancedEvidenceInput={kind:AdvancedEvidenceKind;assetId:number;occurrenceId:number|null;request:AdvancedRegionRequest;source:MathCrop;actorId:number;modelId:string;regions:ImageRegion[];regionParentId:string|null;complexity:ComplexityLevel;support:Pick<ChartStructureResult,"ocrEvidence"|"reviewEvidence">}
-export type AdvancedEvidenceRecord={id:number;version:number;regionId:string;status:string;jobId:number|null;errorCode:string|null;result:ChartStructureResult|null;createdAt:string}
+import type {ChartAxesResult,ReviewedChartLabel} from "./chart-axis-contract"
+import type {ChartAxisOptions} from "./chart-axis-analysis"
+export type AdvancedResultMap={chart_structure:ChartStructureResult;chart_axes:ChartAxesResult}
+export type AdvancedEvidenceKind=keyof AdvancedResultMap
+export type AdvancedEvidenceInput={kind:AdvancedEvidenceKind;assetId:number;occurrenceId:number|null;request:AdvancedRegionRequest;source:MathCrop;actorId:number;modelId:string;regions:ImageRegion[];regionParentId:string|null;complexity:ComplexityLevel;support:Pick<ChartStructureResult,"ocrEvidence"|"reviewEvidence">;parentEvidence?:{id:number;version:number;result:ChartStructureResult};reviewedLabels?:ReviewedChartLabel[];axisOptions?:ChartAxisOptions}
+export type AdvancedEvidenceRecord<K extends AdvancedEvidenceKind=AdvancedEvidenceKind>={id:number;version:number;regionId:string;status:string;jobId:number|null;errorCode:string|null;result:AdvancedResultMap[K]|null;createdAt:string;parentEvidenceId:number|null}
 const hash=(v:unknown)=>createHash("sha256").update(JSON.stringify(v)).digest("hex")
 const parse=(v:any)=>typeof v==="string"?JSON.parse(v):v
-function view(r:any):AdvancedEvidenceRecord{return {id:Number(r.id),version:Number(r.version),regionId:r.region_id,status:r.status,jobId:r.job_id==null?null:Number(r.job_id),errorCode:r.error_code,result:r.status==="completed"?parse(r.result_json):null,createdAt:new Date(r.created_at).toISOString()}}
-export async function listAdvancedEvidence(assetId:number,occurrenceId:number|null,kind:AdvancedEvidenceKind){
+function view<K extends AdvancedEvidenceKind>(r:any):AdvancedEvidenceRecord<K>{return {id:Number(r.id),version:Number(r.version),regionId:r.region_id,status:r.status,jobId:r.job_id==null?null:Number(r.job_id),errorCode:r.error_code,result:r.status==="completed"?parse(r.result_json):null,createdAt:new Date(r.created_at).toISOString(),parentEvidenceId:parse(r.input_json)?.parentEvidence?.id??null}}
+export async function listAdvancedEvidence<K extends AdvancedEvidenceKind>(assetId:number,occurrenceId:number|null,kind:K):Promise<AdvancedEvidenceRecord<K>[]>{
  await ensureEvidenceSchema()
  const rows=await query<any[]>("SELECT * FROM alt_text_accessibility_evidence WHERE tenant_id=? AND asset_id=? AND occurrence_key=? AND kind=? ORDER BY id DESC LIMIT 60",[currentTenantId(),assetId,occurrenceId??0,kind])
- return rows.map(view)
+ return rows.map((r)=>view<K>(r))
+}
+export async function getCompletedAdvancedEvidence<K extends AdvancedEvidenceKind>(assetId:number,occurrenceId:number|null,kind:K,id:number):Promise<AdvancedEvidenceRecord<K>|null>{
+ await ensureEvidenceSchema()
+ const rows=await query<any[]>("SELECT * FROM alt_text_accessibility_evidence WHERE tenant_id=? AND asset_id=? AND occurrence_key=? AND kind=? AND id=? AND status='completed' LIMIT 1",[currentTenantId(),assetId,occurrenceId??0,kind,id])
+ return rows[0]?view<K>(rows[0]):null
 }
 export async function enqueueAdvancedEvidence(input:AdvancedEvidenceInput){
  await ensureEvidenceSchema();await ensureBackgroundJobSchema()
- const tenant=currentTenantId(),requestKey=hash([input.kind,input.assetId,input.occurrenceId,input.request.requestId]),config=hash([1,input.kind,input.source,input.modelId,input.support])
+ const tenant=currentTenantId(),requestKey=hash([input.kind,input.assetId,input.occurrenceId,input.request.requestId])
+ const config=hash(input.kind==="chart_structure"?[1,input.kind,input.source,input.modelId,input.support]:[1,input.kind,input.source,input.modelId,input.support,input.parentEvidence?.id,input.parentEvidence?.version,input.reviewedLabels,input.axisOptions])
  return withTransaction(async(conn)=>{
   const [assets]=await conn.query<any[]>("SELECT id FROM alt_text_assets WHERE tenant_id=? AND id=? FOR UPDATE",[tenant,input.assetId])
   if(!assets.length)throw new Error("ADVANCED_SOURCE_MISSING")
@@ -38,12 +47,12 @@ export async function enqueueAdvancedEvidence(input:AdvancedEvidenceInput){
   const [inserted]=await conn.query<any>(`INSERT INTO alt_text_accessibility_evidence (tenant_id,asset_id,occurrence_key,region_id,kind,version,analysis_id,request_key,config_key,status,input_json,created_by) VALUES (?,?,?,?,?,?,?,?,?,'queued',?,?)`,[tenant,input.assetId,input.occurrenceId??0,input.request.regionId,input.kind,version,`adv_${randomBytes(12).toString("hex")}`,requestKey,config,JSON.stringify(input),input.actorId])
   const id=Number(inserted.insertId),queued=await enqueueBackgroundJobInTransaction(conn,{tenantId:tenant,jobType:"alt_text.advanced_analysis",payload:{evidenceId:id},idempotencyKey:`advanced-evidence:${id}`,concurrencyKey:`advanced-evidence:tenant:${tenant}`,concurrencyLimit:1,timeoutSeconds:180,maxAttempts:3,backoffSeconds:30,createdBy:input.actorId,triggerSource:"user_request"})
   await conn.query("UPDATE alt_text_accessibility_evidence SET job_id=? WHERE tenant_id=? AND id=?",[queued.jobId,tenant,id])
-  return {record:{id,version,regionId:input.request.regionId,status:"queued",jobId:queued.jobId,errorCode:null,result:null,createdAt:new Date().toISOString()} as AdvancedEvidenceRecord,created:true}
+  return {record:{id,version,regionId:input.request.regionId,status:"queued",jobId:queued.jobId,errorCode:null,result:null,createdAt:new Date().toISOString(),parentEvidenceId:input.parentEvidence?.id??null} as AdvancedEvidenceRecord,created:true}
  })
 }
 export async function getAdvancedEvidenceWork(job:BackgroundJob,evidenceId:number){
  await ensureEvidenceSchema()
- const rows=await query<any[]>("SELECT * FROM alt_text_accessibility_evidence WHERE tenant_id=? AND id=? AND job_id=? AND kind='chart_structure'",[job.tenant_id,evidenceId,job.id])
+ const rows=await query<any[]>("SELECT * FROM alt_text_accessibility_evidence WHERE tenant_id=? AND id=? AND job_id=? AND kind IN ('chart_structure','chart_axes')",[job.tenant_id,evidenceId,job.id])
  return rows[0]?{row:rows[0],input:parse(rows[0].input_json) as AdvancedEvidenceInput,saved:parse(rows[0].result_json)}:null
 }
 export async function writeAdvancedEvidence(job:BackgroundJob,id:number,status:string,result:unknown=null,error:string|null=null){
@@ -56,5 +65,5 @@ export async function writeAdvancedEvidence(job:BackgroundJob,id:number,status:s
 export async function settleAdvancedEvidence(job:BackgroundJob,status:string){
  if(!["failed","dead_letter","cancelled"].includes(status))return
  await query(`UPDATE alt_text_accessibility_evidence e JOIN platform_background_jobs j ON e.job_id=j.id AND e.tenant_id=j.tenant_id SET e.status=?,e.error_code=?
-  WHERE e.tenant_id=? AND e.job_id=? AND e.kind='chart_structure' AND e.status IN ('queued','running','received') AND j.status=?`,[status==="cancelled"?"cancelled":"failed",status==="cancelled"?null:"ADVANCED_JOB_FAILED",job.tenant_id,job.id,status])
+  WHERE e.tenant_id=? AND e.job_id=? AND e.kind IN ('chart_structure','chart_axes') AND e.status IN ('queued','running','received') AND j.status=?`,[status==="cancelled"?"cancelled":"failed",status==="cancelled"?null:"ADVANCED_JOB_FAILED",job.tenant_id,job.id,status])
 }
