@@ -1,10 +1,11 @@
 import {beforeEach,it,expect,vi} from "vitest"
 import type {BackgroundJob} from "@/lib/background-jobs"
-const d=vi.hoisted(()=>({query:vi.fn(),work:vi.fn(),write:vi.fn(),cancel:vi.fn(),policy:vi.fn(),authorize:vi.fn(),source:vi.fn(),support:vi.fn(),meter:vi.fn(),vision:vi.fn(),axes:vi.fn(),data:vi.fn()}))
+const d=vi.hoisted(()=>({query:vi.fn(),work:vi.fn(),write:vi.fn(),cancel:vi.fn(),policy:vi.fn(),authorize:vi.fn(),source:vi.fn(),support:vi.fn(),meter:vi.fn(),vision:vi.fn(),axes:vi.fn(),data:vi.fn(),science:vi.fn()}))
 vi.mock("@/lib/db",()=>({query:d.query}))
 vi.mock("@/lib/background-jobs",()=>({isBackgroundJobCancelRequested:d.cancel}))
 vi.mock("@/lib/permission-store",()=>({getScope:async()=>"all"}))
 vi.mock("@/lib/alt-text/advanced-evidence-store",()=>({getAdvancedEvidenceWork:d.work,writeAdvancedEvidence:d.write}))
+vi.mock("@/lib/alt-text/scientific-structure-service",()=>({scientificStructurePolicy:d.science}))
 vi.mock("@/lib/alt-text/chart-service",()=>({chartPolicy:d.policy}))
 vi.mock("@/lib/alt-text/advanced-evidence-source",()=>({advancedRegionSource:d.source,authorizeAdvancedAsset:d.authorize,chartOcrEvidence:d.support,AdvancedEvidenceError:class extends Error{constructor(public status:number,public code:string,message:string){super(message)}}}))
 vi.mock("@/lib/alt-text/vision-service",()=>({analyzeVisionEvidence:d.vision}))
@@ -35,3 +36,13 @@ it("routes local axis interpretation without model selection, metering or vision
 })
 
 it("routes local chart data without metering or provider calls",async()=>{d.work.mockResolvedValue({row:{status:"queued"},input:{...input,kind:"chart_data"}});d.data.mockResolvedValue({status:"completed"});await run();expect(d.data).toHaveBeenCalledOnce();expect(d.policy).not.toHaveBeenCalled();expect(d.meter).not.toHaveBeenCalled();expect(d.vision).not.toHaveBeenCalled()})
+
+it("meters scientific structure through the same queue and persisted receipt protocol",async()=>{
+ const scienceOptions={components:true,labels:true,directions:true,structure:true,subjects:["biology"]},scienceInput={...input,kind:"scientific_structure",scienceOptions,regions:[{id:source.regionId,primaryType:"scientific_diagram_region",parentId:null,box:input.source.normalizedBox,locationStatus:"verified_frame"}]}
+ const raw={schemaVersion:1,elements:[{regionId:source.regionId,kind:"diagram",visualRole:"unknown",uncertain:true}],relationships:[],labelAssociations:[],warnings:["incomplete_structure"]}
+ d.work.mockResolvedValue({row:{status:"queued"},input:scienceInput,saved:null});d.science.mockResolvedValue({enabled:true,model:{id:"vision1"},options:scienceOptions});d.vision.mockResolvedValue({...receipt,raw});await run()
+ expect(d.policy).not.toHaveBeenCalled();expect(d.meter.mock.calls[0][0]).toMatchObject({operationId:"science8",feature:"publishing.alt_text.scientific_structure"});expect(d.write).toHaveBeenLastCalledWith(job,8,"completed",expect.objectContaining({kind:"scientific_structure",scientificAccuracyVerified:false,needsReview:true}));expect(d.write).toHaveBeenNthCalledWith(2,job,8,"received",{providerReceipt:{...receipt,raw}})
+})
+it("stops scientific requests after settings change before a paid provider call",async()=>{
+ d.work.mockResolvedValue({row:{status:"queued"},input:{...input,kind:"scientific_structure",scienceOptions:{components:true}}});d.science.mockResolvedValue({enabled:true,model:{id:"vision1"},options:{components:false}});await expect(run()).rejects.toThrow("SCIENCE_SETTINGS_CHANGED");expect(d.meter).not.toHaveBeenCalled();expect(d.vision).not.toHaveBeenCalled()
+})

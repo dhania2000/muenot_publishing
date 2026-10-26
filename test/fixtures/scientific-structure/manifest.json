@@ -1,0 +1,1857 @@
+{
+  "purpose": "Rendered generic visual-structure fixtures with supplied region and relationship ground truth. Contract/node matching only; no live vision, OCR or scientific accuracy measured.",
+  "samples": [
+    {
+      "id": "cell-diagram",
+      "file": "cell-diagram.png",
+      "regions": [
+        {
+          "id": "diagram",
+          "primaryType": "scientific_diagram_region",
+          "parentId": null,
+          "box": {
+            "x": 0,
+            "y": 0,
+            "width": 1,
+            "height": 1
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "a",
+          "primaryType": "scientific_component_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.12,
+            "y": 0.3,
+            "width": 0.22,
+            "height": 0.3
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "b",
+          "primaryType": "scientific_component_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.64,
+            "y": 0.3,
+            "width": 0.22,
+            "height": 0.3
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "label",
+          "primaryType": "text_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.12,
+            "y": 0.15,
+            "width": 0.22,
+            "height": 0.08
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "leader",
+          "primaryType": "diagram_connector_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.22,
+            "y": 0.23,
+            "width": 0.015,
+            "height": 0.07
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "arrow",
+          "primaryType": "diagram_arrow_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.34,
+            "y": 0.43,
+            "width": 0.3,
+            "height": 0.04
+          },
+          "locationStatus": "verified_frame"
+        }
+      ],
+      "expected": {
+        "schemaVersion": 1,
+        "elements": [
+          {
+            "regionId": "diagram",
+            "kind": "diagram",
+            "visualRole": "unknown",
+            "uncertain": true
+          },
+          {
+            "regionId": "a",
+            "kind": "component",
+            "visualRole": "labelled_object",
+            "uncertain": true
+          },
+          {
+            "regionId": "b",
+            "kind": "component",
+            "visualRole": "unknown",
+            "uncertain": true
+          },
+          {
+            "regionId": "label",
+            "kind": "label",
+            "visualRole": "unknown",
+            "uncertain": true
+          },
+          {
+            "regionId": "leader",
+            "kind": "connector",
+            "visualRole": "unknown",
+            "uncertain": true
+          },
+          {
+            "regionId": "arrow",
+            "kind": "arrow",
+            "visualRole": "unknown",
+            "uncertain": true
+          }
+        ],
+        "relationships": [
+          {
+            "fromRegionId": "a",
+            "toRegionId": "b",
+            "type": "direction_of_flow",
+            "basis": "visual_connection",
+            "connectorRegionId": "arrow",
+            "arrowhead": "at_to"
+          }
+        ],
+        "labelAssociations": [
+          {
+            "labelRegionId": "label",
+            "targetRegionIds": [
+              "a"
+            ],
+            "basis": "leader_line",
+            "connectorRegionId": "leader"
+          }
+        ],
+        "warnings": []
+      },
+      "expectedElementIds": [
+        "diagram",
+        "a",
+        "b",
+        "label",
+        "leader",
+        "arrow"
+      ],
+      "expectedRelationshipPairs": [
+        [
+          "a",
+          "b",
+          "direction_of_flow"
+        ]
+      ],
+      "ocrText": "Component A",
+      "synthetic": true
+    },
+    {
+      "id": "organ-cross-section",
+      "file": "organ-cross-section.png",
+      "regions": [
+        {
+          "id": "diagram",
+          "primaryType": "scientific_diagram_region",
+          "parentId": null,
+          "box": {
+            "x": 0,
+            "y": 0,
+            "width": 1,
+            "height": 1
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "a",
+          "primaryType": "scientific_component_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.12,
+            "y": 0.3,
+            "width": 0.22,
+            "height": 0.3
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "b",
+          "primaryType": "scientific_component_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.64,
+            "y": 0.3,
+            "width": 0.22,
+            "height": 0.3
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "label",
+          "primaryType": "text_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.12,
+            "y": 0.15,
+            "width": 0.22,
+            "height": 0.08
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "leader",
+          "primaryType": "diagram_connector_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.22,
+            "y": 0.23,
+            "width": 0.015,
+            "height": 0.07
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "arrow",
+          "primaryType": "diagram_arrow_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.34,
+            "y": 0.43,
+            "width": 0.3,
+            "height": 0.04
+          },
+          "locationStatus": "verified_frame"
+        }
+      ],
+      "expected": {
+        "schemaVersion": 1,
+        "elements": [
+          {
+            "regionId": "diagram",
+            "kind": "diagram",
+            "visualRole": "unknown",
+            "uncertain": true
+          },
+          {
+            "regionId": "a",
+            "kind": "component",
+            "visualRole": "labelled_object",
+            "uncertain": true
+          },
+          {
+            "regionId": "b",
+            "kind": "component",
+            "visualRole": "unknown",
+            "uncertain": true
+          },
+          {
+            "regionId": "label",
+            "kind": "label",
+            "visualRole": "unknown",
+            "uncertain": true
+          },
+          {
+            "regionId": "leader",
+            "kind": "connector",
+            "visualRole": "unknown",
+            "uncertain": true
+          },
+          {
+            "regionId": "arrow",
+            "kind": "arrow",
+            "visualRole": "unknown",
+            "uncertain": true
+          }
+        ],
+        "relationships": [
+          {
+            "fromRegionId": "a",
+            "toRegionId": "b",
+            "type": "direction_of_flow",
+            "basis": "visual_connection",
+            "connectorRegionId": "arrow",
+            "arrowhead": "at_to"
+          }
+        ],
+        "labelAssociations": [
+          {
+            "labelRegionId": "label",
+            "targetRegionIds": [
+              "a"
+            ],
+            "basis": "leader_line",
+            "connectorRegionId": "leader"
+          }
+        ],
+        "warnings": []
+      },
+      "expectedElementIds": [
+        "diagram",
+        "a",
+        "b",
+        "label",
+        "leader",
+        "arrow"
+      ],
+      "expectedRelationshipPairs": [
+        [
+          "a",
+          "b",
+          "direction_of_flow"
+        ]
+      ],
+      "ocrText": "Component A",
+      "synthetic": true
+    },
+    {
+      "id": "mechanical-assembly",
+      "file": "mechanical-assembly.png",
+      "regions": [
+        {
+          "id": "diagram",
+          "primaryType": "scientific_diagram_region",
+          "parentId": null,
+          "box": {
+            "x": 0,
+            "y": 0,
+            "width": 1,
+            "height": 1
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "a",
+          "primaryType": "scientific_component_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.12,
+            "y": 0.3,
+            "width": 0.22,
+            "height": 0.3
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "b",
+          "primaryType": "scientific_component_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.64,
+            "y": 0.3,
+            "width": 0.22,
+            "height": 0.3
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "label",
+          "primaryType": "text_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.12,
+            "y": 0.15,
+            "width": 0.22,
+            "height": 0.08
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "leader",
+          "primaryType": "diagram_connector_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.22,
+            "y": 0.23,
+            "width": 0.015,
+            "height": 0.07
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "arrow",
+          "primaryType": "diagram_arrow_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.34,
+            "y": 0.43,
+            "width": 0.3,
+            "height": 0.04
+          },
+          "locationStatus": "verified_frame"
+        }
+      ],
+      "expected": {
+        "schemaVersion": 1,
+        "elements": [
+          {
+            "regionId": "diagram",
+            "kind": "diagram",
+            "visualRole": "unknown",
+            "uncertain": true
+          },
+          {
+            "regionId": "a",
+            "kind": "component",
+            "visualRole": "labelled_object",
+            "uncertain": true
+          },
+          {
+            "regionId": "b",
+            "kind": "component",
+            "visualRole": "unknown",
+            "uncertain": true
+          },
+          {
+            "regionId": "label",
+            "kind": "label",
+            "visualRole": "unknown",
+            "uncertain": true
+          },
+          {
+            "regionId": "leader",
+            "kind": "connector",
+            "visualRole": "unknown",
+            "uncertain": true
+          },
+          {
+            "regionId": "arrow",
+            "kind": "arrow",
+            "visualRole": "unknown",
+            "uncertain": true
+          }
+        ],
+        "relationships": [
+          {
+            "fromRegionId": "a",
+            "toRegionId": "b",
+            "type": "direction_of_flow",
+            "basis": "visual_connection",
+            "connectorRegionId": "arrow",
+            "arrowhead": "at_to"
+          }
+        ],
+        "labelAssociations": [
+          {
+            "labelRegionId": "label",
+            "targetRegionIds": [
+              "a"
+            ],
+            "basis": "leader_line",
+            "connectorRegionId": "leader"
+          }
+        ],
+        "warnings": []
+      },
+      "expectedElementIds": [
+        "diagram",
+        "a",
+        "b",
+        "label",
+        "leader",
+        "arrow"
+      ],
+      "expectedRelationshipPairs": [
+        [
+          "a",
+          "b",
+          "direction_of_flow"
+        ]
+      ],
+      "ocrText": "Component A",
+      "synthetic": true
+    },
+    {
+      "id": "optical-ray",
+      "file": "optical-ray.png",
+      "regions": [
+        {
+          "id": "diagram",
+          "primaryType": "scientific_diagram_region",
+          "parentId": null,
+          "box": {
+            "x": 0,
+            "y": 0,
+            "width": 1,
+            "height": 1
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "a",
+          "primaryType": "scientific_component_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.12,
+            "y": 0.3,
+            "width": 0.22,
+            "height": 0.3
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "b",
+          "primaryType": "scientific_component_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.64,
+            "y": 0.3,
+            "width": 0.22,
+            "height": 0.3
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "label",
+          "primaryType": "text_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.12,
+            "y": 0.15,
+            "width": 0.22,
+            "height": 0.08
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "leader",
+          "primaryType": "diagram_connector_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.22,
+            "y": 0.23,
+            "width": 0.015,
+            "height": 0.07
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "arrow",
+          "primaryType": "diagram_arrow_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.34,
+            "y": 0.43,
+            "width": 0.3,
+            "height": 0.04
+          },
+          "locationStatus": "verified_frame"
+        }
+      ],
+      "expected": {
+        "schemaVersion": 1,
+        "elements": [
+          {
+            "regionId": "diagram",
+            "kind": "diagram",
+            "visualRole": "unknown",
+            "uncertain": true
+          },
+          {
+            "regionId": "a",
+            "kind": "component",
+            "visualRole": "labelled_object",
+            "uncertain": true
+          },
+          {
+            "regionId": "b",
+            "kind": "component",
+            "visualRole": "unknown",
+            "uncertain": true
+          },
+          {
+            "regionId": "label",
+            "kind": "label",
+            "visualRole": "unknown",
+            "uncertain": true
+          },
+          {
+            "regionId": "leader",
+            "kind": "connector",
+            "visualRole": "unknown",
+            "uncertain": true
+          },
+          {
+            "regionId": "arrow",
+            "kind": "arrow",
+            "visualRole": "unknown",
+            "uncertain": true
+          }
+        ],
+        "relationships": [
+          {
+            "fromRegionId": "a",
+            "toRegionId": "b",
+            "type": "direction_of_flow",
+            "basis": "visual_connection",
+            "connectorRegionId": "arrow",
+            "arrowhead": "at_to"
+          }
+        ],
+        "labelAssociations": [
+          {
+            "labelRegionId": "label",
+            "targetRegionIds": [
+              "a"
+            ],
+            "basis": "leader_line",
+            "connectorRegionId": "leader"
+          }
+        ],
+        "warnings": []
+      },
+      "expectedElementIds": [
+        "diagram",
+        "a",
+        "b",
+        "label",
+        "leader",
+        "arrow"
+      ],
+      "expectedRelationshipPairs": [
+        [
+          "a",
+          "b",
+          "direction_of_flow"
+        ]
+      ],
+      "ocrText": "Component A",
+      "synthetic": true
+    },
+    {
+      "id": "circuit-illustration",
+      "file": "circuit-illustration.png",
+      "regions": [
+        {
+          "id": "diagram",
+          "primaryType": "scientific_diagram_region",
+          "parentId": null,
+          "box": {
+            "x": 0,
+            "y": 0,
+            "width": 1,
+            "height": 1
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "a",
+          "primaryType": "scientific_component_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.12,
+            "y": 0.3,
+            "width": 0.22,
+            "height": 0.3
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "b",
+          "primaryType": "scientific_component_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.64,
+            "y": 0.3,
+            "width": 0.22,
+            "height": 0.3
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "label",
+          "primaryType": "text_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.12,
+            "y": 0.15,
+            "width": 0.22,
+            "height": 0.08
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "leader",
+          "primaryType": "diagram_connector_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.22,
+            "y": 0.23,
+            "width": 0.015,
+            "height": 0.07
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "arrow",
+          "primaryType": "diagram_arrow_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.34,
+            "y": 0.43,
+            "width": 0.3,
+            "height": 0.04
+          },
+          "locationStatus": "verified_frame"
+        }
+      ],
+      "expected": {
+        "schemaVersion": 1,
+        "elements": [
+          {
+            "regionId": "diagram",
+            "kind": "diagram",
+            "visualRole": "unknown",
+            "uncertain": true
+          },
+          {
+            "regionId": "a",
+            "kind": "component",
+            "visualRole": "labelled_object",
+            "uncertain": true
+          },
+          {
+            "regionId": "b",
+            "kind": "component",
+            "visualRole": "unknown",
+            "uncertain": true
+          },
+          {
+            "regionId": "label",
+            "kind": "label",
+            "visualRole": "unknown",
+            "uncertain": true
+          },
+          {
+            "regionId": "leader",
+            "kind": "connector",
+            "visualRole": "unknown",
+            "uncertain": true
+          },
+          {
+            "regionId": "arrow",
+            "kind": "arrow",
+            "visualRole": "unknown",
+            "uncertain": true
+          }
+        ],
+        "relationships": [
+          {
+            "fromRegionId": "a",
+            "toRegionId": "b",
+            "type": "direction_of_flow",
+            "basis": "visual_connection",
+            "connectorRegionId": "arrow",
+            "arrowhead": "at_to"
+          }
+        ],
+        "labelAssociations": [
+          {
+            "labelRegionId": "label",
+            "targetRegionIds": [
+              "a"
+            ],
+            "basis": "leader_line",
+            "connectorRegionId": "leader"
+          }
+        ],
+        "warnings": []
+      },
+      "expectedElementIds": [
+        "diagram",
+        "a",
+        "b",
+        "label",
+        "leader",
+        "arrow"
+      ],
+      "expectedRelationshipPairs": [
+        [
+          "a",
+          "b",
+          "direction_of_flow"
+        ]
+      ],
+      "ocrText": "Component A",
+      "synthetic": true
+    },
+    {
+      "id": "water-cycle",
+      "file": "water-cycle.png",
+      "regions": [
+        {
+          "id": "diagram",
+          "primaryType": "scientific_diagram_region",
+          "parentId": null,
+          "box": {
+            "x": 0,
+            "y": 0,
+            "width": 1,
+            "height": 1
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "a",
+          "primaryType": "scientific_component_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.12,
+            "y": 0.3,
+            "width": 0.22,
+            "height": 0.3
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "b",
+          "primaryType": "scientific_component_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.64,
+            "y": 0.3,
+            "width": 0.22,
+            "height": 0.3
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "label",
+          "primaryType": "text_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.12,
+            "y": 0.15,
+            "width": 0.22,
+            "height": 0.08
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "leader",
+          "primaryType": "diagram_connector_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.22,
+            "y": 0.23,
+            "width": 0.015,
+            "height": 0.07
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "arrow",
+          "primaryType": "diagram_arrow_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.34,
+            "y": 0.43,
+            "width": 0.3,
+            "height": 0.04
+          },
+          "locationStatus": "verified_frame"
+        }
+      ],
+      "expected": {
+        "schemaVersion": 1,
+        "elements": [
+          {
+            "regionId": "diagram",
+            "kind": "diagram",
+            "visualRole": "unknown",
+            "uncertain": true
+          },
+          {
+            "regionId": "a",
+            "kind": "component",
+            "visualRole": "labelled_object",
+            "uncertain": true
+          },
+          {
+            "regionId": "b",
+            "kind": "component",
+            "visualRole": "unknown",
+            "uncertain": true
+          },
+          {
+            "regionId": "label",
+            "kind": "label",
+            "visualRole": "unknown",
+            "uncertain": true
+          },
+          {
+            "regionId": "leader",
+            "kind": "connector",
+            "visualRole": "unknown",
+            "uncertain": true
+          },
+          {
+            "regionId": "arrow",
+            "kind": "arrow",
+            "visualRole": "unknown",
+            "uncertain": true
+          }
+        ],
+        "relationships": [
+          {
+            "fromRegionId": "a",
+            "toRegionId": "b",
+            "type": "direction_of_flow",
+            "basis": "visual_connection",
+            "connectorRegionId": "arrow",
+            "arrowhead": "at_to"
+          }
+        ],
+        "labelAssociations": [
+          {
+            "labelRegionId": "label",
+            "targetRegionIds": [
+              "a"
+            ],
+            "basis": "leader_line",
+            "connectorRegionId": "leader"
+          }
+        ],
+        "warnings": []
+      },
+      "expectedElementIds": [
+        "diagram",
+        "a",
+        "b",
+        "label",
+        "leader",
+        "arrow"
+      ],
+      "expectedRelationshipPairs": [
+        [
+          "a",
+          "b",
+          "direction_of_flow"
+        ]
+      ],
+      "ocrText": "Component A",
+      "synthetic": true
+    },
+    {
+      "id": "geological-layers",
+      "file": "geological-layers.png",
+      "regions": [
+        {
+          "id": "diagram",
+          "primaryType": "scientific_diagram_region",
+          "parentId": null,
+          "box": {
+            "x": 0,
+            "y": 0,
+            "width": 1,
+            "height": 1
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "a",
+          "primaryType": "scientific_component_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.12,
+            "y": 0.3,
+            "width": 0.22,
+            "height": 0.3
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "b",
+          "primaryType": "scientific_component_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.64,
+            "y": 0.3,
+            "width": 0.22,
+            "height": 0.3
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "label",
+          "primaryType": "text_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.12,
+            "y": 0.15,
+            "width": 0.22,
+            "height": 0.08
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "leader",
+          "primaryType": "diagram_connector_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.22,
+            "y": 0.23,
+            "width": 0.015,
+            "height": 0.07
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "arrow",
+          "primaryType": "diagram_arrow_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.34,
+            "y": 0.43,
+            "width": 0.3,
+            "height": 0.04
+          },
+          "locationStatus": "verified_frame"
+        }
+      ],
+      "expected": {
+        "schemaVersion": 1,
+        "elements": [
+          {
+            "regionId": "diagram",
+            "kind": "diagram",
+            "visualRole": "unknown",
+            "uncertain": true
+          },
+          {
+            "regionId": "a",
+            "kind": "component",
+            "visualRole": "labelled_object",
+            "uncertain": true
+          },
+          {
+            "regionId": "b",
+            "kind": "component",
+            "visualRole": "unknown",
+            "uncertain": true
+          },
+          {
+            "regionId": "label",
+            "kind": "label",
+            "visualRole": "unknown",
+            "uncertain": true
+          },
+          {
+            "regionId": "leader",
+            "kind": "connector",
+            "visualRole": "unknown",
+            "uncertain": true
+          },
+          {
+            "regionId": "arrow",
+            "kind": "arrow",
+            "visualRole": "unknown",
+            "uncertain": true
+          }
+        ],
+        "relationships": [
+          {
+            "fromRegionId": "a",
+            "toRegionId": "b",
+            "type": "direction_of_flow",
+            "basis": "visual_connection",
+            "connectorRegionId": "arrow",
+            "arrowhead": "at_to"
+          }
+        ],
+        "labelAssociations": [
+          {
+            "labelRegionId": "label",
+            "targetRegionIds": [
+              "a"
+            ],
+            "basis": "leader_line",
+            "connectorRegionId": "leader"
+          }
+        ],
+        "warnings": []
+      },
+      "expectedElementIds": [
+        "diagram",
+        "a",
+        "b",
+        "label",
+        "leader",
+        "arrow"
+      ],
+      "expectedRelationshipPairs": [
+        [
+          "a",
+          "b",
+          "direction_of_flow"
+        ]
+      ],
+      "ocrText": "Component A",
+      "synthetic": true
+    },
+    {
+      "id": "plant-structure",
+      "file": "plant-structure.png",
+      "regions": [
+        {
+          "id": "diagram",
+          "primaryType": "scientific_diagram_region",
+          "parentId": null,
+          "box": {
+            "x": 0,
+            "y": 0,
+            "width": 1,
+            "height": 1
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "a",
+          "primaryType": "scientific_component_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.12,
+            "y": 0.3,
+            "width": 0.22,
+            "height": 0.3
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "b",
+          "primaryType": "scientific_component_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.64,
+            "y": 0.3,
+            "width": 0.22,
+            "height": 0.3
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "label",
+          "primaryType": "text_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.12,
+            "y": 0.15,
+            "width": 0.22,
+            "height": 0.08
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "leader",
+          "primaryType": "diagram_connector_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.22,
+            "y": 0.23,
+            "width": 0.015,
+            "height": 0.07
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "arrow",
+          "primaryType": "diagram_arrow_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.34,
+            "y": 0.43,
+            "width": 0.3,
+            "height": 0.04
+          },
+          "locationStatus": "verified_frame"
+        }
+      ],
+      "expected": {
+        "schemaVersion": 1,
+        "elements": [
+          {
+            "regionId": "diagram",
+            "kind": "diagram",
+            "visualRole": "unknown",
+            "uncertain": true
+          },
+          {
+            "regionId": "a",
+            "kind": "component",
+            "visualRole": "labelled_object",
+            "uncertain": true
+          },
+          {
+            "regionId": "b",
+            "kind": "component",
+            "visualRole": "unknown",
+            "uncertain": true
+          },
+          {
+            "regionId": "label",
+            "kind": "label",
+            "visualRole": "unknown",
+            "uncertain": true
+          },
+          {
+            "regionId": "leader",
+            "kind": "connector",
+            "visualRole": "unknown",
+            "uncertain": true
+          },
+          {
+            "regionId": "arrow",
+            "kind": "arrow",
+            "visualRole": "unknown",
+            "uncertain": true
+          }
+        ],
+        "relationships": [
+          {
+            "fromRegionId": "a",
+            "toRegionId": "b",
+            "type": "direction_of_flow",
+            "basis": "visual_connection",
+            "connectorRegionId": "arrow",
+            "arrowhead": "at_to"
+          }
+        ],
+        "labelAssociations": [
+          {
+            "labelRegionId": "label",
+            "targetRegionIds": [
+              "a"
+            ],
+            "basis": "leader_line",
+            "connectorRegionId": "leader"
+          }
+        ],
+        "warnings": []
+      },
+      "expectedElementIds": [
+        "diagram",
+        "a",
+        "b",
+        "label",
+        "leader",
+        "arrow"
+      ],
+      "expectedRelationshipPairs": [
+        [
+          "a",
+          "b",
+          "direction_of_flow"
+        ]
+      ],
+      "ocrText": "Component A",
+      "synthetic": true
+    },
+    {
+      "id": "multi-panel-comparison",
+      "file": "multi-panel-comparison.png",
+      "regions": [
+        {
+          "id": "diagram",
+          "primaryType": "scientific_diagram_region",
+          "parentId": null,
+          "box": {
+            "x": 0,
+            "y": 0,
+            "width": 1,
+            "height": 1
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "panel1",
+          "primaryType": "diagram_group_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.02,
+            "y": 0.12,
+            "width": 0.45,
+            "height": 0.8
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "panel2",
+          "primaryType": "diagram_group_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.52,
+            "y": 0.12,
+            "width": 0.45,
+            "height": 0.8
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "a",
+          "primaryType": "scientific_component_region",
+          "parentId": "panel1",
+          "box": {
+            "x": 0.12,
+            "y": 0.3,
+            "width": 0.22,
+            "height": 0.3
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "b",
+          "primaryType": "scientific_component_region",
+          "parentId": "panel2",
+          "box": {
+            "x": 0.64,
+            "y": 0.3,
+            "width": 0.22,
+            "height": 0.3
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "label",
+          "primaryType": "text_region",
+          "parentId": "panel1",
+          "box": {
+            "x": 0.12,
+            "y": 0.15,
+            "width": 0.22,
+            "height": 0.08
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "leader",
+          "primaryType": "diagram_connector_region",
+          "parentId": "panel1",
+          "box": {
+            "x": 0.22,
+            "y": 0.23,
+            "width": 0.015,
+            "height": 0.07
+          },
+          "locationStatus": "verified_frame"
+        }
+      ],
+      "expected": {
+        "schemaVersion": 1,
+        "elements": [
+          {
+            "regionId": "diagram",
+            "kind": "diagram",
+            "visualRole": "unknown",
+            "uncertain": true
+          },
+          {
+            "regionId": "panel1",
+            "kind": "region_group",
+            "visualRole": "panel",
+            "uncertain": true
+          },
+          {
+            "regionId": "panel2",
+            "kind": "region_group",
+            "visualRole": "panel",
+            "uncertain": true
+          },
+          {
+            "regionId": "a",
+            "kind": "component",
+            "visualRole": "labelled_object",
+            "uncertain": true
+          },
+          {
+            "regionId": "b",
+            "kind": "component",
+            "visualRole": "unknown",
+            "uncertain": true
+          },
+          {
+            "regionId": "label",
+            "kind": "label",
+            "visualRole": "unknown",
+            "uncertain": true
+          },
+          {
+            "regionId": "leader",
+            "kind": "connector",
+            "visualRole": "unknown",
+            "uncertain": true
+          }
+        ],
+        "relationships": [],
+        "labelAssociations": [
+          {
+            "labelRegionId": "label",
+            "targetRegionIds": [
+              "a"
+            ],
+            "basis": "leader_line",
+            "connectorRegionId": "leader"
+          }
+        ],
+        "warnings": [
+          "multiple_panels"
+        ]
+      },
+      "expectedElementIds": [
+        "diagram",
+        "panel1",
+        "panel2",
+        "a",
+        "b",
+        "label",
+        "leader"
+      ],
+      "expectedRelationshipPairs": [],
+      "ocrText": "Component A",
+      "synthetic": true
+    },
+    {
+      "id": "overlapping-arrows",
+      "file": "overlapping-arrows.png",
+      "regions": [
+        {
+          "id": "diagram",
+          "primaryType": "scientific_diagram_region",
+          "parentId": null,
+          "box": {
+            "x": 0,
+            "y": 0,
+            "width": 1,
+            "height": 1
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "a",
+          "primaryType": "scientific_component_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.12,
+            "y": 0.3,
+            "width": 0.22,
+            "height": 0.3
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "b",
+          "primaryType": "scientific_component_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.64,
+            "y": 0.3,
+            "width": 0.22,
+            "height": 0.3
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "label",
+          "primaryType": "text_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.12,
+            "y": 0.15,
+            "width": 0.22,
+            "height": 0.08
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "leader",
+          "primaryType": "diagram_connector_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.22,
+            "y": 0.23,
+            "width": 0.015,
+            "height": 0.07
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "arrow",
+          "primaryType": "diagram_arrow_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.34,
+            "y": 0.43,
+            "width": 0.3,
+            "height": 0.04
+          },
+          "locationStatus": "verified_frame"
+        }
+      ],
+      "expected": {
+        "schemaVersion": 1,
+        "elements": [
+          {
+            "regionId": "diagram",
+            "kind": "diagram",
+            "visualRole": "unknown",
+            "uncertain": true
+          },
+          {
+            "regionId": "a",
+            "kind": "component",
+            "visualRole": "labelled_object",
+            "uncertain": true
+          },
+          {
+            "regionId": "b",
+            "kind": "component",
+            "visualRole": "unknown",
+            "uncertain": true
+          },
+          {
+            "regionId": "label",
+            "kind": "label",
+            "visualRole": "unknown",
+            "uncertain": true
+          },
+          {
+            "regionId": "leader",
+            "kind": "connector",
+            "visualRole": "unknown",
+            "uncertain": true
+          },
+          {
+            "regionId": "arrow",
+            "kind": "arrow",
+            "visualRole": "unknown",
+            "uncertain": true
+          }
+        ],
+        "relationships": [],
+        "labelAssociations": [
+          {
+            "labelRegionId": "label",
+            "targetRegionIds": [
+              "a"
+            ],
+            "basis": "leader_line",
+            "connectorRegionId": "leader"
+          }
+        ],
+        "warnings": [
+          "overlapping_connectors"
+        ]
+      },
+      "expectedElementIds": [
+        "diagram",
+        "a",
+        "b",
+        "label",
+        "leader",
+        "arrow"
+      ],
+      "expectedRelationshipPairs": [],
+      "ocrText": "Component A",
+      "synthetic": true
+    },
+    {
+      "id": "ambiguous-labels",
+      "file": "ambiguous-labels.png",
+      "regions": [
+        {
+          "id": "diagram",
+          "primaryType": "scientific_diagram_region",
+          "parentId": null,
+          "box": {
+            "x": 0,
+            "y": 0,
+            "width": 1,
+            "height": 1
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "a",
+          "primaryType": "scientific_component_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.12,
+            "y": 0.3,
+            "width": 0.22,
+            "height": 0.3
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "b",
+          "primaryType": "scientific_component_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.64,
+            "y": 0.3,
+            "width": 0.22,
+            "height": 0.3
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "label",
+          "primaryType": "text_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.12,
+            "y": 0.15,
+            "width": 0.22,
+            "height": 0.08
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "leader",
+          "primaryType": "diagram_connector_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.22,
+            "y": 0.23,
+            "width": 0.015,
+            "height": 0.07
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "arrow",
+          "primaryType": "diagram_arrow_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.34,
+            "y": 0.43,
+            "width": 0.3,
+            "height": 0.04
+          },
+          "locationStatus": "verified_frame"
+        }
+      ],
+      "expected": {
+        "schemaVersion": 1,
+        "elements": [
+          {
+            "regionId": "diagram",
+            "kind": "diagram",
+            "visualRole": "unknown",
+            "uncertain": true
+          },
+          {
+            "regionId": "a",
+            "kind": "component",
+            "visualRole": "labelled_object",
+            "uncertain": true
+          },
+          {
+            "regionId": "b",
+            "kind": "component",
+            "visualRole": "unknown",
+            "uncertain": true
+          },
+          {
+            "regionId": "label",
+            "kind": "label",
+            "visualRole": "unknown",
+            "uncertain": true
+          },
+          {
+            "regionId": "leader",
+            "kind": "connector",
+            "visualRole": "unknown",
+            "uncertain": true
+          },
+          {
+            "regionId": "arrow",
+            "kind": "arrow",
+            "visualRole": "unknown",
+            "uncertain": true
+          }
+        ],
+        "relationships": [],
+        "labelAssociations": [
+          {
+            "labelRegionId": "label",
+            "targetRegionIds": [
+              "a",
+              "b"
+            ],
+            "basis": "spatial_proximity",
+            "connectorRegionId": null
+          }
+        ],
+        "warnings": [
+          "ambiguous_labels"
+        ]
+      },
+      "expectedElementIds": [
+        "diagram",
+        "a",
+        "b",
+        "label",
+        "leader",
+        "arrow"
+      ],
+      "expectedRelationshipPairs": [],
+      "ocrText": "Component A",
+      "synthetic": true
+    },
+    {
+      "id": "unreadable-text",
+      "file": "unreadable-text.png",
+      "regions": [
+        {
+          "id": "diagram",
+          "primaryType": "scientific_diagram_region",
+          "parentId": null,
+          "box": {
+            "x": 0,
+            "y": 0,
+            "width": 1,
+            "height": 1
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "a",
+          "primaryType": "scientific_component_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.12,
+            "y": 0.3,
+            "width": 0.22,
+            "height": 0.3
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "b",
+          "primaryType": "scientific_component_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.64,
+            "y": 0.3,
+            "width": 0.22,
+            "height": 0.3
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "label",
+          "primaryType": "text_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.12,
+            "y": 0.15,
+            "width": 0.22,
+            "height": 0.08
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "leader",
+          "primaryType": "diagram_connector_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.22,
+            "y": 0.23,
+            "width": 0.015,
+            "height": 0.07
+          },
+          "locationStatus": "verified_frame"
+        },
+        {
+          "id": "arrow",
+          "primaryType": "diagram_arrow_region",
+          "parentId": "diagram",
+          "box": {
+            "x": 0.34,
+            "y": 0.43,
+            "width": 0.3,
+            "height": 0.04
+          },
+          "locationStatus": "verified_frame"
+        }
+      ],
+      "expected": {
+        "schemaVersion": 1,
+        "elements": [
+          {
+            "regionId": "diagram",
+            "kind": "diagram",
+            "visualRole": "unknown",
+            "uncertain": true
+          },
+          {
+            "regionId": "a",
+            "kind": "component",
+            "visualRole": "labelled_object",
+            "uncertain": true
+          },
+          {
+            "regionId": "b",
+            "kind": "component",
+            "visualRole": "unknown",
+            "uncertain": true
+          },
+          {
+            "regionId": "label",
+            "kind": "label",
+            "visualRole": "unknown",
+            "uncertain": true
+          },
+          {
+            "regionId": "leader",
+            "kind": "connector",
+            "visualRole": "unknown",
+            "uncertain": true
+          },
+          {
+            "regionId": "arrow",
+            "kind": "arrow",
+            "visualRole": "unknown",
+            "uncertain": true
+          }
+        ],
+        "relationships": [],
+        "labelAssociations": [
+          {
+            "labelRegionId": "label",
+            "targetRegionIds": [
+              "a"
+            ],
+            "basis": "leader_line",
+            "connectorRegionId": "leader"
+          }
+        ],
+        "warnings": [
+          "unreadable_labels"
+        ]
+      },
+      "expectedElementIds": [
+        "diagram",
+        "a",
+        "b",
+        "label",
+        "leader",
+        "arrow"
+      ],
+      "expectedRelationshipPairs": [],
+      "ocrText": "",
+      "synthetic": true
+    }
+  ]
+}

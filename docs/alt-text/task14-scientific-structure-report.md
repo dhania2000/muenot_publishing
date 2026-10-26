@@ -1,0 +1,35 @@
+# Task 14 — General scientific diagram structure
+
+Implemented a governed, bounded scientific-structure engine inside the existing image/document inspector. Results describe general visible structure and candidate connections. Scientific identities remain null, scientificAccuracyVerified remains false, and every element, label association and relationship requires review.
+
+## Reuse mapping
+- Existing classification and region service provide diagram eligibility, stable region IDs, hierarchy and the oriented stored-image frame. The existing region taxonomy now includes diagram arrow, connector, group/panel and annotation regions. Existing old region records remain readable; additional structures require a new explicit region-detection request when absent.
+- Existing scope/occurrence checks, private image opening, header/orientation/size checks and actual SHA-256 bind each request to the current authorized image and analysis. Nested scientific, chemical and circuit subfigures are analyzed separately, preserving their parent references.
+- Existing region-scoped OCR and saved human corrections supply literal text with independent source IDs, versions and review states. No new OCR model or label-text generation was introduced. Existing Task 4 relationship hints are retained in the input snapshot and supplied as non-authoritative visual context.
+- Existing tenant model selection and governed vision transport are used. No new AI provider or subject model was installed. Existing generic evidence records, durable advanced-analysis jobs, credit wrapper, receipt checkpoint, replay/reconciliation, cancellation and lease-fenced writes are shared with chart analysis.
+- Existing asset drawer and document-occurrence details sheet gain a collapsible scientific inspector. No sidebar module, new subject tables, Alt Text generator, correction workspace or document mutation.
+
+## Contract and inference boundary
+Elements have stable IDs derived from source analysis+region, parent/panel references, estimated source boxes, literal OCR/correction references, visual role, uncertainty and review status. Supported logical kinds: diagram, component, label, annotation, arrow, connector, region group and unknown. Roles include labelled/repeated objects, internal parts, boundaries/layers, directional annotations, process stages, symbol groups, panels and unknown.
+
+Relationships use a bounded taxonomy: part_of, connected_to, points_to, contains, adjacent_to, direction_of_flow, above/below, left/right, before/after and unknown. Containment requires actual region hierarchy; relative-position claims must agree with disjoint boxes. Connections remain unverified visual observations. Before/after requires a diagram-convention basis and remains a candidate, never established chronology or scientific causality.
+
+Flow/points-to requires an existing arrow region and a model-reported visible arrowhead at the target. Arrowless, unclear, reversed or bidirectional connector evidence cannot produce a directed flow claim. Exact arrow endpoints are unsupported. Cross-panel components, labels and connectors cannot be merged; legitimate hierarchy containment is retained.
+
+Labels reference existing text regions and candidate component IDs, association basis and any existing leader/arrow connector. Leader/arrow references must have compatible element kinds and panel identity. Spatial proximity cannot choose a single target; multiple candidates remain uncertain. OCR text is not proof of organ, molecule, species, disease, device, function or other scientific identity.
+
+Provider JSON has exact bounded keys/arrays/enums. Invented IDs, duplicate nodes/relationships, additional names/confidence fields, incompatible element roles, self-links and unsupported connections are rejected. Stable relationship IDs use canonical tuples rather than provider object-key order. Unreadable text remains absent/flagged. Image/OCR/correction text is untrusted data and is never executed.
+
+## Settings, execution and UI
+The existing scientific components, labels, directions, structure and subject preferences are captured server-side and rechecked before a paid delivery. Platform advanced-analysis disable, current authorized model, user activity and target scopes are enforced. Provider results preserve their receipt before finalization; a prior billed delivery without its saved receipt goes to administrator reconciliation rather than an automatic second provider call.
+
+A compact image/inspector layout shows estimated component boxes, selected element, literal labels with source/review references, candidate relationships, warnings and selectable analysis history. Opening or browsing saved evidence never starts paid processing. A separate explicit confirmation explains crop/OCR transmission and possible credit usage. Current source digest and analysis identity are checked on saved reads; historical mismatches hide overlays. Review warnings remain visible regardless of optional preferences.
+
+## Verification
+- Broad Alt Text suite: 828 passed, 12 unchanged baseline failures, 3 skipped (843 total). Task 14 adds 31 checks for bounded schema, typed IDs, arrowless/ambiguous directions, label ambiguity, hierarchy, panel separation, stable IDs, source text preservation, settings, tenant/occurrence/update restrictions, changed-source overlays, route gates and shared paid-job behavior.
+- TypeScript and final production webpack build pass, with standalone static assets prepared.
+- 12 rendered generic synthetic structure schematics cover cell/organ contexts, mechanical assembly, optics, circuit, water cycle, layers, plant, comparative panels, overlapping arrows, ambiguous labels and unreadable text. Supplied node IDs and relationship triples match their explicit fixture ground truth in all 12 cases. These are contract/association tests using supplied region/model outputs, not measured live-vision recognition, OCR, localization or scientific accuracy. No domain accuracy metric is claimed.
+- Actual component browser test against synthetic API data: zero POSTs on mount, selection, tab change or opening the confirmation; exactly one synthetic POST after explicit confirmation. Preview/selected component/candidate relationship and unverified status render correctly. Screenshot: task14-scientific-inspector.png.
+
+## Limits and Task 15 dependencies
+No authenticated tenant/database, real MySQL migration or transaction-race run, paid vision call or Hostinger runtime was available. No production merge/deploy performed. Detection depends on the configured provider and existing eligible regions; dense/overlapping or missing structures remain unknown and require region detection/review. Generic schematics do not establish real-science recognition performance. No molecule, organ, electrical identity, scientific law, experiment reading or biological function is established. Task 15 should reuse these source-bound components, literal labels, equations and relations while preserving the separation between transcription, visual hints, domain inference and human verification.
