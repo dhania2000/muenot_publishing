@@ -27,8 +27,8 @@ export async function authorizeAdvancedAsset(assetId:number,occurrenceId:number|
  if(edit&&!withinScope(actor.updateScope,actor.userId,asset))throw new AdvancedEvidenceError(403,"FORBIDDEN","You cannot analyze this image.")
  return asset
 }
-export async function advancedRegionSource(assetId:number,request:AdvancedRegionRequest,actor:HistoryActor,allowedTypes:ImageRegion["primaryType"][]){
- await authorizeAdvancedAsset(assetId,request.occurrenceId,actor,true)
+export async function advancedRegionSource(assetId:number,request:AdvancedRegionRequest,actor:HistoryActor,allowedTypes:ImageRegion["primaryType"][],edit=true){
+ await authorizeAdvancedAsset(assetId,request.occurrenceId,actor,edit)
  const row=await getLatestRegionAnalysis(assetId,request.occurrenceId),analysis=row?toAnalysisView(row):null,region=analysis?.regions.find((r)=>r.id===request.regionId)
  if(!analysis||analysis.analysisId!==request.analysisId||!region||!allowedTypes.includes(region.primaryType))throw new AdvancedEvidenceError(409,"REGION_CHANGED","Choose a current eligible region before starting analysis.")
  const image=await openAltTextImage(assetId,{tenantId:currentTenantId(),userId:actor.userId,scope:actor.viewScope})

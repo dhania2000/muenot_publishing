@@ -1,4 +1,5 @@
 "use client"
+import {ChartDataSection} from "./chart-data-panel"
 import {useRef,useState} from "react"
 import useSWR from "swr"
 import {Button} from "@/components/ui/button"
@@ -35,6 +36,7 @@ export function ChartAxisPanel({assetId,occurrenceId,parentId}:{assetId:number;o
    {view==="Scale"&&(axis?<><p>{axis.scale.kind.replaceAll("_"," ")} · {axis.scale.direction.replaceAll("_"," ")} · unit: {axis.unit??"not identified"}</p><p>Pixel extraction enabled: No. A zero baseline is never assumed.</p><div className="max-h-44 overflow-auto"><table className="w-full text-left"><caption className="text-left font-medium">Observed reviewed ticks</caption><thead><tr><th className="p-1">Source label</th><th>Interpreted value</th></tr></thead><tbody>{axis.ticks.map((t)=><tr key={t.labelId} className="border-t"><td className="p-1">{t.text}</td><td>{t.scalar.kind==="date"||t.scalar.kind==="time"?t.text:t.scalar.value??"not numeric"}</td></tr>)}</tbody></table></div><details><summary>Scale fit and source positions</summary><pre className="max-h-44 overflow-auto whitespace-pre-wrap break-all">{JSON.stringify({ticks:axis.ticks,model:axis.scale.model},null,2)}</pre></details>{[...axis.warnings,...axis.scale.warnings].map((w,n)=><p key={n}>{w}</p>)}</>:<p>No supported visible axis references were available.</p>)}
    {view==="Legend"&&<>{result.legends.length?result.legends.map((l)=><div key={l.regionId}><p>Legend region {l.regionId}</p>{l.entries.map((e)=><p key={e.labelId}>{e.text} · series/color association unverified</p>)}</div>):<p>No reviewed legend evidence.</p>}</>}
    {view==="Warnings"&&<ul className="list-disc space-y-1 pl-4">{result.warnings.map((w,n)=><li key={n}>{w}</li>)}</ul>}
+   <ChartDataSection key={latest!.id} assetId={assetId} occurrenceId={occurrenceId} chartId={parentId} axesId={latest!.id}/>
    {view==="History"&&data.results.map((r)=><details key={r.id} className="rounded border p-2"><summary>Version {r.version} · {r.status} · {r.createdAt}</summary><pre className="max-h-44 overflow-auto whitespace-pre-wrap break-all">{r.result?JSON.stringify(r.result,null,2):r.errorCode??"Processing has not produced a result."}</pre></details>)}
   </>}
  </div>

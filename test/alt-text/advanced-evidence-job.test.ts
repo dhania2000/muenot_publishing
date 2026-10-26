@@ -1,6 +1,6 @@
 import {beforeEach,it,expect,vi} from "vitest"
 import type {BackgroundJob} from "@/lib/background-jobs"
-const d=vi.hoisted(()=>({query:vi.fn(),work:vi.fn(),write:vi.fn(),cancel:vi.fn(),policy:vi.fn(),authorize:vi.fn(),source:vi.fn(),support:vi.fn(),meter:vi.fn(),vision:vi.fn(),axes:vi.fn()}))
+const d=vi.hoisted(()=>({query:vi.fn(),work:vi.fn(),write:vi.fn(),cancel:vi.fn(),policy:vi.fn(),authorize:vi.fn(),source:vi.fn(),support:vi.fn(),meter:vi.fn(),vision:vi.fn(),axes:vi.fn(),data:vi.fn()}))
 vi.mock("@/lib/db",()=>({query:d.query}))
 vi.mock("@/lib/background-jobs",()=>({isBackgroundJobCancelRequested:d.cancel}))
 vi.mock("@/lib/permission-store",()=>({getScope:async()=>"all"}))
@@ -11,6 +11,7 @@ vi.mock("@/lib/alt-text/vision-service",()=>({analyzeVisionEvidence:d.vision}))
 vi.mock("@/lib/alt-text/credit-service",()=>({estimateVisionReservation:()=>({promptChars:1}),runMeteredVisionCall:d.meter}))
 vi.mock("@/lib/alt-text/region-image-crop",()=>({cropRegionImage:async()=>new Uint8Array([1])}))
 vi.mock("@/lib/alt-text/chart-axis-job",()=>({runChartAxisDelivery:d.axes}))
+vi.mock("@/lib/alt-text/chart-data-job",()=>({runChartDataDelivery:d.data}))
 const {runAdvancedEvidenceJob}=await import("@/lib/alt-text/advanced-evidence-job")
 const {chartPrompt}=await import("@/lib/alt-text/chart-contract")
 const source={analysisId:"rga_12345678",regionId:"rgn_12345678",sourceSha256:"sha",normalizedBox:{x:0,y:0,width:1,height:1},pixelBox:{left:0,top:0,width:600,height:400}}
@@ -32,3 +33,5 @@ it("does not start vision after user cancellation or revoked policy",async()=>{d
 it("routes local axis interpretation without model selection, metering or vision",async()=>{
  d.work.mockResolvedValue({row:{status:"queued"},input:{...input,kind:"chart_axes"}});d.axes.mockResolvedValue({status:"completed"});await run();expect(d.axes).toHaveBeenCalledOnce();expect(d.policy).not.toHaveBeenCalled();expect(d.meter).not.toHaveBeenCalled();expect(d.vision).not.toHaveBeenCalled()
 })
+
+it("routes local chart data without metering or provider calls",async()=>{d.work.mockResolvedValue({row:{status:"queued"},input:{...input,kind:"chart_data"}});d.data.mockResolvedValue({status:"completed"});await run();expect(d.data).toHaveBeenCalledOnce();expect(d.policy).not.toHaveBeenCalled();expect(d.meter).not.toHaveBeenCalled();expect(d.vision).not.toHaveBeenCalled()})

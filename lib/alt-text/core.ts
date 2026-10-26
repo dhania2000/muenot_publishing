@@ -694,7 +694,7 @@ const EXPORT_COLUMNS: (keyof ExportRow)[] = ["id", "fileName", "project", "langu
 function csvCell(v: unknown): string {
   let s = v === null || v === undefined ? "" : String(v)
   // Neutralise spreadsheet formula injection.
-  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`
+  if (/^[\s\uFEFF]*[=+\-@]/u.test(s) || /^[\t\r]/.test(s)) s = `'${s}`
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
 }
 

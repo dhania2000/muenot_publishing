@@ -1,0 +1,6 @@
+import {toCsv} from "./core"
+import type {ChartDataResult} from "./chart-data-contract"
+export function chartDataCsv(result:ChartDataResult,analysisVersion:number){
+ const rows=result.points.map((p)=>({chart_id:result.chartRegionId,analysis_version:analysisVersion,axes_evidence_id:result.parentAxesEvidenceId,axes_version:result.parentAxesVersion,source_sha256:result.sourceSha256,point_id:p.id,series:p.seriesName??"",category:p.category??"",axis_id:p.axisId??"",source_text:p.sourceText,value:p.value??"",candidate_value:p.candidateValue,unit:p.unit??"",classification:p.classification,review_state:p.reviewState,review_id:p.reviewReference?.id??"",review_version:p.reviewReference?.version??"",ocr_review_id:p.sourceReview.id,ocr_review_version:p.sourceReview.version,label_box:JSON.stringify(p.labelBox),visual_mark:"unknown",method:result.method,rounding:p.precision.rounding,dataset_approved:false,warnings:[...result.warnings,...p.warnings].join(" | ")}))
+ return toCsv(rows,{bom:true,columns:["chart_id","analysis_version","axes_evidence_id","axes_version","source_sha256","point_id","series","category","axis_id","source_text","value","candidate_value","unit","classification","review_state","review_id","review_version","ocr_review_id","ocr_review_version","label_box","visual_mark","method","rounding","dataset_approved","warnings"]})
+}

@@ -33,6 +33,10 @@ export async function runAdvancedEvidenceJob(payload:AdvancedAnalysisJobPayload,
    const role=users[0].role==="admin"?"admin":"employee"
    const [viewScope,updateScope]=await Promise.all([getScope(input.actorId,role,"publishing.alt_text","view"),getScope(input.actorId,role,"publishing.alt_text","update")]),actor={userId:input.actorId,viewScope,updateScope}
    await authorizeAdvancedAsset(input.assetId,input.occurrenceId,actor,true)
+   if(input.kind==="chart_data"){
+    const {runChartDataDelivery}=await import("./chart-data-job")
+    return await runChartDataDelivery(input,job,payload.evidenceId,actor,guard)
+   }
    if(input.kind==="chart_axes"){
     const {runChartAxisDelivery}=await import("./chart-axis-job")
     return await runChartAxisDelivery(input,job,payload.evidenceId,actor,guard)
