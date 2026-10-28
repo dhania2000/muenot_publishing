@@ -1,4 +1,5 @@
 "use client"
+import {ScientificDomainSection} from "./scientific-domain-panel"
 import {useRef,useState} from "react"
 import useSWR from "swr"
 import {Button} from "@/components/ui/button"
@@ -41,6 +42,7 @@ export function ScientificStructurePanel({assetId,occurrenceId=null}:{assetId:nu
      {tab==="Warnings"&&result.warnings.map((w,i)=><p key={i}>{w}</p>)}
     </div>
    </div>
+   <ScientificDomainSection key={record!.id} assetId={assetId} occurrenceId={occurrenceId} parentId={record!.id} onSelectElement={setElement}/>
    <p className="break-all text-muted-foreground">{result.modelId} · {result.createdAt} · original document unchanged</p>
   </>}
  </section>

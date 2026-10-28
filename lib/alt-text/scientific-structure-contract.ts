@@ -1,7 +1,7 @@
 import type {ImageRegion,NormalizedBox,RegionRelationship} from "./region-analysis"
 import type {ChartStructureResult} from "./chart-contract"
 import type {MathCrop} from "./math-contract"
-export const SCIENCE_ROOT_TYPES=["scientific_diagram_region","chemical_structure_region","circuit_region"] as const
+export const SCIENCE_ROOT_TYPES=["scientific_diagram_region","chemical_structure_region","circuit_region","geometry_region"] as const
 export const SCIENCE_ELEMENT_KINDS=["diagram","component","label","annotation","arrow","connector","region_group","unknown"] as const
 export const SCIENCE_VISUAL_ROLES=["labelled_object","repeated_component","internal_part","boundary","layer","directional_annotation","process_stage","symbol_group","panel","unknown"] as const
 export const SCIENCE_RELATIONS=["part_of","connected_to","points_to","contains","adjacent_to","direction_of_flow","above","below","left_of","right_of","before","after","unknown"] as const

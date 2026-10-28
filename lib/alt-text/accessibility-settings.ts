@@ -51,6 +51,7 @@ export const ACCESSIBILITY_CAPABILITIES = {
   chart_axes: {label:"Chart axes, labels and scales",dependency:"Uses reviewer-verified OCR and existing chart regions. Geometry and scale fits remain candidates."},
   chart_data_extraction: { label: "Graph data extraction", dependency: "Local reviewed visible data labels only. Native chart data and image digitization are unsupported; reviewer confirmation and source provenance are required." },
   scientific_diagram_analysis: { label: "Scientific diagram analysis", dependency: "Governed vision of existing diagram/component regions, OCR references and tentative visual relationships. No subject identity or scientific accuracy is verified." },
+  scientific_domain_analysis: {label:"Scientific subject evidence",dependency:"Bounded chemistry, physics, biology and geometry candidates with original notation and source references. No chemical validity, simulation, diagnosis or proof."},
   flowchart_analysis: { label: "Flowchart analysis", dependency: "No dedicated flowchart analyzer is installed yet." },
   table_image_analysis: { label: "Table-as-image analysis", dependency: "No table structure recognizer is installed yet." },
   map_geometry_analysis: { label: "Map and geometry analysis", dependency: "No map or geometry analyzer is installed yet." },
@@ -90,6 +91,7 @@ const RUNTIME_REQUIREMENTS: Partial<Record<CapabilityId, (b: AccessibilityBacken
     b.visionModelAvailable === true ? null : b.visionModelAvailable === false ? "No approved vision-capable model is available to this tenant." : "Vision model availability could not be verified.",
   auto_classification: (b) => (b.visionModelAvailable === true ? null : "Requires an available vision model."),
   region_detection: (b) => (b.visionModelAvailable === true ? null : "Requires an available vision model."),
+  scientific_domain_analysis: (b) => b.visionModelAvailable===true?null:"Requires an authorized, configured vision model.",
   scientific_diagram_analysis: (b) => b.visionModelAvailable===true?null:"Requires an authorized, configured vision model.",
   chart_analysis: (b) => b.visionModelAvailable===true?null:"Requires an authorized, configured vision model.",
   ocr: (b) => (b.ocrLanguagePacks.length ? null : (b.ocrIssue ?? "No OCR language pack is installed.")),
@@ -353,7 +355,7 @@ export const ACCESSIBILITY_SCHEMA = {
   science: {
     title: "Scientific Diagrams",
     description: "Subjects, notation preservation and review rules for complex scientific images.",
-    capabilities: ["scientific_diagram_analysis", "flowchart_analysis", "table_image_analysis", "map_geometry_analysis"],
+    capabilities: ["scientific_diagram_analysis", "scientific_domain_analysis", "flowchart_analysis", "table_image_analysis", "map_geometry_analysis"],
     fields: [
       {
         kind: "multi",

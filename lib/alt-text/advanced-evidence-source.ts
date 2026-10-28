@@ -41,7 +41,7 @@ export async function advancedRegionSource(assetId:number,request:AdvancedRegion
  const included=new Set([region.id]),traversable=new Set([region.id])
  for(let depth=0;depth<5;depth++)for(const child of analysis.regions)if(child.parentId&&traversable.has(child.parentId)){
   included.add(child.id)
-  if(child.primaryType!=="graph_region"&&!["scientific_diagram_region","chemical_structure_region","circuit_region"].includes(child.primaryType))traversable.add(child.id)
+  if(child.primaryType!=="graph_region"&&!["scientific_diagram_region","chemical_structure_region","circuit_region","geometry_region"].includes(child.primaryType))traversable.add(child.id)
  }
  // An attached label/caption may sit outside the chart crop. It remains a referenced region and
  // is never presented as a confirmed title or label without review.

@@ -1,4 +1,5 @@
 import "server-only"
+import {isDeepStrictEqual as evidenceEqual} from "node:util"
 import {cropRegionImage} from "./region-image-crop"
 import {query} from "@/lib/db"
 import {runForTenant} from "@/lib/tenant-scope"
@@ -30,7 +31,7 @@ export async function runMathRecognitionJob(payload:MathRecognitionJobPayload,{j
    const {input}=work
    if(input.modelFingerprint!==JSON.stringify(MATH_MODEL))throw new MathRequestError(409,"MATH_MODEL_CHANGED","The model version changed. Submit a new recognition request.")
    const current=await resolveEquationSource(input.assetId,input.occurrenceId,input.request,{userId:input.actorId,tenantId:job.tenant_id,scope:"all"})
-   if(JSON.stringify(current.source)!==JSON.stringify(input.source))throw new MathRequestError(409,"MATH_SOURCE_CHANGED","Source image or region changed after submission.")
+   if(!evidenceEqual(current.source,input.source))throw new MathRequestError(409,"MATH_SOURCE_CHANGED","Source image or region changed after submission.")
    await writeMathState(job,payload.evidenceId,"recognizing")
    const png=await cropEquationImage(current.bytes,current.source.pixelBox)
    await guard()

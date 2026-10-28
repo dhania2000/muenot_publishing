@@ -1,4 +1,5 @@
 import "server-only"
+import {isDeepStrictEqual as evidenceEqual} from "node:util"
 import {getSettingsRecord} from "./store"
 import {resolveEffectiveAccessibilitySettings} from "./accessibility-settings"
 import {getCompletedAdvancedEvidence,listAdvancedEvidence,enqueueAdvancedEvidence} from "./advanced-evidence-store"
@@ -18,7 +19,7 @@ export async function authorizedChartDataParent(assetId:number,occurrenceId:numb
 }
 export async function assertChartDataCurrent(parent:ChartDataParent,actor:HistoryActor,edit=true){
  const chart=parent.chart.result,source=await advancedRegionSource(chart.assetId,{requestId:"source_check",occurrenceId:chart.occurrenceId,analysisId:chart.regionAnalysisId,regionId:chart.chartRegionId,reprocess:false},actor,["graph_region"],edit)
- if(JSON.stringify(source.source)!==JSON.stringify(chart.source)||JSON.stringify(await loadReviewedChartLabels(chart))!==JSON.stringify(parent.axes.result.labels))throw new AdvancedEvidenceError(409,"SOURCE_CHANGED","Image, regions or reviewed OCR changed. Refresh chart and axis evidence.")
+ if(!evidenceEqual(source.source,chart.source)||!evidenceEqual(await loadReviewedChartLabels(chart),parent.axes.result.labels))throw new AdvancedEvidenceError(409,"SOURCE_CHANGED","Image, regions or reviewed OCR changed. Refresh chart and axis evidence.")
  return source
 }
 export async function chartDataPolicy(){const policy=await chartAxisPolicy(),record=await getSettingsRecord(),resolved=resolveEffectiveAccessibilitySettings({storedAccessibility:record.accessibility,tenant:record.settings,revision:record.revision,backend:{implemented:["chart_data_extraction"],visionModelAvailable:null,ocrLanguagePacks:[],disabledByPolicy:[]}}),enabled=policy.enabled&&policy.options.dataLabels&&resolved.effective.graphs.dataExtraction===true;return {enabled,trendsEnabled:resolved.effective.graphs.trendDescription===true,reason:policy.reason??(!enabled?"Enable data extraction and data-label interpretation in Accessibility Settings.":null)}}
