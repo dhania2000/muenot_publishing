@@ -79,6 +79,8 @@ export function parseGenerateRequest(body: unknown): { ok: true; value: Generate
   if (b.settings !== undefined && (typeof b.settings !== "object" || b.settings === null || Array.isArray(b.settings))) {
     return fail(400, "INVALID_SETTINGS", "Settings must be an object.")
   }
+  const requestedLanguage=(b.settings as Record<string,unknown>|undefined)?.outputLanguage
+  if(requestedLanguage!==undefined&&!['en','hi'].includes(String(requestedLanguage)))return fail(400,"UNSUPPORTED_LANGUAGE","Alt Text prose currently supports English and Hindi only. OCR recognition language is selected separately.")
   const settings = normalizeGenerationSettings(b.settings)
   const errors = validateGenerationSettings(settings)
   if (Object.keys(errors).length) return fail(400, "INVALID_SETTINGS", "Generation settings are invalid.", { fields: errors })
@@ -253,6 +255,7 @@ export async function generateAltTextForAsset(
     evidence: advancedEvidence?.items.map(({ id, version, kind, state }) => ({ id, version, kind, state })) ?? [],
     outputLanguage: req.settings.outputLanguage, provider: vision.provider, generatedAt: new Date().toISOString(),
     guidelineVersion: null, reviewStatus: "needs_review", warnings: output.warnings, treatment: output.treatment,
+    ...(output.terminologyReview?{terminology:output.terminologyReview}:{}),
     ...(document?.packet ? {documentContext:{documentId:document.documentId,occurrenceId:document.imageOccurrenceId,contextVersion:document.contextVersion,source:document.packet.source,fingerprint:createHash("sha256").update(JSON.stringify(document.packet)).digest("hex"),references:document.packet.snippets.map(s=>({id:s.id,sourceKind:s.sourceKind,sourceRef:s.sourceRef,duplicates:s.duplicateReferences})),policy:document.packet.policy}} : {}),
   }
   let saved: boolean

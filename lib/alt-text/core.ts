@@ -7,6 +7,8 @@
 import { documentContextRules, formatDocumentContextBlock, type DocumentPromptContext } from "./document-prompt"
 import type { AutomatedClassification } from "./classification"
 import { DESCRIPTION_EVIDENCE_RULES, formatDescriptionEvidence } from "./description-evidence"
+import { boundText } from "./document-context"
+import { TERMINOLOGY_PROMPT_RULES } from "./terminology-policy"
 
 export const IMAGE_CLASSIFICATIONS = [
   "photograph",
@@ -196,7 +198,7 @@ const pick = <T extends string>(map: Record<T, unknown>, v: unknown, fallback: T
 export function normalizeGenerationSettings(input: unknown): GenerationSettings {
   const s = (input && typeof input === "object" ? input : {}) as Record<string, unknown>
   const d = DEFAULT_GENERATION_SETTINGS
-  const text = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : "")
+  const text = (v: unknown, max: number) => (typeof v === "string" ? boundText(v.trim(),max).text : "")
   return {
     imageType: pick(GENERATION_IMAGE_TYPES, s.imageType, d.imageType),
     imagePurpose: pick(GENERATION_PURPOSES, s.imagePurpose, d.imagePurpose),
@@ -385,7 +387,7 @@ export type PromptInput = {
 }
 
 /** Strips characters that could close the untrusted-data fence early. */
-const fence = (s: string, max: number) => s.replace(/"""/g, "”””").trim().slice(0, max)
+const fence = (s: string, max: number) => boundText(s.replace(/"""/g, "”””").trim(),max).text
 
 const CLASSIFICATION_GUIDANCE: Record<Exclude<ImageClassification, "functional">, string> = {
   photograph: "photograph — describe the subject and the details that matter in context, not every visual element.",
@@ -493,6 +495,7 @@ export function buildPrompt(input: PromptInput) {
     `Type-specific rules:\n- ${Object.values(CLASSIFICATION_GUIDANCE).join("\n- ")}`,
     subjectRule ?? "",
     "Scientific and technical content: preserve important visible text and labels, describe relevant spatial relationships, never invent unreadable labels or missing measurements, and add a warning for every ambiguous scientific detail that needs human review.",
+    TERMINOLOGY_PROMPT_RULES,
     PURPOSE_RULES[purpose],
     `purpose: report the purpose you applied as one of: ${Object.keys(GENERATION_PURPOSES).join(", ")}.`,
     `shortAlt: conveys the purpose of the image in context. Aim for about ${base.shortMaxChars} characters; this is an editorial preference, not a WCAG limit. If essential meaning (an equation, a key label, a critical value) cannot fit, keep it complete and move secondary detail to longDescription. Never cut an equation or label mid-way. Never start with "image of", "picture of" or "this is an image".`,
@@ -525,6 +528,7 @@ export function buildPrompt(input: PromptInput) {
 }
 
 export type AltTextResult = {
+  terminologyReview?: {policy:import("./terminology-policy").TerminologyPolicy;issues:import("./terminology-policy").TerminologyIssue[]}
   /** Server-only audit snapshot. Never parsed from provider output or returned by asset history. */
   documentContextSnapshot?: import("./document-context-packet").DocumentContextPacket
   generationEvidence?: import("./description-evidence").GenerationEvidenceMetadata
@@ -609,6 +613,7 @@ export function parseAiOutput(text: string, shortMaxChars: number, opts: ParseAi
     const v = obj[key]
     if (v === undefined || v === null) return ""
     if (typeof v !== "string") throw new AltTextOutputError(`AI response field "${key}" must be a string`, "invalid_type", key)
+    if (!v.isWellFormed()) throw new AltTextOutputError(`AI response field "${key}" contains malformed Unicode`, "invalid_type", key)
     const s = cleanText(v)
     if (s.length > max) throw new AltTextOutputError(`AI response field "${key}" exceeds ${max.toLocaleString()} characters`, "field_too_long", key)
     return s
@@ -620,6 +625,7 @@ export function parseAiOutput(text: string, shortMaxChars: number, opts: ParseAi
   const warnings: string[] = []
   for (const w of (obj.warnings as unknown[] | undefined) ?? []) {
     if (typeof w !== "string") throw new AltTextOutputError('AI response field "warnings" must contain only strings', "invalid_type", "warnings")
+    if (!w.isWellFormed()) throw new AltTextOutputError('AI response warnings contain malformed Unicode', "invalid_type", "warnings")
     const s = cleanText(w)
     if (s.length > MAX_FIELD.warning) throw new AltTextOutputError("An AI warning is too long", "field_too_long", "warnings")
     if (s) warnings.push(s)

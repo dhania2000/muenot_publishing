@@ -195,7 +195,7 @@ export function AltTextWorkspace() {
     if (!savedAsset || !saved) return
     setSaving(true)
     setSaveError(null)
-    const r = await saveAltTextEdit(savedAsset.id, { expectedVersion: saved.version, ...(useCandidate && output ? { shortAlt: output.result.shortAlt, longDescription: output.result.longDescription, ...drafts.current } : drafts.current) })
+    const r = await saveAltTextEdit(savedAsset.id, { expectedVersion: saved.version,outputLanguage:useCandidate&&output?output.language:settings.outputLanguage, ...(useCandidate && output ? { shortAlt: output.result.shortAlt, longDescription: output.result.longDescription, ...drafts.current } : drafts.current) })
     setSaving(false)
     if (!r.ok) {
       setSaveError(

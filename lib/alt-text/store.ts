@@ -584,7 +584,7 @@ export async function saveGeneration(
       : ""
     const [res] = await conn.query<ResultSetHeader>(
       `UPDATE alt_text_assets SET status = ?, classification = ?, short_alt = ?, long_description = ?, extracted_text = ?, warnings = ?, treatment = ?,
-         model_id = ?, credits_used = credits_used + ?, current_version = GREATEST(current_version + 1, COALESCE((SELECT MAX(v.version) + 1 FROM alt_text_versions v WHERE v.tenant_id = alt_text_assets.tenant_id AND v.asset_id = alt_text_assets.id), 1)), approved_at = ?, reviewed_by = NULL, error_message = NULL, error_code = NULL${classificationSet}
+         model_id = ?, credits_used = credits_used + ?, language = COALESCE(?, language), current_version = GREATEST(current_version + 1, COALESCE((SELECT MAX(v.version) + 1 FROM alt_text_versions v WHERE v.tenant_id = alt_text_assets.tenant_id AND v.asset_id = alt_text_assets.id), 1)), approved_at = ?, reviewed_by = NULL, error_message = NULL, error_code = NULL${classificationSet}
        WHERE tenant_id = ? AND id = ?${claimGuard}`,
       [
         requireReview ? "in_review" : "approved",
@@ -596,6 +596,7 @@ export async function saveGeneration(
         result.treatment.slice(0, 500),
         modelId,
         credits,
+        result.generationEvidence?.outputLanguage ?? null,
         requireReview ? null : new Date(),
         ...(automated ? [automated.schemaVersion, JSON.stringify(automated)] : []),
         tenantId,
@@ -681,6 +682,7 @@ export async function editAsset(
   edit: { classification: string; shortAlt: string; longDescription: string; extractedText: string },
   actorId: number,
   expectedVersion?: number,
+  audit?: {language:"en"|"hi";warnings:string[];note:string},
 ): Promise<AssetRow | null | "busy" | "conflict"> {
   const current = await getAsset(id)
   if (!current) return null
@@ -691,16 +693,16 @@ export async function editAsset(
   const saved = await withTransaction(async (conn) => {
     const [res] = await conn.query<ResultSetHeader>(
       `UPDATE alt_text_assets SET classification = ?, short_alt = ?, long_description = ?, extracted_text = ?, current_version = GREATEST(current_version + 1, COALESCE((SELECT MAX(v.version) + 1 FROM alt_text_versions v WHERE v.tenant_id = alt_text_assets.tenant_id AND v.asset_id = alt_text_assets.id), 1)),
-         status = CASE WHEN status IN ('approved','rejected','failed','uploaded') THEN 'in_review' ELSE status END, approved_at = NULL, reviewed_by = NULL
+         status = CASE WHEN status IN ('approved','rejected','failed','uploaded') THEN 'in_review' ELSE status END, approved_at = NULL, reviewed_by = NULL, language = COALESCE(?,language), warnings = COALESCE(?,warnings)
        WHERE tenant_id = ? AND id = ? AND status <> 'processing'${versionGuard}`,
-      [edit.classification, edit.shortAlt, edit.longDescription, edit.extractedText, tenantId, id, ...(expectedVersion === undefined ? [] : [expectedVersion])],
+      [edit.classification, edit.shortAlt, edit.longDescription, edit.extractedText, audit?.language??null, audit?JSON.stringify(audit.warnings):null, tenantId, id, ...(expectedVersion === undefined ? [] : [expectedVersion])],
     )
     if (!res.affectedRows) return false
     const [rows] = await conn.query<RowDataPacket[]>("SELECT current_version FROM alt_text_assets WHERE tenant_id = ? AND id = ?", [tenantId, id])
     await conn.query(
       `INSERT INTO alt_text_versions (tenant_id, asset_id, version, action, classification, short_alt, long_description, extracted_text, note, model_id, actor_id)
-       VALUES (?, ?, ?, 'edited', ?, ?, ?, ?, NULL, NULL, ?)`,
-      [tenantId, id, Number(rows[0]?.current_version ?? 1), edit.classification, edit.shortAlt, edit.longDescription, edit.extractedText, actorId],
+       VALUES (?, ?, ?, 'edited', ?, ?, ?, ?, ?, NULL, ?)`,
+      [tenantId, id, Number(rows[0]?.current_version ?? 1), edit.classification, edit.shortAlt, edit.longDescription, edit.extractedText, audit?.note.slice(0,500)??null, actorId],
     )
     return true
   })

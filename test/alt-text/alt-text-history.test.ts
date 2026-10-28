@@ -28,13 +28,13 @@ vi.mock("@/lib/alt-text/store", () => ({
     return { items: rows.slice(filter.offset, filter.offset + filter.limit), total }
   }),
   listVersions: vi.fn(async (id: number) => s.versions.filter((v) => v.assetId === id)),
-  editAsset: vi.fn(async (id: number, edit: any, actorId: number, expected?: number) => {
-    s.editCalls.push({ id, edit, actorId, expected })
+  editAsset: vi.fn(async (id: number, edit: any, actorId: number, expected?: number, audit?: any) => {
+    s.editCalls.push({ id, edit, actorId, expected, audit })
     const a = s.assets.find((x) => x.id === id && x.tenantId === s.tenant)
     if (!a) return null
     if (a.status === "processing") return "busy"
     if (expected !== undefined && a.currentVersion !== expected) return "conflict"
-    Object.assign(a, edit, { currentVersion: a.currentVersion + 1 })
+    Object.assign(a, edit, { currentVersion: a.currentVersion + 1 }, audit ? {language:audit.language,warnings:audit.warnings} : {})
     s.versions.unshift({ assetId: id, version: a.currentVersion, action: "edited", ...edit, note: null, modelId: null, actorId, actorName: "Editor", createdAt: "2026-01-02T00:00:00.000Z" })
     return { ...a }
   }),
@@ -149,6 +149,18 @@ describe("GET /api/alt-text/assets/[id]", () => {
 })
 
 describe("PATCH /api/alt-text/assets/[id]", () => {
+  it("keeps an essential over-target equation whole and saves explicit Hindi language for review",async()=>{
+    const value="समीकरण α² + β² = γ²; ".repeat(12),res=await patch("1",{expectedVersion:1,shortAlt:value,outputLanguage:"hi"})
+    const body=await res.json();expect(res.status).toBe(200)
+    expect(body.asset.shortAlt).toBe(value.trim());expect(body.asset.language).toBe("hi")
+    expect(body.asset.warnings.join(" ")).toContain("not a WCAG limit")
+    expect(s.editCalls[0].audit.note).toContain("literal-source.v1")
+  })
+  it("rejects malformed Unicode and unsupported explicit language without saving",async()=>{
+    expect(parseEditRequest({expectedVersion:1,shortAlt:"bad \ud800"})).toMatchObject({ok:false,code:"INVALID_UNICODE"})
+    expect(parseEditRequest({expectedVersion:1,shortAlt:"value",outputLanguage:"fr"})).toMatchObject({ok:false,code:"UNSUPPORTED_LANGUAGE"})
+    expect(s.editCalls).toHaveLength(0)
+  })
   it("saves Short Alt Text and Detailed Description edits as a new version", async () => {
     const res = await patch("1", { expectedVersion: 1, shortAlt: "Edited alt", longDescription: "Edited long" })
     const body = await res.json()
@@ -175,7 +187,7 @@ describe("PATCH /api/alt-text/assets/[id]", () => {
     expect((await blank.json()).code).toBe("ALT_TEXT_REQUIRED")
     const noLong = await patch("2", { expectedVersion: 1, longDescription: "" })
     expect((await noLong.json()).code).toBe("DESCRIPTION_REQUIRED")
-    expect((await patch("1", { expectedVersion: 1, shortAlt: "x".repeat(126) })).status).toBe(422)
+    expect((await patch("1", { expectedVersion: 1, shortAlt: "x".repeat(1001) })).status).toBe(422)
   })
 
   it("returns 409 on a stale expectedVersion or while generating", async () => {

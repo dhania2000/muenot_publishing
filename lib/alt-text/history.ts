@@ -13,6 +13,7 @@ import "server-only"
 import type { PermissionScope } from "@/lib/permission-model"
 import { ASSET_STATUSES, COMPLEX_CLASSIFICATIONS, IMAGE_CLASSIFICATIONS, type ImageClassification } from "./core"
 import { editAsset, getAsset, getSettings, listAssets, listVersions, type AssetRow } from "./store"
+import { terminologyIssues,TERMINOLOGY_RULE_VERSION } from "./terminology-policy"
 
 export type HistoryActor = { userId: number; viewScope: PermissionScope; updateScope?: PermissionScope }
 export type HistoryFailure = { ok: false; status: number; code: string; error: string; details?: Record<string, unknown> }
@@ -61,7 +62,7 @@ export type AltTextVersionList = { success: true; assetId: number; versions: Alt
 export const EDIT_LIMITS = { shortAlt: 1000, longDescription: 20_000, extractedText: 20_000 } as const
 const MAX_SEARCH = 200
 const MAX_PAGE_SIZE = 100
-const EDIT_KEYS = new Set(["shortAlt", "longDescription", "classification", "extractedText", "expectedVersion"])
+const EDIT_KEYS = new Set(["shortAlt", "longDescription", "classification", "extractedText", "expectedVersion", "outputLanguage"])
 
 const fail = (status: number, code: string, error: string, details?: Record<string, unknown>): HistoryFailure => ({
   ok: false,
@@ -219,6 +220,7 @@ export function cleanText(s: string): string {
 }
 
 export type EditRequest = {
+  outputLanguage?: "en" | "hi"
   expectedVersion: number
   shortAlt?: string
   longDescription?: string
@@ -235,9 +237,11 @@ export function parseEditRequest(body: unknown): { ok: true; value: EditRequest 
     return fail(400, "EXPECTED_VERSION_REQUIRED", "expectedVersion (the version you loaded) is required.")
   }
   const value: EditRequest = { expectedVersion: b.expectedVersion }
+  if(b.outputLanguage!==undefined){if(b.outputLanguage!=="en"&&b.outputLanguage!=="hi")return fail(422,"UNSUPPORTED_LANGUAGE","Alt Text output currently supports English and Hindi only.");value.outputLanguage=b.outputLanguage}
   for (const key of ["shortAlt", "longDescription", "extractedText"] as const) {
     if (b[key] === undefined) continue
     if (typeof b[key] !== "string") return fail(400, "INVALID_REQUEST", `${key} must be a string.`, { field: key })
+    if (!(b[key] as string).isWellFormed()) return fail(422,"INVALID_UNICODE",`${key} contains malformed Unicode; paste the original text again.`,{field:key})
     const text = cleanText(b[key] as string)
     if (text.length > EDIT_LIMITS[key]) return fail(422, "FIELD_TOO_LONG", `${key} must be at most ${EDIT_LIMITS[key]} characters.`, { field: key })
     value[key] = text
@@ -248,7 +252,7 @@ export function parseEditRequest(body: unknown): { ok: true; value: EditRequest 
     }
     value.classification = b.classification as ImageClassification
   }
-  if (value.shortAlt === undefined && value.longDescription === undefined && value.classification === undefined && value.extractedText === undefined) {
+  if (value.shortAlt === undefined && value.longDescription === undefined && value.classification === undefined && value.extractedText === undefined && value.outputLanguage === undefined) {
     return fail(400, "NO_CHANGES", "Provide at least one field to update.")
   }
   return { ok: true, value }
@@ -272,11 +276,11 @@ export async function updateAsset(id: number, req: EditRequest, actor: HistoryAc
     return fail(422, "DESCRIPTION_REQUIRED", "A Detailed Description is required for complex images.", { field: "longDescription" })
   }
   const { shortMaxChars } = await getSettings()
-  if (shortAlt.length > shortMaxChars) {
-    return fail(422, "FIELD_TOO_LONG", `Short Alt Text must be at most ${shortMaxChars} characters.`, { field: "shortAlt" })
-  }
+  const language=req.outputLanguage??(current.language==="hi"?"hi":"en")
+  const notices=terminologyIssues(`${shortAlt}\n${longDescription}`,language).map(i=>`Terminology review (${i.code}): ${i.message}`)
+  if(shortAlt.length>shortMaxChars)notices.push(`Short Alt Text exceeds the ${shortMaxChars}-character editorial target. Essential labels and notation were retained; this target is not a WCAG limit.`)
 
-  const saved = await editAsset(id, { classification, shortAlt, longDescription, extractedText }, actor.userId, req.expectedVersion)
+  const saved = await editAsset(id, { classification, shortAlt, longDescription, extractedText }, actor.userId, req.expectedVersion,{language,warnings:[...new Set([...current.warnings,...notices])],note:`Terminology ${TERMINOLOGY_RULE_VERSION}; selected output language ${language}; reviewer-edited language not assessed; no guideline applied.`})
   if (saved === null) return NOT_FOUND()
   if (saved === "busy") return fail(409, "ASSET_BUSY", "This image is being generated. Try again when generation finishes.")
   if (saved === "conflict") {

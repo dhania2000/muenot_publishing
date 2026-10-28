@@ -25,6 +25,7 @@ import {
   type SupportedImageType,
 } from "./core"
 import { documentContextNotices, type DocumentPromptContext } from "./document-prompt"
+import { terminologyPolicy,terminologyIssues,verifiedTerminologySources } from "./terminology-policy"
 import { buildAutomatedClassification, CLASSIFICATION_PROMPT_RULES, parseClassificationAnalysis } from "./classification"
 import { parseRegionProviderOutput, RegionOutputError, type RawRegionOutput } from "./region-analysis"
 
@@ -196,6 +197,9 @@ export async function generateAltTextFromImage(input: GenerateAltTextFromImageIn
       throw new AiError("provider_error", "The complex image response omitted its detailed description.", { reason: "invalid_output" })
     }
   }
+  const languagePolicy=terminologyPolicy(generation,input.advancedEvidence,input.document)
+  const languageIssues=terminologyIssues(`${output.shortAlt}\n${output.longDescription}`,generation.outputLanguage,verifiedTerminologySources(input.advancedEvidence))
+  output={...output,terminologyReview:{policy:languagePolicy,issues:languageIssues},warnings:[...new Set([...output.warnings,...languageIssues.map(i=>`Terminology review (${i.code}): ${i.message}`)])]}
   {
     const { rawAnalysis, ...rest } = output
     output =
