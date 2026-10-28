@@ -16,11 +16,8 @@ import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { altTextFetcher, documentReviewImagesUrl } from "@/lib/alt-text/client"
-import { ImageRegionsPanel } from "./image-regions-panel"
-import { MathRecognitionPanel } from "./math-recognition-panel"
-import {IllustrationStructureSection} from "./illustration-structure-panel"
-import {ScientificStructureSection} from "./scientific-structure-panel"
-import {ChartStructurePanel} from "./chart-structure-panel"
+import {EvidenceReviewWorkbench} from "./evidence-review-workbench"
+import {EvidenceAnalysisTools} from "./evidence-analysis-tools"
 import {
   ELIGIBILITY_WARNINGS,
   INELIGIBLE_REASONS,
@@ -96,6 +93,7 @@ export function ImageDetailsSheet({
 }) {
   const img = target?.img ?? null
   const [saving, setSaving] = useState<ReviewStatus | null>(null)
+  const [evidenceDirty,setEvidenceDirty]=useState(false)
   const alt = img ? existingAltText(img) : null
 
   async function review(status: ReviewStatus) {
@@ -107,8 +105,8 @@ export function ImageDetailsSheet({
   }
 
   return (
-    <Sheet open={!!img} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-lg">
+    <Sheet open={!!img} onOpenChange={(o) => {if(!o&&(!evidenceDirty||window.confirm("Discard unsaved evidence corrections?"))){setEvidenceDirty(false);onClose()}}}>
+      <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-[96vw] xl:max-w-7xl">
         {img && (
           <>
             <SheetHeader>
@@ -151,13 +149,7 @@ export function ImageDetailsSheet({
                 </Row>
               </dl>
 
-              {img.altTextAssetId && <details className="rounded border p-3"><summary className="cursor-pointer text-sm font-medium">Image regions and equations</summary><div className="mt-3 flex flex-col gap-4">
-                <ImageRegionsPanel key={`regions-${img.id}`} assetId={img.altTextAssetId} occurrenceId={img.id} />
-                <MathRecognitionPanel key={`math-${img.id}`} assetId={img.altTextAssetId} occurrenceId={img.id} />
-                <ChartStructurePanel key={`chart-${img.id}`} assetId={img.altTextAssetId} occurrenceId={img.id}/>
-                <ScientificStructureSection key={`science-${img.id}`} assetId={img.altTextAssetId} occurrenceId={img.id}/>
-                <IllustrationStructureSection key={`illustration-${img.id}`} assetId={img.altTextAssetId} occurrenceId={img.id}/>
-              </div></details>}
+              {img.altTextAssetId&&<><EvidenceReviewWorkbench key={`review-${img.id}`} assetId={img.altTextAssetId} occurrenceId={img.id} onDirtyChange={setEvidenceDirty}/><EvidenceAnalysisTools key={`analysis-${img.id}`} assetId={img.altTextAssetId} occurrenceId={img.id}/></>}
               <section aria-labelledby="existing-alt" className="flex flex-col gap-1.5">
                 <h3 id="existing-alt" className="text-sm font-semibold">
                   Existing alt text (from source)
@@ -217,7 +209,7 @@ export function ImageDetailsSheet({
                   <Separator />
                   <section aria-labelledby="occurrences" className="flex flex-col gap-2">
                     <h3 id="occurrences" className="text-sm font-semibold">{`Used in ${img.duplicateCount} locations`}</h3>
-                    <Occurrences img={img} onOpen={(o) => onOpen({ img: o, focus: "duplicates" })} />
+                    <Occurrences img={img} onOpen={(o) => {if(!evidenceDirty||window.confirm("Discard unsaved evidence corrections?")){setEvidenceDirty(false);onOpen({ img: o, focus: "duplicates" })}}} />
                   </section>
                 </>
               )}

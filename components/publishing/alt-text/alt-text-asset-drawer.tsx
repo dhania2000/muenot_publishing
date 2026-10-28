@@ -47,12 +47,8 @@ import {
 } from "@/lib/alt-text/client"
 import { AssetImage, StatusBadge, classificationLabel, exportAsset, formatDateTime, languageLabel } from "./alt-text-history"
 import { ImageClassificationPanel } from "./image-classification-panel"
-import { ImageOcrPanel } from "./image-ocr-panel"
-import { ImageRegionsPanel } from "./image-regions-panel"
-import { MathRecognitionPanel } from "./math-recognition-panel"
-import {IllustrationStructureSection} from "./illustration-structure-panel"
-import {ScientificStructureSection} from "./scientific-structure-panel"
-import {ChartStructurePanel} from "./chart-structure-panel"
+import {EvidenceReviewWorkbench} from "./evidence-review-workbench"
+import {EvidenceAnalysisTools} from "./evidence-analysis-tools"
 
 export type DrawerFocus = "view" | "edit" | "versions"
 
@@ -137,9 +133,10 @@ function DrawerBody({
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<ApiError | null>(null)
   const [showVersions, setShowVersions] = useState(focus === "versions")
+  const [evidenceDirty,setEvidenceDirty]=useState(false)
 
   const dirty = editing && (shortAlt !== (asset.shortAlt ?? "") || longDescription !== (asset.longDescription ?? ""))
-  useEffect(() => onDirtyChange(dirty), [dirty, onDirtyChange])
+  useEffect(() => onDirtyChange(dirty||evidenceDirty), [dirty,evidenceDirty,onDirtyChange])
 
   const resetDrafts = (a: AltTextAssetView) => {
     setShortAlt(a.shortAlt ?? "")
@@ -184,7 +181,7 @@ function DrawerBody({
             <Pencil aria-hidden="true" /> Edit
           </Button>
         )}
-        <Button size="sm" variant="outline" onClick={() => onOpenInEditor(asset)} disabled={dirty}>
+        <Button size="sm" variant="outline" onClick={() => onOpenInEditor(asset)} disabled={dirty||evidenceDirty}>
           <SquarePen aria-hidden="true" /> Open in Editor
         </Button>
         <DropdownMenu>
@@ -314,15 +311,8 @@ function DrawerBody({
 
       <Separator />
 
-      <ImageRegionsPanel assetId={asset.id} />
-
-      <Separator />
-
-      <ImageOcrPanel assetId={asset.id} />
-      <MathRecognitionPanel key={`math-${asset.id}`} assetId={asset.id} />
-      <ChartStructurePanel key={`chart-${asset.id}`} assetId={asset.id}/>
-      <ScientificStructureSection key={`science-${asset.id}`} assetId={asset.id}/>
-      <IllustrationStructureSection key={`illustration-${asset.id}`} assetId={asset.id}/>
+      <EvidenceReviewWorkbench assetId={asset.id} onDirtyChange={setEvidenceDirty}/>
+      <EvidenceAnalysisTools assetId={asset.id}/>
 
       <Separator />
 
@@ -375,7 +365,7 @@ export function AltTextAssetDrawer({
   return (
     <>
       <Sheet open={assetId !== null} onOpenChange={(open) => !open && (dirty ? setConfirmClose(true) : close())}>
-        <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-xl">
+        <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-[96vw] xl:max-w-7xl">
           <SheetHeader>
             <SheetTitle className="truncate pr-6">{asset?.fileName ?? "Alt text details"}</SheetTitle>
             <SheetDescription>Saved alt text, accessibility review and version history.</SheetDescription>

@@ -4,7 +4,7 @@ import {currentTenantId} from "@/lib/tenant-scope"
 import type {HistoryActor} from "./history"
 import type {OcrReviewTarget} from "./ocr-review-contract"
 import {ensureOcrReviewSchema} from "./ocr-review-store"
-function assetScope(actor:HistoryActor){
+export function assetScope(actor:HistoryActor){
  if(actor.viewScope==="all")return {sql:"1=1",params:[] as number[]}
  if(actor.viewScope==="added")return {sql:"a.created_by=?",params:[actor.userId]}
  if(actor.viewScope==="owned")return {sql:"a.reviewer_id=?",params:[actor.userId]}

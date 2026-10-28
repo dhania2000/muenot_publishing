@@ -5,6 +5,8 @@ vi.mock("@/lib/alt-text/ocr-review-source",()=>({resolveOcrReviewSource:d.source
 vi.mock("@/lib/alt-text/ocr-review-store",()=>({readOcrReviews:d.read,readEarlierOcrReviews:async()=>[],saveOcrReview:d.save}))
 vi.mock("@/lib/alt-text/ocr-review-queue",()=>({listOcrReviewQueue:d.queue}))
 vi.mock("@/lib/alt-text/document-review-route",()=>({rateLimited:async()=>null,parsePaging:()=>({ok:true,page:1,pageSize:25})}))
+vi.mock("@/lib/auth",()=>({getSession:async()=>({userId:7,role:"employee"})}))
+vi.mock("@/lib/permission-store",()=>({getActionScope:async()=>"added"}))
 const route=await import("@/app/api/alt-text/ocr-review/route")
 const target={kind:"image_ocr",sourceId:"ocr_1",assetId:1,occurrenceId:null,documentId:null,pageIndex:null}
 const body={target,expectedVersion:0,requestId:"request_123",text:"सही",state:"corrected",comment:"Checked"}

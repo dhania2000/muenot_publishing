@@ -1,0 +1,16 @@
+import {beforeEach,it,expect,vi} from "vitest"
+const d=vi.hoisted(()=>({gate:vi.fn(),read:vi.fn(),save:vi.fn(),list:vi.fn()}))
+vi.mock("@/lib/alt-text/route-gate",()=>({gateAltTextHistory:d.gate,jsonOk:(b:any)=>Response.json(b),jsonError:(b:any)=>Response.json(b,{status:b.status}),unexpected:()=>Response.json({},{status:500})}))
+vi.mock("@/lib/alt-text/structured-review-store",()=>({readStructuredReview:d.read,saveStructuredReview:d.save,structuredEvidenceAvailability:d.list}))
+vi.mock("@/lib/alt-text/document-review-route",()=>({rateLimited:async()=>null}))
+vi.mock("@/lib/auth",()=>({getSession:async()=>({userId:7,role:"employee"})}))
+vi.mock("@/lib/permission-store",()=>({getActionScope:async()=>"owned"}))
+const route=await import("@/app/api/alt-text/assets/[id]/evidence-review/route")
+const ctx={params:Promise.resolve({id:"1"})},actor={userId:7,viewScope:"all",updateScope:"added"},body={kind:"chart_data",evidenceId:4,occurrenceId:2,sourceFingerprint:"a".repeat(64),expectedVersion:0,requestId:"request_123",state:"in_review",comment:"",corrections:[]}
+const post=(b:unknown)=>route.POST(new Request("http://localhost/review",{method:"POST",body:JSON.stringify(b)}),ctx)
+beforeEach(()=>{vi.clearAllMocks();d.gate.mockResolvedValue({ok:true,actor,permissions:{canEdit:true,canReview:true}});d.read.mockResolvedValue({success:true});d.save.mockResolvedValue({record:{id:3}});d.list.mockResolvedValue({items:[],recognition:[]})})
+it("checks permissions before loading or saving source evidence",async()=>{d.gate.mockResolvedValue({ok:false,response:Response.json({},{status:403})});expect((await post(body)).status).toBe(403);expect(d.save).not.toHaveBeenCalled();expect(d.read).not.toHaveBeenCalled()})
+it("passes the session's record-specific approval scope and exact occurrence",async()=>{expect((await post(body)).status).toBe(200);expect(d.save).toHaveBeenCalledWith(1,body,actor,"owned");expect((await route.GET(new Request("http://localhost/review?kind=chart_data&evidenceId=4&occurrenceId=2"),ctx)).status).toBe(200);expect(d.read).toHaveBeenCalledWith(1,2,"chart_data",4,actor,"owned")})
+it("rejects client identity, tenant and final approval flags",async()=>{for(const key of ["tenantId","reviewerId","descriptionApproved"]){expect((await post({...body,[key]:true})).status).toBe(400)}expect(d.save).not.toHaveBeenCalled()})
+it("loads only availability metadata on inspection, with no save or recognition",async()=>{expect((await route.GET(new Request("http://localhost/review?list=1&occurrenceId=2"),ctx)).status).toBe(200);expect(d.list).toHaveBeenCalledWith(1,2,actor);expect(d.read).not.toHaveBeenCalled();expect(d.save).not.toHaveBeenCalled()})
+it("rejects malformed references and oversized request bodies",async()=>{expect((await route.GET(new Request("http://localhost/review?kind=other&evidenceId=4"),ctx)).status).toBe(400);expect((await post({...body,comment:"x".repeat(81000)})).status).toBe(413);expect(d.save).not.toHaveBeenCalled()})
