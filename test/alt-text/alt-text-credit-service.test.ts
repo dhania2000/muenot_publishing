@@ -1,70 +1,50 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-type Resv = { tenant: number; user: number; requestId: string; model: string; credits: number; status: string; settled: number | null; interactionId: number }
-const db = vi.hoisted(() => ({
-  balance: new Map<number, number>(),
-  resv: new Map<string, any>(),
-  ledger: new Map<string, any>(),
-  meters: [] as any[],
-  settleFailures: 0,
-}))
-const k = (t: number, r: string) => `${t}|${r}`
-
+type Resv = { tenant: number; user: number; requestId: string; model: string; credits: number; status: string; settled: number | null }
+const db = vi.hoisted(() => ({ resv: new Map<string, Resv>(), ledger: new Map<string, any>(), settleFailures: 0, ledgerFailures: 0 }))
 vi.mock("@/lib/ai/provider", () => ({ gatewayAuthAvailable: () => false, resolveLanguageModel: async (id: string) => id }))
 vi.mock("@/lib/demo/outbound-guard", () => ({ assertOutboundAllowed: vi.fn(async () => {}) }))
-vi.mock("@/lib/billing/usage-guard", () => ({ meterUsage: (e: any) => db.meters.push(e) }))
-vi.mock("@/lib/db", () => ({
-  query: vi.fn(async (_sql: string, [tenant, user, requestId]: [number, number, string]) => {
-    const r: Resv | undefined = db.resv.get(k(tenant, requestId))
-    if (!r || r.user !== user) return []
-    const l = db.ledger.get(k(tenant, requestId))
-    return [{ status: r.status, credits: r.credits, settled_credits: r.settled, model_id: r.model, amount: l?.amount ?? null, provider: l?.provider ?? null, metadata_json: l ? JSON.stringify(l.metadata) : null }]
-  }),
-}))
-vi.mock("@/lib/ai/credits/credits-platform", async () => {
-  const { DEFAULT_PLATFORM_CONFIG } = await import("@/lib/ai/credits/credits-core")
-  const rate = (modelId: string, inputPer1K: number, outputPer1K: number) => ({ id: 1, modelId, tier: "standard", inputPer1K, cachedInputPer1K: inputPer1K / 2, outputPer1K, reasoningPer1K: outputPer1K, toolCall: 0, multiplier: 1, minimumCharge: 0.01, maxOutputTokens: null, enabled: true, premium: false, effectiveFrom: "2026-01-01", version: 3 })
-  return {
-    currentRates: async () => new Map([["openai/vision-a", rate("openai/vision-a", 1, 2)], ["openai/vision-b", rate("openai/vision-b", 4, 8)]]),
-    getPlatformConfig: async () => DEFAULT_PLATFORM_CONFIG,
-    getPack: vi.fn(),
-    listPacks: vi.fn(),
-  }
-})
-vi.mock("@/lib/ai/credits/credits-store", async () => {
-  const { CreditError } = await import("@/lib/ai/credits/credits-core")
-  const reservedFor = (t: number) => [...db.resv.values()].filter((r) => r.tenant === t && r.status === "reserved").reduce((s, r) => s + r.credits, 0)
-  return {
-    loadWalletContext: async (tenantId: number) => ({ tenantId }),
-    reserveCredits: async (ctx: { tenantId: number }, input: any) => {
-      const t = ctx.tenantId
-      const existing = db.resv.get(k(t, input.requestId))
-      if (existing?.status === "reserved") throw new CreditError("duplicate_request", "This request is already being processed.")
-      if (existing?.status === "settled") throw Object.assign(new Error("Duplicate entry"), { code: "ER_DUP_ENTRY" })
-      if ((db.balance.get(t) ?? 0) - reservedFor(t) < input.credits) throw new CreditError("insufficient_credits", "Your organisation has insufficient AI credits.")
-      db.resv.set(k(t, input.requestId), { tenant: t, user: input.userId, requestId: input.requestId, model: input.modelId, credits: input.credits, status: "reserved", settled: null, interactionId: 0 })
-      return { requestId: input.requestId, credits: input.credits, replay: null }
-    },
-    releaseCredits: async (t: number, requestId: string) => {
-      const r = db.resv.get(k(t, requestId))
-      if (r?.status === "reserved") r.status = "released"
-    },
-    settleCredits: async (ctx: { tenantId: number }, input: any) => {
-      if (db.settleFailures > 0) {
-        db.settleFailures--
-        throw new Error("deadlock")
-      }
-      const r = db.resv.get(k(ctx.tenantId, input.requestId))
-      if (!r || r.status !== "reserved") return null
-      r.status = "settled"
-      r.settled = input.credits
-      const after = (db.balance.get(ctx.tenantId) ?? 0) - input.credits
-      db.balance.set(ctx.tenantId, after)
-      db.ledger.set(k(ctx.tenantId, input.requestId), { amount: -input.credits, provider: input.modelId.split("/")[0], metadata: input.metadata })
-      return { charged: input.credits, balanceAfter: after, uncovered: 0, alerts: [], autoTopup: false }
-    },
-    addAllocationBonus: vi.fn(), debitCredits: vi.fn(), ensureCreditSchema: vi.fn(), grantCredits: vi.fn(), creditAudit: vi.fn(),
-  }
+// Exercise the real standalone credit service. Mock only SQL, including unique keys, conditional
+// transitions and transaction rollback; do not mock removed wallet/platform/meter modules.
+vi.mock("@/lib/db", () => {
+  const query = vi.fn(async (sql: string, params: any[]) => {
+    if (sql.includes("SELECT r.status")) {
+      const [tenant,user,requestId] = params, r = db.resv.get(`${tenant}|${requestId}`), l = db.ledger.get(`${tenant}|${requestId}`)
+      return !r || r.user !== user ? [] : [{ status: r.status,credits: r.credits,settled_credits: r.settled,model_id: r.model,amount: l?.amount ?? null,provider: l?.provider ?? null,metadata_json: l ? JSON.stringify(l.metadata) : null }]
+    }
+    if (sql.includes("AS used") && sql.includes("ai_credit_reservations")) {
+      const used = [...db.resv.values()].filter(r => r.tenant === params[0]).reduce((sum,r) => sum + (r.status === "settled" ? r.settled ?? 0 : r.status === "reserved" ? r.credits : 0),0)
+      return [{ used }]
+    }
+    if (sql.startsWith("INSERT INTO ai_credit_reservations")) {
+      const [tenant,user,requestId,model,credits] = params, key = `${tenant}|${requestId}`
+      if (db.resv.has(key)) throw Object.assign(new Error("Duplicate reservation"),{ code: "ER_DUP_ENTRY" })
+      db.resv.set(key,{ tenant,user,requestId,model,credits,status: "reserved",settled: null }); return { affectedRows: 1 }
+    }
+    if (sql.startsWith("UPDATE ai_credit_reservations SET status='released'")) {
+      const r = db.resv.get(`${params[0]}|${params[1]}`)
+      if (!r || r.status !== "reserved") return { affectedRows: 0 }
+      r.status = "released"; return { affectedRows: 1 }
+    }
+    if (sql.startsWith("UPDATE ai_credit_reservations SET status='settled'")) {
+      if (db.settleFailures > 0) { db.settleFailures--; throw new Error("deadlock") }
+      const [credits,tenant,requestId] = params, r = db.resv.get(`${tenant}|${requestId}`)
+      if (!r || r.status !== "reserved") return { affectedRows: 0 }
+      r.status = "settled"; r.settled = credits; return { affectedRows: 1 }
+    }
+    if (sql.startsWith("INSERT IGNORE INTO ai_credit_ledger")) {
+      if (db.ledgerFailures > 0) { db.ledgerFailures--; throw new Error("ledger unavailable") }
+      const [tenant,user,idempotencyKey,amount,provider,model,metadata] = params, key = `${tenant}|${String(idempotencyKey).replace(/^usage:/,"")}`
+      if (db.ledger.has(key)) return { affectedRows: 0 }
+      db.ledger.set(key,{ tenant,user,idempotencyKey,amount,provider,model,metadata: JSON.parse(metadata) }); return { affectedRows: 1 }
+    }
+    throw new Error(`Unhandled credit SQL: ${sql}`)
+  })
+  return { query, withTransaction: async (fn: any) => {
+    const reservations = structuredClone(db.resv), ledger = structuredClone(db.ledger)
+    try { return await fn({ query: async (sql: string,params: any[]) => [await query(sql,params)] }) }
+    catch (error) { db.resv.clear(); for (const [k,v] of reservations) db.resv.set(k,v); db.ledger.clear(); for (const [k,v] of ledger) db.ledger.set(k,v); throw error }
+  } }
 })
 
 import type { CatalogModel } from "@/lib/ai/catalog-core"
@@ -82,7 +62,7 @@ const model = (id: string): CatalogModel => ({
   supportsStructuredOutput: true, inputPricePerMTok: 1, outputPricePerMTok: 2, cachedInputPricePerMTok: null, releasedAt: null, deprecatedAt: null, firstSeenAt: "2026-01-01T00:00:00Z",
 })
 const A = model("openai/vision-a")
-const B = model("openai/vision-b")
+const B = { ...model("openai/vision-b"),inputPricePerMTok: 8,outputPricePerMTok: 24 }
 
 function png(): Uint8Array {
   const b = new Uint8Array(64)
@@ -112,16 +92,17 @@ const run = (o: { tenantId?: number; userId?: number; operationId?: string; m?: 
     { tenantId: o.tenantId ?? 1, userId: o.userId ?? 7, operationId: o.operationId, vision: visionInput(o.m) },
     { generate: o.generate ?? vi.fn(async () => visionResult({}, o.m)) },
   )
-const rateA = { inputPer1K: 1, cachedInputPer1K: 0.5, outputPer1K: 2, reasoningPer1K: 2, toolCall: 0, multiplier: 1, minimumCharge: 0.01, tier: "standard", version: 3 } as any
+const rateA = { inputPer1K: 0.5, cachedInputPer1K: 0.25, outputPer1K: 2, reasoningPer1K: 2, toolCall: 0, multiplier: 1, minimumCharge: 0.01, tier: "standard", version: 3 } as any
 
 beforeEach(() => {
   process.env.OPENAI_API_KEY = "sk-test"
-  db.balance.clear(); db.resv.clear(); db.ledger.clear(); db.meters.length = 0; db.settleFailures = 0
-  db.balance.set(1, 1000); db.balance.set(2, 1000)
+  db.resv.clear(); db.ledger.clear(); db.settleFailures = 0; db.ledgerFailures = 0
+  delete process.env.AI_MONTHLY_CREDIT_LIMIT
   vi.spyOn(console, "error").mockImplementation(() => {})
 })
 afterEach(() => {
   delete process.env.OPENAI_API_KEY
+  delete process.env.AI_MONTHLY_CREDIT_LIMIT
   vi.restoreAllMocks()
 })
 
@@ -137,24 +118,24 @@ describe("alt text credit metering", () => {
     const expected = rateUsage({ inputTokens: 1200, cachedInputTokens: 0, outputTokens: 150, reasoningTokens: 0, toolCalls: 0 }, rateA).credits
     expect(out.credits).toMatchObject({ status: "settled", creditsCharged: expected, inputTokens: 1200, outputTokens: 150, needsReconciliation: false, modelId: A.id })
     expect(out.credits.creditsReserved).toBeGreaterThan(expected)
-    expect(db.balance.get(1)).toBeCloseTo(1000 - expected)
+    expect(db.ledger.get("1|alttext:op-success-1").amount).toBe(-expected)
     expect(db.ledger.get("1|alttext:op-success-1").metadata).toMatchObject({ feature: "alt_text", usageSource: "provider", provider: "openai" })
-    expect(db.meters.every((m) => m.attribution.sourceModule === "alt_text")).toBe(true)
-    expect(db.meters.some((m) => m.meterKey === "ai_usage" && m.quantity === 1350)).toBe(true)
+    expect(db.ledger.get("1|alttext:op-success-1").metadata).toMatchObject({ sourceModule: "alt_text",inputTokens: 1200,outputTokens: 150,reportedUsage: { totalTokens: 1350 } })
   })
 
-  it("uses each model's own rate rather than a shared image price", async () => {
+  it("uses the actual standalone model tiers rather than a shared image price", async () => {
     const a = await run({ operationId: "op-rate-a" })
     const b = await run({ operationId: "op-rate-b", m: B })
-    expect(a.credits.creditsCharged! * 4).toBeCloseTo(b.credits.creditsCharged!)
+    expect(a.credits.creditsCharged! * 3).toBeCloseTo(b.credits.creditsCharged!)
   })
 
-  it("rejects with the existing insufficient-credit error and never calls the provider", async () => {
-    db.balance.set(1, 0.001)
+  it("rejects the configured monthly cap before calling the provider", async () => {
+    process.env.AI_MONTHLY_CREDIT_LIMIT = "0.001"
     const generate = vi.fn()
     const err = await run({ generate }).catch((e) => e)
     expect(err).toBeInstanceOf(AiError)
     expect(err.code).toBe("tenant_budget_exceeded")
+    expect(err.status).toBe(402)
     expect(err.details?.creditCode).toBe("insufficient_credits")
     expect(generate).not.toHaveBeenCalled()
   })
@@ -169,10 +150,10 @@ describe("alt text credit metering", () => {
     const generate = vi.fn(async () => { throw new AiError("rate_limited", "slow down") })
     await expect(run({ operationId: "op-fail-1", generate })).rejects.toMatchObject({ code: "rate_limited" })
     expect(db.resv.get("1|alttext:op-fail-1").status).toBe("released")
-    expect(db.balance.get(1)).toBe(1000)
-    expect(db.meters).toContainEqual(expect.objectContaining({ meterKey: "ai_requests", attribution: expect.objectContaining({ status: "failed", billable: false, sourceModule: "alt_text" }) }))
-    // A released attempt may be retried under the same id.
-    const retry = await run({ operationId: "op-fail-1" })
+    expect(db.ledger.size).toBe(0)
+    // The standalone reservation key remains unique after release. A retry is a new operation.
+    await expect(run({ operationId: "op-fail-1" })).rejects.toMatchObject({ details: { creditCode: "duplicate_request" } })
+    const retry = await run({ operationId: "op-fail-2" })
     expect(retry.status).toBe("generated")
   })
 
@@ -181,20 +162,21 @@ describe("alt text credit metering", () => {
     expect(out.credits).toMatchObject({ status: "estimated", needsReconciliation: true, inputTokens: null, outputTokens: null })
     expect(out.credits.creditsCharged).toBe(out.credits.creditsReserved)
     expect(out.credits.creditsCharged).toBeGreaterThan(0)
-    expect(db.meters.some((m) => m.meterKey === "ai_usage")).toBe(false)
+    expect(db.ledger.get("1|alttext:op-nousage").metadata).toMatchObject({ usageSource: "reservation_estimate",needsReconciliation: true,reportedUsage: { inputTokens: null,outputTokens: null } })
     expect((await getAltTextCreditUsage(1, 7, "alttext:op-nousage"))?.status).toBe("estimated")
   })
 
   it("replays a settled operation without a second provider call or deduction", async () => {
     const first = await run({ operationId: "op-dup-1" })
-    const balance = db.balance.get(1)
+    const debit = db.ledger.get("1|alttext:op-dup-1").amount
     const generate = vi.fn()
     const second = await run({ operationId: "op-dup-1", generate })
     expect(second.status).toBe("replayed")
     expect(second.credits.creditsCharged).toBe(first.credits.creditsCharged)
     expect(second.credits.inputTokens).toBe(1200)
     expect(generate).not.toHaveBeenCalled()
-    expect(db.balance.get(1)).toBe(balance)
+    expect(db.ledger.get("1|alttext:op-dup-1").amount).toBe(debit)
+    expect(db.ledger.size).toBe(1)
   })
 
   it("lets only one of two concurrent submissions run and charges once", async () => {
@@ -209,19 +191,36 @@ describe("alt text credit metering", () => {
     const r1 = await p1
     expect(e2.details?.creditCode).toBe("duplicate_request")
     expect(generate).toHaveBeenCalledTimes(1)
-    expect(db.balance.get(1)).toBeCloseTo(1000 - r1.credits.creditsCharged!)
+    expect(db.ledger.get("1|alttext:op-race-1").amount).toBe(-r1.credits.creditsCharged!)
+    expect(db.ledger.size).toBe(1)
   })
 
   it("retries a failed settlement exactly once without double charging", async () => {
     db.settleFailures = 1
     const out = await run({ operationId: "op-settle-retry" })
     expect(out.credits.status).toBe("settled")
-    expect(db.balance.get(1)).toBeCloseTo(1000 - out.credits.creditsCharged!)
+    expect(db.ledger.get("1|alttext:op-settle-retry").amount).toBe(-out.credits.creditsCharged!)
 
     db.settleFailures = 2
     const pending = await run({ operationId: "op-settle-down" })
     expect(pending.credits).toMatchObject({ status: "pending_settlement", creditsCharged: null, needsReconciliation: true })
     expect(db.resv.get("1|alttext:op-settle-down").status).toBe("reserved")
+  })
+
+  it("rolls back a settlement when its ledger write fails, so a retry cannot lose the audit row", async () => {
+    db.ledgerFailures = 1
+    const out = await run({ operationId: "op-ledger-retry" })
+    expect(out.credits.status).toBe("settled")
+    expect(db.ledger.get("1|alttext:op-ledger-retry")?.amount).toBe(-out.credits.creditsCharged!)
+    expect(db.ledger.size).toBe(1)
+  })
+
+  it("keeps a reconciliation hold when both ledger attempts fail", async () => {
+    db.ledgerFailures = 2
+    const out = await run({ operationId: "op-ledger-down" })
+    expect(out.credits).toMatchObject({ status: "pending_settlement",creditsCharged: null,needsReconciliation: true })
+    expect(db.resv.get("1|alttext:op-ledger-down")).toMatchObject({ status: "reserved",settled: null })
+    expect(db.ledger.size).toBe(0)
   })
 
   it("isolates tenants and users", async () => {
@@ -230,7 +229,7 @@ describe("alt text credit metering", () => {
     expect(await getAltTextCreditUsage(1, 8, "alttext:op-shared")).toBeNull()
     const other = await run({ tenantId: 2, operationId: "op-shared" })
     expect(other.status).toBe("generated")
-    expect(db.balance.get(2)).toBeCloseTo(1000 - other.credits.creditsCharged!)
+    expect(db.ledger.get("2|alttext:op-shared").amount).toBe(-other.credits.creditsCharged!)
   })
 
   it("bills regeneration as a new operation and validates operation ids", async () => {
@@ -245,10 +244,7 @@ describe("alt text credit metering", () => {
   it("keeps the assistant's existing metering defaults", async () => {
     const m = await beginMeteredRequest(1, 7, { id: A.id, tier: "standard", supportsReasoning: false, maxOutputTokens: 100 }, 350, 100, "assistant-req")
     await finishMeteredRequest(m, 7, A.id, { inputTokens: 100, cachedInputTokens: 0, outputTokens: 50, reasoningTokens: 0, toolCalls: 0 }, 42)
-    expect(db.meters.filter((x) => x.attribution.correlationId === "assistant-req").map((x) => [x.meterKey, x.attribution.sourceModule])).toEqual([
-      ["ai_usage", "ai_assistant"],
-      ["ai_requests", "ai_assistant"],
-    ])
+    expect(db.ledger.get("1|assistant-req").metadata).toMatchObject({ sourceModule: null,interactionId: 42,outputTokens: 50 })
     expect(db.ledger.get("1|assistant-req").metadata).toMatchObject({ inputTokens: 100, provider: "openai" })
   })
 })

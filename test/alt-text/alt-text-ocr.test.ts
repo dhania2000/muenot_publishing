@@ -17,7 +17,7 @@ const box = (x0: number, y0: number, x1: number, y1: number) => ({ x0, y0, x1, y
 describe("parseOcrRunRequest", () => {
   it("accepts a minimal request", () => {
     const r = parseOcrRunRequest({ requestId: "abcdefgh12" })
-    expect(r).toEqual({ ok: true, value: { requestId: "abcdefgh12", occurrenceId: null, regionId: null, reprocess: false, settingsRevision: null } })
+    expect(r).toEqual({ ok: true, value: { requestId: "abcdefgh12", occurrenceId: null, regionId: null, reprocess: false, settingsRevision: null, languageMode: null } })
   })
   it("rejects unknown fields such as engine options or paths", () => {
     const r = parseOcrRunRequest({ requestId: "abcdefgh12", language: "deu", path: "/etc/passwd" })

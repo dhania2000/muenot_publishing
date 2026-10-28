@@ -1,5 +1,6 @@
 import "server-only"
-import { query } from "@/lib/db"
+import { query, withTransaction } from "@/lib/db"
+import type { ResultSetHeader } from "mysql2"
 import { AiError } from "@/lib/ai/governance-core"
 import { deriveTier, estimateCredits, rateUsage, type CreditTier, type ModelRate, type UsageMeasure } from "@/lib/ai/credits/credits-core"
 
@@ -47,7 +48,7 @@ async function assertWithinLimit(tenantId: number, credits: number) {
     [tenantId],
   )
   if (Number(rows[0]?.used ?? 0) + credits > limit) {
-    throw new AiError("budget_exceeded" as any, "Your organisation has used its AI credits for this month.", { creditCode: "insufficient_credits" } as any)
+    throw new AiError("tenant_budget_exceeded", "Your organisation has used its AI credits for this month.", { creditCode: "insufficient_credits" })
   }
 }
 
@@ -77,16 +78,20 @@ export async function abortMeteredRequest(m: MeteredRequest, _opts: Pick<Meterin
 
 export async function finishMeteredRequest(m: MeteredRequest, userId: number, modelId: string, usage: UsageMeasure, interactionId: number, opts: MeteringOptions = {}) {
   const rated = rateUsage(usage, m.rate)
-  const updated = await query<any>(
-    "UPDATE ai_credit_reservations SET status='settled', settled_credits = ? WHERE tenant_id = ? AND request_id = ? AND status='reserved'",
-    [rated.credits, m.ctx.tenantId, m.requestId],
-  )
-  if (Number(updated?.affectedRows ?? 0) > 0) {
-    const metadata = { ...usage, tier: rated.tier, multiplier: rated.multiplier, provider: modelId.split("/")[0], interactionId, sourceModule: opts.sourceModule ?? null, ...(opts.metadata ?? {}) }
-    await query(
-      "INSERT IGNORE INTO ai_credit_ledger (tenant_id, user_id, idempotency_key, amount, provider, model_id, metadata_json) VALUES (?, ?, ?, ?, ?, ?, ?)",
-      [m.ctx.tenantId, userId, `usage:${m.requestId}`, -rated.credits, modelId.split("/")[0] || null, modelId, JSON.stringify(metadata)],
+  // A ledger failure must also undo the status change. Otherwise the retry observes a settled
+  // reservation, skips its audit row and incorrectly reports successful settlement.
+  return withTransaction(async (conn) => {
+    const [updated] = await conn.query<ResultSetHeader>(
+      "UPDATE ai_credit_reservations SET status='settled', settled_credits = ? WHERE tenant_id = ? AND request_id = ? AND status='reserved'",
+      [rated.credits, m.ctx.tenantId, m.requestId],
     )
-  }
-  return { credits: rated.credits }
+    if (Number(updated?.affectedRows ?? 0) > 0) {
+      const metadata = { ...usage, tier: rated.tier, multiplier: rated.multiplier, provider: modelId.split("/")[0], interactionId, sourceModule: opts.sourceModule ?? null, ...(opts.metadata ?? {}) }
+      await conn.query(
+        "INSERT IGNORE INTO ai_credit_ledger (tenant_id, user_id, idempotency_key, amount, provider, model_id, metadata_json) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        [m.ctx.tenantId, userId, `usage:${m.requestId}`, -rated.credits, modelId.split("/")[0] || null, modelId, JSON.stringify(metadata)],
+      )
+    }
+    return { credits: rated.credits }
+  })
 }
