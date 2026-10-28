@@ -45,6 +45,7 @@ export type AltTextAssetView = {
 export type AltTextAssetList = { success: true; items: AltTextAssetView[]; total: number; page: number; pageSize: number }
 export type AltTextAssetResponse = { success: true; asset: AltTextAssetView }
 export type AltTextVersionView = {
+  generationEvidence?: import("./description-evidence").GenerationEvidenceMetadata | null
   version: number
   changeType: string
   classification: string | null
@@ -199,6 +200,7 @@ export async function readVersions(id: number, actor: HistoryActor): Promise<Ok<
         longDescription: v.longDescription,
         note: v.note,
         modelId: v.modelId,
+        generationEvidence: v.generationEvidence,
         editor: v.actorId ? { id: v.actorId, name: v.actorName } : null,
         createdAt: v.createdAt,
       })),

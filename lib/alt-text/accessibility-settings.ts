@@ -39,8 +39,8 @@ export const ACCESSIBILITY_CAPABILITIES = {
     dependency: "Uses an approved vision model to estimate region positions. Positions are model estimates, not pixel-verified.",
   },
   classification_confidence: { label: "Classification confidence", dependency: "The vision model does not return calibrated classification confidence. Planned in Task 3." },
-  advanced_description: { label: "Advanced description pipeline", dependency: "No advanced description engine is installed yet. Planned in a later Phase 3 task." },
-  text_heavy_analysis: { label: "Text-heavy image analysis", dependency: "Depends on the OCR provider planned in Task 5." },
+  advanced_description: { label: "Advanced description pipeline", dependency: "Uses bounded saved OCR, math, chart and diagram evidence in the existing governed generator. Missing or tentative evidence requires review; no analyzer runs automatically." },
+  text_heavy_analysis: { label: "Text-heavy image analysis", dependency: "Uses existing saved raw and corrected OCR in the governed description generator. Recognition must be run separately." },
   ocr: { label: "OCR text recognition", dependency: "Self-hosted Tesseract.js engine with integrity-checked English and Hindi language packs. Printed English, Hindi (Devanagari) and mixed English + Hindi text." },
   math_analysis: { label: "Mathematical equation analysis", dependency: "No mathematical recognizer is installed. Planned in Task 8." },
   math_ocr: { label: "Mathematical OCR", dependency: "No mathematical OCR is installed. Planned in Task 8." },
@@ -87,6 +87,8 @@ export type CapabilityState = { status: CapabilityStatus; label: string; reason:
 
 /** Capabilities that need a configured runtime resource in addition to an implementation. */
 const RUNTIME_REQUIREMENTS: Partial<Record<CapabilityId, (b: AccessibilityBackend) => string | null>> = {
+  text_heavy_analysis: (b) => b.visionModelAvailable === true ? null : "Requires an authorized, configured vision model for description generation.",
+  advanced_description: (b) => b.visionModelAvailable === true ? null : "Requires an authorized, configured vision model.",
   standard_description: (b) =>
     b.visionModelAvailable === true ? null : b.visionModelAvailable === false ? "No approved vision-capable model is available to this tenant." : "Vision model availability could not be verified.",
   auto_classification: (b) => (b.visionModelAvailable === true ? null : "Requires an available vision model."),

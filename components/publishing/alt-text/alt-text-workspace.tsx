@@ -191,11 +191,11 @@ export function AltTextWorkspace() {
 
   const refreshHistory = () => void mutate(isAltTextAssetKey)
 
-  const handleSave = async () => {
+  const handleSave = async (useCandidate = false) => {
     if (!savedAsset || !saved) return
     setSaving(true)
     setSaveError(null)
-    const r = await saveAltTextEdit(savedAsset.id, { expectedVersion: saved.version, ...drafts.current })
+    const r = await saveAltTextEdit(savedAsset.id, { expectedVersion: saved.version, ...(useCandidate && output ? { shortAlt: output.result.shortAlt, longDescription: output.result.longDescription, ...drafts.current } : drafts.current) })
     setSaving(false)
     if (!r.ok) {
       setSaveError(
@@ -207,6 +207,7 @@ export function AltTextWorkspace() {
     }
     const a = r.data.asset
     setSavedAsset(a)
+    setOutput(prev => prev ? { ...prev, candidate: false, result: { ...prev.result, shortAlt: a.shortAlt ?? "", longDescription: a.longDescription ?? "" } } : prev)
     setSaved({ shortAlt: a.shortAlt, longDescription: a.longDescription, version: a.currentVersion })
     drafts.current = {}
     refreshHistory()
@@ -262,10 +263,10 @@ export function AltTextWorkspace() {
       return
     }
     const { result, version, usage: u } = r.data
-    setOutput({ result, language: settings.outputLanguage, purpose: settings.imagePurpose })
-    setSaved({ shortAlt: result.shortAlt, longDescription: result.longDescription, version })
+    setOutput({ result, language: settings.outputLanguage, purpose: settings.imagePurpose, candidate: r.data.candidate })
+    setSaved({ shortAlt: result.shortAlt, longDescription: result.longDescription, version: r.data.candidate ? r.data.activeVersion ?? asset.currentVersion : version })
     setUsage({ model: u.model, creditsCharged: u.creditsCharged, creditsReserved: u.creditsReserved })
-    setSavedAsset((prev) => (prev ? { ...prev, ...result, currentVersion: version } : prev))
+    setSavedAsset((prev) => (prev ? r.data.candidate ? { ...prev, currentVersion: r.data.activeVersion ?? prev.currentVersion } : { ...prev, ...result, currentVersion: version } : prev))
     drafts.current = {}
     refreshHistory()
   }
@@ -285,6 +286,7 @@ export function AltTextWorkspace() {
   ).length
   const imageSelected = image !== null || savedAsset !== null
   const resultActions: ResultsPanelActions = {
+    onUseCandidate: () => void handleSave(true),
     generateBlockedReason,
     onGenerate: () => void handleRegenerate(),
     onRegenerate: () => void handleRegenerate(),

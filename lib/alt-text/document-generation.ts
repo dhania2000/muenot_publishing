@@ -72,11 +72,12 @@ export async function resolveDocumentPromptContext(assetId: number): Promise<Doc
        FROM alt_text_document_images i
        JOIN alt_text_documents d ON d.tenant_id = i.tenant_id AND d.id = i.document_id
       WHERE i.tenant_id = ? AND i.alt_text_asset_id = ?
-      ORDER BY i.id LIMIT 1`,
+      ORDER BY i.id LIMIT 2`,
     [currentTenantId(), assetId],
   )
   const r = rows[0]
   if (!r) return { kind: "standalone" }
+  if (rows.length > 1) return { kind: "ineligible", code: "AMBIGUOUS_OCCURRENCE", error: "This asset is linked to multiple document occurrences. Select an unambiguous occurrence before generating." }
   if (r.security_scan_status !== "clean") return { kind: "ineligible", code: "DOCUMENT_NOT_CLEAN", error: "The source document has not passed the security scan." }
   if (r.extraction_status !== "extracted") return { kind: "ineligible", code: "OCCURRENCE_NOT_ELIGIBLE", error: "The image occurrence is no longer eligible for generation." }
   if (!DOC_TYPES.has(r.document_type)) return { kind: "ineligible", code: "UNSUPPORTED_TYPE", error: "The source document type is not supported." }

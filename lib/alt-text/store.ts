@@ -197,6 +197,7 @@ export function ensureAltTextSchema(): Promise<void> {
       note VARCHAR(500) NULL,
       model_id VARCHAR(120) NULL,
       actor_id INT NOT NULL,
+      generation_evidence_json JSON NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       INDEX idx_alt_versions_asset (tenant_id, asset_id)
     )`)
@@ -260,6 +261,9 @@ export function ensureAltTextSchema(): Promise<void> {
       if (e?.code !== "ER_DUP_KEYNAME") throw e
     })
     await query("ALTER TABLE alt_text_assets ADD COLUMN content_sha256 CHAR(64) NULL").catch((e: { code?: string }) => {
+      if (e?.code !== "ER_DUP_FIELDNAME") throw e
+    })
+    await query("ALTER TABLE alt_text_versions ADD COLUMN generation_evidence_json JSON NULL").catch((e: { code?: string }) => {
       if (e?.code !== "ER_DUP_FIELDNAME") throw e
     })
     await query("ALTER TABLE alt_text_assets ADD INDEX idx_alt_assets_hash (tenant_id, created_by, content_sha256)").catch((e: { code?: string }) => {
@@ -562,6 +566,16 @@ export async function saveGeneration(
   const tenantId = tid()
   return withTransaction(async (conn) => {
     const claimGuard = attempt === undefined ? " AND status = 'processing'" : " AND status = 'processing' AND attempts = ?"
+    const [claimed] = await conn.query<RowDataPacket[]>(`SELECT current_version, approved_at FROM alt_text_assets WHERE tenant_id = ? AND id = ?${claimGuard} FOR UPDATE`, [tenantId, id, ...(attempt === undefined ? [] : [attempt])])
+    if (!claimed.length) return false
+    if (claimed[0].approved_at != null) {
+      const [prior] = await conn.query<RowDataPacket[]>("SELECT COALESCE(MAX(version), 0) + 1 AS next_version FROM alt_text_versions WHERE tenant_id = ? AND asset_id = ?", [tenantId, id])
+      const version = Math.max(Number(claimed[0].current_version) + 1, Number(prior[0]?.next_version ?? 1))
+      await conn.query(`INSERT INTO alt_text_versions (tenant_id,asset_id,version,action,classification,short_alt,long_description,extracted_text,note,model_id,actor_id,generation_evidence_json)
+        VALUES (?,?,?,'generated_candidate',?,?,?,?,?,?,?,?)`, [tenantId,id,version,result.classification,result.shortAlt,result.longDescription,result.extractedText,"Review candidate. The approved current text was preserved.",modelId,actorId,JSON.stringify(result.generationEvidence ?? null)])
+      await conn.query("UPDATE alt_text_assets SET status = 'approved', credits_used = credits_used + ?, error_message = NULL, error_code = NULL WHERE tenant_id = ? AND id = ?", [credits,tenantId,id])
+      return true
+    }
     // A new automated result replaces the previous automated one; an editor's manual correction is kept.
     const automated = result.automatedClassification
     const classificationSet = automated
@@ -569,7 +583,7 @@ export async function saveGeneration(
       : ""
     const [res] = await conn.query<ResultSetHeader>(
       `UPDATE alt_text_assets SET status = ?, classification = ?, short_alt = ?, long_description = ?, extracted_text = ?, warnings = ?, treatment = ?,
-         model_id = ?, credits_used = credits_used + ?, current_version = current_version + 1, approved_at = ?, reviewed_by = NULL, error_message = NULL, error_code = NULL${classificationSet}
+         model_id = ?, credits_used = credits_used + ?, current_version = GREATEST(current_version + 1, COALESCE((SELECT MAX(v.version) + 1 FROM alt_text_versions v WHERE v.tenant_id = alt_text_assets.tenant_id AND v.asset_id = alt_text_assets.id), 1)), approved_at = ?, reviewed_by = NULL, error_message = NULL, error_code = NULL${classificationSet}
        WHERE tenant_id = ? AND id = ?${claimGuard}`,
       [
         requireReview ? "in_review" : "approved",
@@ -592,9 +606,9 @@ export async function saveGeneration(
     const [rows] = await conn.query<RowDataPacket[]>("SELECT current_version FROM alt_text_assets WHERE tenant_id = ? AND id = ?", [tenantId, id])
     const version = Number(rows[0]?.current_version ?? 1)
     await conn.query(
-      `INSERT INTO alt_text_versions (tenant_id, asset_id, version, action, classification, short_alt, long_description, extracted_text, note, model_id, actor_id)
-       VALUES (?, ?, ?, 'generated', ?, ?, ?, ?, NULL, ?, ?)`,
-      [tenantId, id, version, result.classification, result.shortAlt, result.longDescription, result.extractedText, modelId, actorId],
+      `INSERT INTO alt_text_versions (tenant_id, asset_id, version, action, classification, short_alt, long_description, extracted_text, note, model_id, actor_id, generation_evidence_json)
+       VALUES (?, ?, ?, 'generated', ?, ?, ?, ?, NULL, ?, ?, ?)`,
+      [tenantId, id, version, result.classification, result.shortAlt, result.longDescription, result.extractedText, modelId, actorId, JSON.stringify(result.generationEvidence ?? null)],
     )
     return true
   })
@@ -648,7 +662,7 @@ export async function setOccurrenceClassification(assetId: number, occurrenceId:
 export async function markFailed(id: number, message: string, attempt?: number, code: string | null = null) {
   const claimGuard = attempt === undefined ? " AND status = 'processing'" : " AND status = 'processing' AND attempts = ?"
   await query(
-    `UPDATE alt_text_assets SET status = CASE WHEN current_version > 0 THEN 'in_review' ELSE 'failed' END, error_message = ?, error_code = ?
+    `UPDATE alt_text_assets SET status = CASE WHEN approved_at IS NOT NULL THEN 'approved' WHEN current_version > 0 THEN 'in_review' ELSE 'failed' END, error_message = ?, error_code = ?
      WHERE tenant_id = ? AND id = ?${claimGuard}`,
     [message.slice(0, 500), code ? code.slice(0, 64) : null, tid(), id, ...(attempt === undefined ? [] : [attempt])],
   )
@@ -675,7 +689,7 @@ export async function editAsset(
   const versionGuard = expectedVersion === undefined ? "" : " AND current_version = ?"
   const saved = await withTransaction(async (conn) => {
     const [res] = await conn.query<ResultSetHeader>(
-      `UPDATE alt_text_assets SET classification = ?, short_alt = ?, long_description = ?, extracted_text = ?, current_version = current_version + 1,
+      `UPDATE alt_text_assets SET classification = ?, short_alt = ?, long_description = ?, extracted_text = ?, current_version = GREATEST(current_version + 1, COALESCE((SELECT MAX(v.version) + 1 FROM alt_text_versions v WHERE v.tenant_id = alt_text_assets.tenant_id AND v.asset_id = alt_text_assets.id), 1)),
          status = CASE WHEN status IN ('approved','rejected','failed','uploaded') THEN 'in_review' ELSE status END, approved_at = NULL, reviewed_by = NULL
        WHERE tenant_id = ? AND id = ? AND status <> 'processing'${versionGuard}`,
       [edit.classification, edit.shortAlt, edit.longDescription, edit.extractedText, tenantId, id, ...(expectedVersion === undefined ? [] : [expectedVersion])],
@@ -754,10 +768,22 @@ export async function listVersions(assetId: number) {
     longDescription: r.long_description,
     note: r.note,
     modelId: r.model_id,
+    generationEvidence: r.generation_evidence_json ? parseJson(r.generation_evidence_json) as import("./description-evidence").GenerationEvidenceMetadata | null : null,
     actorId: r.actor_id as number,
     actorName: r.actor_name ?? "Unknown",
     createdAt: new Date(r.created_at).toISOString(),
   }))
+}
+
+/** Replay the exact saved result, including candidates that deliberately did not replace approved text. */
+export async function getSavedGeneration(assetId: number, requestId: string) {
+  await ensureAltTextSchema()
+  const rows = await query<any[]>(`SELECT version,action,classification,short_alt,long_description,extracted_text,generation_evidence_json FROM alt_text_versions
+    WHERE tenant_id=? AND asset_id=? AND action IN ('generated','generated_candidate') AND JSON_UNQUOTE(JSON_EXTRACT(generation_evidence_json,'$.requestId'))=? ORDER BY id DESC LIMIT 1`, [tid(),assetId,requestId])
+  const row = rows[0]
+  if (!row) return null
+  const metadata = parseJson(row.generation_evidence_json) as import("./description-evidence").GenerationEvidenceMetadata | null
+  return { version: Number(row.version), candidate: row.action === "generated_candidate", result: { classification: row.classification as AltTextResult["classification"], shortAlt: row.short_alt ?? "", longDescription: row.long_description ?? "", extractedText: row.extracted_text ?? "", warnings: metadata?.warnings ?? [], treatment: metadata?.treatment ?? "", generationEvidence: metadata ?? undefined } }
 }
 
 export async function listProjects() {

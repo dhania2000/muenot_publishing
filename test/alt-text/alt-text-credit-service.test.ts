@@ -71,7 +71,8 @@ import type { CatalogModel } from "@/lib/ai/catalog-core"
 import { rateUsage } from "@/lib/ai/credits/credits-core"
 import { beginMeteredRequest, finishMeteredRequest } from "@/lib/ai/credits/credits-service"
 import { AiError } from "@/lib/ai/governance-core"
-import { DEFAULT_SETTINGS, normalizeGenerationSettings } from "@/lib/alt-text/core"
+import { DEFAULT_SETTINGS, normalizeGenerationSettings, buildPrompt } from "@/lib/alt-text/core"
+import { CLASSIFICATION_PROMPT_RULES } from "@/lib/alt-text/classification"
 import { IMAGE_INPUT_TOKEN_RESERVE, altTextRequestId, estimateAltTextReservation, getAltTextCreditUsage, runMeteredAltTextGeneration } from "@/lib/alt-text/credit-service"
 import type { VisionGenerationResult } from "@/lib/alt-text/vision-service"
 
@@ -90,6 +91,13 @@ function png(): Uint8Array {
   return b
 }
 const generation = normalizeGenerationSettings({})
+it("reserves the actual evidence and classification prompt in the same existing metered request", () => {
+  const advancedEvidence = { schemaVersion: 1 as const,assetId: 1,occurrenceId: null,sourceSha256: "a".repeat(64),regionAnalysisId: null,classification: "math_equation",strategy: "math" as const,items: [{ id: "math:1",version: 1,kind: "math",regionId: null,state: "candidate" as const,payload: { latex: "x + α = १२ ".repeat(600) } }],warnings: [],requiresReview: true as const,guidelineVersion: null }
+  const input = { generation,altTextSettings: DEFAULT_SETTINGS,model: A,advancedEvidence }, estimate = estimateAltTextReservation(input)
+  const prompt = buildPrompt({ language: generation.outputLanguage,audience: DEFAULT_SETTINGS.defaultAudience,context: generation.imageContext,shortMaxChars: DEFAULT_SETTINGS.shortMaxChars,generation,advancedEvidence,classificationRules: CLASSIFICATION_PROMPT_RULES })
+  expect(estimate.promptChars).toBe(prompt.instructions.length + prompt.prompt.length + Math.ceil(IMAGE_INPUT_TOKEN_RESERVE * 3.5))
+  expect(estimate.estimate.inputTokens).toBeGreaterThan(estimateAltTextReservation({ generation,altTextSettings: DEFAULT_SETTINGS,model: A }).estimate.inputTokens)
+})
 const visionInput = (m = A) => ({ image: { bytes: png(), mediaType: "image/png" as const }, generation, altTextSettings: DEFAULT_SETTINGS, model: m })
 const visionResult = (usage: Partial<VisionGenerationResult["usage"]> = {}, m = A): VisionGenerationResult => ({
   output: { shortAlt: "Bar chart of rainfall" } as any,

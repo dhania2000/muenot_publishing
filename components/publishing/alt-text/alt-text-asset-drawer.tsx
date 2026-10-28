@@ -8,6 +8,7 @@
  *   concurrency (PATCH expectedVersion), read-only version history and single-asset export.
  */
 import { useEffect, useState, type ReactNode } from "react"
+import { GenerationEvidenceSummary } from "./generation-evidence-summary"
 import useSWR, { useSWRConfig } from "swr"
 import { toast } from "sonner"
 import { AlertCircle, Download, History, Pencil, Save, SquarePen, X } from "lucide-react"
@@ -86,7 +87,7 @@ function VersionHistory({ asset }: { asset: AltTextAssetView }) {
   return (
     <ol className="flex flex-col gap-2">
       {data.versions.map((v) => (
-        <li key={v.version}>
+        <li key={`${v.version}:${v.changeType}:${v.createdAt}`}>
           <details className="group rounded-md border bg-card">
             <summary className="flex cursor-pointer list-none flex-wrap items-center gap-2 p-3 text-sm focus-visible:outline-2 focus-visible:outline-ring">
               <span className="font-mono font-semibold tabular-nums">v{v.version}</span>
@@ -98,14 +99,16 @@ function VersionHistory({ asset }: { asset: AltTextAssetView }) {
               </span>
             </summary>
             <div className="flex flex-col gap-3 border-t p-3">
+              {v.changeType === "generated_candidate" && <p className="text-sm text-amber-700 dark:text-amber-400">Review candidate. The approved current text was preserved.</p>}
+              <GenerationEvidenceSummary value={v.generationEvidence} />
               {v.modelId && <p className="text-xs text-muted-foreground">Model: <span className="font-mono">{v.modelId}</span></p>}
               <div className="flex flex-col gap-1">
                 <p className="text-xs font-medium text-muted-foreground">Short Alt Text</p>
-                <TextBlock text={v.shortAlt} lang={asset.language} empty="Empty" />
+                <TextBlock text={v.shortAlt} lang={v.generationEvidence?.outputLanguage ?? asset.language} empty="Empty" />
               </div>
               <div className="flex flex-col gap-1">
                 <p className="text-xs font-medium text-muted-foreground">Detailed Description</p>
-                <TextBlock text={v.longDescription} lang={asset.language} empty="Empty" />
+                <TextBlock text={v.longDescription} lang={v.generationEvidence?.outputLanguage ?? asset.language} empty="Empty" />
               </div>
             </div>
           </details>
