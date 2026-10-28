@@ -5,6 +5,8 @@ import {resolveOcrReviewSource,OcrReviewError} from "@/lib/alt-text/ocr-review-s
 import {readOcrReviews,readEarlierOcrReviews,saveOcrReview} from "@/lib/alt-text/ocr-review-store"
 import {listOcrReviewQueue} from "@/lib/alt-text/ocr-review-queue"
 import {parsePaging,rateLimited} from "@/lib/alt-text/document-review-route"
+import {getSession} from "@/lib/auth"
+import {getActionScope} from "@/lib/permission-store"
 export const runtime="nodejs"
 export const dynamic="force-dynamic"
 function failed(error:unknown){return error instanceof OcrReviewError?jsonError({status:error.status,code:error.code,error:error.message}):error instanceof SyntaxError?jsonError({status:400,code:"INVALID_JSON",error:"Invalid request body."}):unexpected("ocr-review",error)}
@@ -18,7 +20,8 @@ export async function GET(req:Request){
   const target=parseReviewTarget(JSON.parse(targetQuery))
   if(!target)return jsonError({status:400,code:"INVALID_TARGET",error:"Invalid recognition reference."})
   const edit=gate.permissions?.canEdit?await gateAltTextHistory({edit:true}):null
-  const source=await resolveOcrReviewSource(target,edit?.ok?edit.actor:gate.actor,gate.permissions?.canReview===true)
+  const session=await getSession(),scope=session?await getActionScope(session.userId,session.role,"publishing.alt_text","approve"):"none"
+  const source=await resolveOcrReviewSource(target,edit?.ok?edit.actor:gate.actor,scope)
   const [history,earlierHistory]=await Promise.all([readOcrReviews(source),readEarlierOcrReviews(source)])
   return jsonOk({success:true,source,history,earlierHistory})
  }catch(error){return failed(error)}
@@ -31,13 +34,14 @@ export async function POST(req:Request){
   if(limited)return limited
   const bytes=await readBody(req.body,100_000),input=bytes?parseOcrReviewInput(JSON.parse(bytes.toString("utf8"))):null
   if(!input)return jsonError({status:400,code:"INVALID_REQUEST",error:"Check the source, review state and text limits."})
-  let canVerify=false
+  let scope:import("@/lib/permission-model").PermissionScope="none"
   if(input.state==="verified"){
    const review=await gateAltTextHistory({review:true,edit:true})
    if(!review.ok)return review.response
-   canVerify=true
+   const session=await getSession();if(!session)return jsonError({status:401,code:"UNAUTHENTICATED",error:"Unauthorized"})
+   scope=await getActionScope(session.userId,session.role,"publishing.alt_text","approve")
   }
-  const source=await resolveOcrReviewSource(input.target,gate.actor,canVerify)
+  const source=await resolveOcrReviewSource(input.target,gate.actor,scope)
   return jsonOk({success:true,...await saveOcrReview(source,input,gate.actor.userId)})
  }catch(error){return failed(error)}
 }

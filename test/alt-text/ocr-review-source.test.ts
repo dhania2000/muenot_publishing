@@ -1,5 +1,6 @@
 import {beforeEach,it,expect,vi} from "vitest"
-const d=vi.hoisted(()=>({asset:vi.fn(),occurrence:vi.fn(),ocr:vi.fn(),math:vi.fn(),doc:vi.fn(),pages:vi.fn()}))
+const d=vi.hoisted(()=>({asset:vi.fn(),occurrence:vi.fn(),ocr:vi.fn(),math:vi.fn(),doc:vi.fn(),pages:vi.fn(),context:vi.fn().mockResolvedValue({kind:"standalone"})}))
+vi.mock("@/lib/alt-text/document-generation",()=>({resolveDocumentPromptContext:d.context}))
 vi.mock("@/lib/alt-text/store",()=>({getAsset:d.asset,occurrenceBelongsToAsset:d.occurrence,listOcrResults:d.ocr}))
 vi.mock("@/lib/alt-text/math-store",()=>({listMathEvidence:d.math}))
 vi.mock("@/lib/alt-text/document-store",()=>({getDocument:d.doc}))
@@ -14,6 +15,8 @@ beforeEach(()=>{vi.clearAllMocks();d.asset.mockResolvedValue({id:1,createdBy:7,r
 it("does not reveal another tenant's absent source or foreign occurrence",async()=>{d.asset.mockResolvedValueOnce(null);await expect(source.resolveOcrReviewSource(target,actor)).rejects.toMatchObject({status:404});d.occurrence.mockResolvedValue(false);await expect(source.resolveOcrReviewSource(target,actor)).rejects.toMatchObject({status:404});expect(d.ocr).not.toHaveBeenCalled()})
 it("derives raw provenance, region and real engine confidence from the scoped source",async()=>{const result=await source.resolveOcrReviewSource(target,actor);expect(result).toMatchObject({rawText:"मूल पाठ",regionId:"rgn_1",confidence:45,confidenceScale:"tesseract_0_100",canEdit:true});expect(d.ocr).toHaveBeenCalledWith(1,2)})
 it("resolves edit scope independently from broader view access",async()=>{d.asset.mockResolvedValue({id:1,createdBy:8,reviewerId:null});expect((await source.resolveOcrReviewSource(target,{...actor,viewScope:"all"})).canEdit).toBe(false)})
+it("enforces record-specific approval scope independently from edit permission",async()=>{expect((await source.resolveOcrReviewSource(target,actor,"owned")).canVerify).toBe(false);expect((await source.resolveOcrReviewSource(target,actor,"added")).canVerify).toBe(true);d.asset.mockResolvedValue({id:1,createdBy:8,reviewerId:7});expect((await source.resolveOcrReviewSource(target,{...actor,viewScope:"all"},"added")).canVerify).toBe(false)})
+it("does not reveal OCR from an inaccessible document occurrence",async()=>{d.context.mockResolvedValueOnce({kind:"ineligible"});await expect(source.resolveOcrReviewSource(target,actor)).rejects.toMatchObject({status:404});expect(d.ocr).not.toHaveBeenCalled()})
 it("requires an authorized clean document before reading page text",async()=>{const t={kind:"page_ocr",assetId:null,occurrenceId:null,documentId:3,pageIndex:0,sourceId:"hash"} as const;await expect(source.resolveOcrReviewSource(t,actor)).rejects.toMatchObject({status:404});expect(d.doc).toHaveBeenCalledWith(3,{uploadedBy:7});expect(d.pages).not.toHaveBeenCalled()})
 it("binds a page correction to its exact existing run and rejects changed source at save time",async()=>{
  const conn={query:vi.fn().mockResolvedValue([[{result_json:{identity:"same",runId:9,rawText:"text"}}]])}

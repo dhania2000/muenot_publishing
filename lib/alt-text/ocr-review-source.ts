@@ -7,14 +7,16 @@ import {ownerScopeFor} from "./document-service"
 import {readOcrPages} from "./pdf-page-ocr-store"
 import {listMathEvidence} from "./math-store"
 import {toOcrView} from "./ocr-service"
+import type {PermissionScope} from "@/lib/permission-model"
 import type {OcrReviewSource,OcrReviewTarget} from "./ocr-review-contract"
 export class OcrReviewError extends Error{constructor(readonly status:number,readonly code:string,message:string){super(message)}}
 const missing=()=>new OcrReviewError(404,"NOT_FOUND","Recognition evidence not found.")
-export async function resolveOcrReviewSource(target:OcrReviewTarget,actor:HistoryActor,canVerify=false):Promise<OcrReviewSource>{
- const common={target,canVerify,confidenceScale:"not_reported" as const,confidence:null,warnings:[] as string[]}
+export async function resolveOcrReviewSource(target:OcrReviewTarget,actor:HistoryActor,approveScope:PermissionScope|boolean=false):Promise<OcrReviewSource>{
+ const common={target,canVerify:approveScope===true||approveScope==="all",confidenceScale:"not_reported" as const,confidence:null,warnings:[] as string[]}
  if(target.kind==="page_ocr"){
   const doc=await getDocument(target.documentId!,ownerScopeFor(actor))
   if(!doc||doc.securityStatus!=="clean")throw missing()
+  common.canVerify=approveScope===true||approveScope==="all"||["added","both"].includes(String(approveScope))&&doc.uploadedBy===actor.userId
   const [page]=await readOcrPages(doc.id,0,1,target.pageIndex!)
   if(!page)throw missing()
   if(!page.result){
@@ -27,6 +29,9 @@ export async function resolveOcrReviewSource(target:OcrReviewTarget,actor:Histor
  }
  const asset=await getAsset(target.assetId!)
  if(!asset||!withinScope(actor.viewScope,actor.userId,asset)||target.occurrenceId!=null&&!(await occurrenceBelongsToAsset(asset.id,target.occurrenceId)))throw missing()
+ common.canVerify=approveScope===true||typeof approveScope==="string"&&withinScope(approveScope,actor.userId,asset)
+ const document=await (await import("./document-generation")).resolveDocumentPromptContext(asset.id,actor,target.occurrenceId)
+ if(document.kind==="ineligible")throw missing()
  const canEdit=withinScope(actor.updateScope,actor.userId,asset),previewUrl=`/api/alt-text/assets/${asset.id}/image`
  if(target.kind==="math_ocr"){
   const row=(await listMathEvidence(asset.id,target.occurrenceId)).find((r)=>String(r.id)===target.sourceId)
