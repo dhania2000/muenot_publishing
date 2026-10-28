@@ -1,0 +1,13 @@
+import {beforeEach,it,expect,vi} from "vitest"
+import {illustrationFixture} from "./illustration-fixtures"
+const d=vi.hoisted(()=>({rows:vi.fn(),support:vi.fn()}))
+vi.mock("@/lib/alt-text/store",()=>({listOcrResults:d.rows}))
+vi.mock("@/lib/alt-text/ocr-service",()=>({toOcrView:(r:any)=>r}))
+vi.mock("@/lib/alt-text/advanced-evidence-source",()=>({chartOcrEvidence:d.support}))
+const {illustrationSupport}=await import("@/lib/alt-text/illustration-support")
+const raw=(sha="sha")=>({resultId:"ocr1",assetId:1,occurrenceId:2,inputSha256:sha,region:{regionId:"cellA",analysisId:"rga_12345678",analysisVersion:1},source:{storedWidth:800,storedHeight:450,orientation:1,orientationUnknown:false},layout:{drawable:true,truncated:false,lines:[{box:{left:80,top:45,width:200,height:30},block:0,paragraph:0}]}})
+beforeEach(()=>{vi.clearAllMocks();d.rows.mockResolvedValue([raw()]);d.support.mockResolvedValue(illustrationFixture("table").input.support)})
+it("preserves raw OCR engine order separately from reviewed text and semantic reading order",async()=>{const f=illustrationFixture("table"),r=await illustrationSupport(1,2,f.regions,f.input.source);expect(r.support.ocrEvidence).toHaveLength(1);expect(r.support.reviewEvidence).toHaveLength(1);expect(r.ocrOrder[0]).toMatchObject({regionId:"cellA",basis:"raw_engine_order",readingOrderVerified:false,lines:[{index:0,block:0,paragraph:0,box:{left:80,top:45,width:200,height:30}}]});expect(r.ocrOrder[0].lines[0]).not.toHaveProperty("text")})
+it("excludes stale source digests and corrections tied to those old OCR runs",async()=>{d.rows.mockResolvedValue([raw("old")]);const f=illustrationFixture("table"),r=await illustrationSupport(1,2,f.regions,f.input.source);expect(r.support.ocrEvidence).toEqual([]);expect(r.support.reviewEvidence).toEqual([]);expect(r.ocrOrder).toEqual([])})
+it("requires the exact occurrence, region-analysis version and stored frame",async()=>{for(const change of [{occurrenceId:3},{region:{...raw().region,analysisVersion:2}},{source:{...raw().source,orientation:6}}]){d.rows.mockResolvedValue([{...raw(),...change}]);const f=illustrationFixture("table");expect((await illustrationSupport(1,2,f.regions,f.input.source)).support.ocrEvidence).toEqual([])}})
+it("bounds raw line metadata without assigning geometry to corrected block text",async()=>{d.rows.mockResolvedValue([{...raw(),layout:{...raw().layout,lines:Array.from({length:50},()=>raw().layout.lines[0])}}]);const f=illustrationFixture("table"),r=await illustrationSupport(1,2,f.regions,f.input.source);expect(r.ocrOrder[0].lines).toHaveLength(40);expect(r.ocrOrder[0].truncated).toBe(true);expect(r.support.reviewEvidence[0].sourceDesignation).toBe("human_corrected_ocr")})

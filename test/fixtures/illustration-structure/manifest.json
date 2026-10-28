@@ -1,0 +1,2591 @@
+{
+  "purpose": "Supplied synthetic source regions, OCR/review and provider output contracts. No live extraction accuracy or reading-order correctness measured.",
+  "samples": [
+    {
+      "id": "branching-flow",
+      "file": "branching-flow.png",
+      "rootId": "rgn_12345678",
+      "input": {
+        "kind": "illustration_structure",
+        "assetId": 1,
+        "occurrenceId": 2,
+        "request": {
+          "requestId": "request123",
+          "analysisId": "rga_12345678",
+          "regionId": "rgn_12345678",
+          "occurrenceId": 2,
+          "reprocess": false
+        },
+        "source": {
+          "analysisId": "rga_12345678",
+          "analysisVersion": 1,
+          "regionId": "rgn_12345678",
+          "normalizedBox": {
+            "x": 0,
+            "y": 0,
+            "width": 1,
+            "height": 1
+          },
+          "pixelBox": {
+            "left": 0,
+            "top": 0,
+            "width": 800,
+            "height": 450
+          },
+          "sourceWidth": 800,
+          "sourceHeight": 450,
+          "sourceSha256": "eb2adb57244f59cde1152ff294d1c9e7d6017221013af5953787f338e17615c0",
+          "coordinateSystem": "stored_pixels_top_left",
+          "locationIsEstimate": true
+        },
+        "actorId": 7,
+        "modelId": "vision1",
+        "regions": [
+          {
+            "id": "rgn_12345678",
+            "primaryType": "flowchart_region",
+            "parentId": null,
+            "box": {
+              "x": 0,
+              "y": 0,
+              "width": 1,
+              "height": 1
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 0
+          },
+          {
+            "id": "a",
+            "primaryType": "flowchart_node",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.1,
+              "y": 0.2,
+              "width": 0.2,
+              "height": 0.2
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 1
+          },
+          {
+            "id": "b",
+            "primaryType": "flowchart_node",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.6,
+              "y": 0.2,
+              "width": 0.2,
+              "height": 0.2
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 2
+          },
+          {
+            "id": "c",
+            "primaryType": "flowchart_node",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.6,
+              "y": 0.6,
+              "width": 0.2,
+              "height": 0.2
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 3
+          },
+          {
+            "id": "arrow1",
+            "primaryType": "flowchart_connector",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.29,
+              "y": 0.2822222222222222,
+              "width": 0.32,
+              "height": 0.035555555555555556
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 4
+          },
+          {
+            "id": "arrow2",
+            "primaryType": "flowchart_connector",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.29,
+              "y": 0.2822222222222222,
+              "width": 0.32,
+              "height": 0.43555555555555553
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 5
+          },
+          {
+            "id": "arrow3",
+            "primaryType": "flowchart_connector",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.18,
+              "y": 0.06,
+              "width": 0.54,
+              "height": 0.18
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 6
+          }
+        ],
+        "regionParentId": null,
+        "complexity": "medium",
+        "support": {
+          "ocrEvidence": [
+            {
+              "resultId": "ocr1",
+              "regionId": "a",
+              "version": 1,
+              "text": "Source text",
+              "verified": false,
+              "sourceDesignation": "raw_ocr"
+            }
+          ],
+          "reviewEvidence": [
+            {
+              "id": 10,
+              "version": 1,
+              "regionId": "a",
+              "sourceRef": "image:ocr1",
+              "state": "verified",
+              "text": "Source text",
+              "sourceDesignation": "human_corrected_ocr"
+            }
+          ]
+        },
+        "regionRelationships": [],
+        "illustrationOptions": {
+          "enabledTypes": [
+            "flowchart",
+            "table",
+            "map",
+            "mixed"
+          ]
+        },
+        "illustrationOrder": []
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "contentType": "flowchart",
+        "nodes": [
+          {
+            "regionId": "a",
+            "role": "decision",
+            "labelRegionIds": [
+              "a"
+            ]
+          },
+          {
+            "regionId": "b",
+            "role": "start_end",
+            "labelRegionIds": []
+          },
+          {
+            "regionId": "c",
+            "role": "process",
+            "labelRegionIds": []
+          }
+        ],
+        "edges": [
+          {
+            "connectorRegionId": "arrow1",
+            "fromRegionId": "a",
+            "toRegionId": "b",
+            "direction": "from_to",
+            "arrowhead": "at_to",
+            "labelRegionIds": []
+          },
+          {
+            "connectorRegionId": "arrow2",
+            "fromRegionId": "a",
+            "toRegionId": "c",
+            "direction": "from_to",
+            "arrowhead": "at_to",
+            "labelRegionIds": []
+          }
+        ],
+        "table": null,
+        "map": null,
+        "groups": [],
+        "proposedOrderRegionIds": [
+          "a",
+          "b",
+          "c"
+        ],
+        "warnings": []
+      },
+      "synthetic": true
+    },
+    {
+      "id": "looping-flow",
+      "file": "looping-flow.png",
+      "rootId": "rgn_12345678",
+      "input": {
+        "kind": "illustration_structure",
+        "assetId": 1,
+        "occurrenceId": 2,
+        "request": {
+          "requestId": "request123",
+          "analysisId": "rga_12345678",
+          "regionId": "rgn_12345678",
+          "occurrenceId": 2,
+          "reprocess": false
+        },
+        "source": {
+          "analysisId": "rga_12345678",
+          "analysisVersion": 1,
+          "regionId": "rgn_12345678",
+          "normalizedBox": {
+            "x": 0,
+            "y": 0,
+            "width": 1,
+            "height": 1
+          },
+          "pixelBox": {
+            "left": 0,
+            "top": 0,
+            "width": 800,
+            "height": 450
+          },
+          "sourceWidth": 800,
+          "sourceHeight": 450,
+          "sourceSha256": "85602b80f75b475ba4ebd6343eb88e2e024b834a2280e3e11fdcd2a0d8f18188",
+          "coordinateSystem": "stored_pixels_top_left",
+          "locationIsEstimate": true
+        },
+        "actorId": 7,
+        "modelId": "vision1",
+        "regions": [
+          {
+            "id": "rgn_12345678",
+            "primaryType": "flowchart_region",
+            "parentId": null,
+            "box": {
+              "x": 0,
+              "y": 0,
+              "width": 1,
+              "height": 1
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 0
+          },
+          {
+            "id": "a",
+            "primaryType": "flowchart_node",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.1,
+              "y": 0.2,
+              "width": 0.2,
+              "height": 0.2
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 1
+          },
+          {
+            "id": "b",
+            "primaryType": "flowchart_node",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.6,
+              "y": 0.2,
+              "width": 0.2,
+              "height": 0.2
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 2
+          },
+          {
+            "id": "c",
+            "primaryType": "flowchart_node",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.6,
+              "y": 0.6,
+              "width": 0.2,
+              "height": 0.2
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 3
+          },
+          {
+            "id": "arrow1",
+            "primaryType": "flowchart_connector",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.29,
+              "y": 0.2822222222222222,
+              "width": 0.32,
+              "height": 0.035555555555555556
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 4
+          },
+          {
+            "id": "arrow2",
+            "primaryType": "flowchart_connector",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.29,
+              "y": 0.2822222222222222,
+              "width": 0.32,
+              "height": 0.43555555555555553
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 5
+          },
+          {
+            "id": "arrow3",
+            "primaryType": "flowchart_connector",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.19,
+              "y": 0.042222222222222223,
+              "width": 0.52,
+              "height": 0.17555555555555555
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 6
+          }
+        ],
+        "regionParentId": null,
+        "complexity": "medium",
+        "support": {
+          "ocrEvidence": [
+            {
+              "resultId": "ocr1",
+              "regionId": "a",
+              "version": 1,
+              "text": "Source text",
+              "verified": false,
+              "sourceDesignation": "raw_ocr"
+            }
+          ],
+          "reviewEvidence": [
+            {
+              "id": 10,
+              "version": 1,
+              "regionId": "a",
+              "sourceRef": "image:ocr1",
+              "state": "verified",
+              "text": "Source text",
+              "sourceDesignation": "human_corrected_ocr"
+            }
+          ]
+        },
+        "regionRelationships": [],
+        "illustrationOptions": {
+          "enabledTypes": [
+            "flowchart",
+            "table",
+            "map",
+            "mixed"
+          ]
+        },
+        "illustrationOrder": []
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "contentType": "flowchart",
+        "nodes": [
+          {
+            "regionId": "a",
+            "role": "decision",
+            "labelRegionIds": [
+              "a"
+            ]
+          },
+          {
+            "regionId": "b",
+            "role": "start_end",
+            "labelRegionIds": []
+          },
+          {
+            "regionId": "c",
+            "role": "process",
+            "labelRegionIds": []
+          }
+        ],
+        "edges": [
+          {
+            "connectorRegionId": "arrow1",
+            "fromRegionId": "a",
+            "toRegionId": "b",
+            "direction": "from_to",
+            "arrowhead": "at_to",
+            "labelRegionIds": []
+          },
+          {
+            "connectorRegionId": "arrow2",
+            "fromRegionId": "a",
+            "toRegionId": "c",
+            "direction": "from_to",
+            "arrowhead": "at_to",
+            "labelRegionIds": []
+          },
+          {
+            "connectorRegionId": "arrow3",
+            "fromRegionId": "b",
+            "toRegionId": "a",
+            "direction": "from_to",
+            "arrowhead": "at_to",
+            "labelRegionIds": []
+          }
+        ],
+        "table": null,
+        "map": null,
+        "groups": [],
+        "proposedOrderRegionIds": [
+          "a",
+          "b",
+          "c"
+        ],
+        "warnings": []
+      },
+      "synthetic": true
+    },
+    {
+      "id": "ambiguous-arrow",
+      "file": "ambiguous-arrow.png",
+      "rootId": "rgn_12345678",
+      "input": {
+        "kind": "illustration_structure",
+        "assetId": 1,
+        "occurrenceId": 2,
+        "request": {
+          "requestId": "request123",
+          "analysisId": "rga_12345678",
+          "regionId": "rgn_12345678",
+          "occurrenceId": 2,
+          "reprocess": false
+        },
+        "source": {
+          "analysisId": "rga_12345678",
+          "analysisVersion": 1,
+          "regionId": "rgn_12345678",
+          "normalizedBox": {
+            "x": 0,
+            "y": 0,
+            "width": 1,
+            "height": 1
+          },
+          "pixelBox": {
+            "left": 0,
+            "top": 0,
+            "width": 800,
+            "height": 450
+          },
+          "sourceWidth": 800,
+          "sourceHeight": 450,
+          "sourceSha256": "dc1b6d7f9fc75ede9370032be4371cc90fcb54ed59cc960d7916752ce31c1ecb",
+          "coordinateSystem": "stored_pixels_top_left",
+          "locationIsEstimate": true
+        },
+        "actorId": 7,
+        "modelId": "vision1",
+        "regions": [
+          {
+            "id": "rgn_12345678",
+            "primaryType": "flowchart_region",
+            "parentId": null,
+            "box": {
+              "x": 0,
+              "y": 0,
+              "width": 1,
+              "height": 1
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 0
+          },
+          {
+            "id": "a",
+            "primaryType": "flowchart_node",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.1,
+              "y": 0.2,
+              "width": 0.2,
+              "height": 0.2
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 1
+          },
+          {
+            "id": "b",
+            "primaryType": "flowchart_node",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.6,
+              "y": 0.2,
+              "width": 0.2,
+              "height": 0.2
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 2
+          },
+          {
+            "id": "c",
+            "primaryType": "flowchart_node",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.6,
+              "y": 0.6,
+              "width": 0.2,
+              "height": 0.2
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 3
+          },
+          {
+            "id": "arrow1",
+            "primaryType": "flowchart_connector",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.29,
+              "y": 0.2822222222222222,
+              "width": 0.22,
+              "height": 0.035555555555555556
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 4
+          },
+          {
+            "id": "arrow2",
+            "primaryType": "flowchart_connector",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.29,
+              "y": 0.2822222222222222,
+              "width": 0.32,
+              "height": 0.43555555555555553
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 5
+          },
+          {
+            "id": "arrow3",
+            "primaryType": "flowchart_connector",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.18,
+              "y": 0.06,
+              "width": 0.54,
+              "height": 0.18
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 6
+          }
+        ],
+        "regionParentId": null,
+        "complexity": "medium",
+        "support": {
+          "ocrEvidence": [
+            {
+              "resultId": "ocr1",
+              "regionId": "a",
+              "version": 1,
+              "text": "Source text",
+              "verified": false,
+              "sourceDesignation": "raw_ocr"
+            }
+          ],
+          "reviewEvidence": [
+            {
+              "id": 10,
+              "version": 1,
+              "regionId": "a",
+              "sourceRef": "image:ocr1",
+              "state": "verified",
+              "text": "Source text",
+              "sourceDesignation": "human_corrected_ocr"
+            }
+          ]
+        },
+        "regionRelationships": [],
+        "illustrationOptions": {
+          "enabledTypes": [
+            "flowchart",
+            "table",
+            "map",
+            "mixed"
+          ]
+        },
+        "illustrationOrder": []
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "contentType": "flowchart",
+        "nodes": [
+          {
+            "regionId": "a",
+            "role": "decision",
+            "labelRegionIds": [
+              "a"
+            ]
+          },
+          {
+            "regionId": "b",
+            "role": "start_end",
+            "labelRegionIds": []
+          },
+          {
+            "regionId": "c",
+            "role": "process",
+            "labelRegionIds": []
+          }
+        ],
+        "edges": [
+          {
+            "connectorRegionId": "arrow1",
+            "fromRegionId": "a",
+            "toRegionId": null,
+            "direction": "unknown",
+            "arrowhead": "unclear",
+            "labelRegionIds": []
+          },
+          {
+            "connectorRegionId": "arrow2",
+            "fromRegionId": "a",
+            "toRegionId": "c",
+            "direction": "from_to",
+            "arrowhead": "at_to",
+            "labelRegionIds": []
+          }
+        ],
+        "table": null,
+        "map": null,
+        "groups": [],
+        "proposedOrderRegionIds": [
+          "a",
+          "b",
+          "c"
+        ],
+        "warnings": [
+          "ambiguous_direction"
+        ]
+      },
+      "synthetic": true
+    },
+    {
+      "id": "merged-cells",
+      "file": "merged-cells.png",
+      "rootId": "rgn_12345678",
+      "input": {
+        "kind": "illustration_structure",
+        "assetId": 1,
+        "occurrenceId": 2,
+        "request": {
+          "requestId": "request123",
+          "analysisId": "rga_12345678",
+          "regionId": "rgn_12345678",
+          "occurrenceId": 2,
+          "reprocess": false
+        },
+        "source": {
+          "analysisId": "rga_12345678",
+          "analysisVersion": 1,
+          "regionId": "rgn_12345678",
+          "normalizedBox": {
+            "x": 0,
+            "y": 0,
+            "width": 1,
+            "height": 1
+          },
+          "pixelBox": {
+            "left": 0,
+            "top": 0,
+            "width": 800,
+            "height": 450
+          },
+          "sourceWidth": 800,
+          "sourceHeight": 450,
+          "sourceSha256": "8a45d24e6ac9aa6d105f0ebdff275182c405a8f193359d5f7f20e64951bee4ea",
+          "coordinateSystem": "stored_pixels_top_left",
+          "locationIsEstimate": true
+        },
+        "actorId": 7,
+        "modelId": "vision1",
+        "regions": [
+          {
+            "id": "rgn_12345678",
+            "primaryType": "table_region",
+            "parentId": null,
+            "box": {
+              "x": 0,
+              "y": 0,
+              "width": 1,
+              "height": 1
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 0
+          },
+          {
+            "id": "r0",
+            "primaryType": "table_row_region",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.1,
+              "y": 0.1,
+              "width": 0.8,
+              "height": 0.2
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 1
+          },
+          {
+            "id": "r1",
+            "primaryType": "table_row_region",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.1,
+              "y": 0.3,
+              "width": 0.8,
+              "height": 0.2
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 2
+          },
+          {
+            "id": "col0",
+            "primaryType": "table_column_region",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.1,
+              "y": 0.1,
+              "width": 0.4,
+              "height": 0.4
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 3
+          },
+          {
+            "id": "col1",
+            "primaryType": "table_column_region",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.5,
+              "y": 0.1,
+              "width": 0.4,
+              "height": 0.4
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 4
+          },
+          {
+            "id": "cellA",
+            "primaryType": "table_cell_region",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.1,
+              "y": 0.1,
+              "width": 0.8,
+              "height": 0.2
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 5
+          },
+          {
+            "id": "cellB",
+            "primaryType": "table_cell_region",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.1,
+              "y": 0.3,
+              "width": 0.4,
+              "height": 0.2
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 6
+          },
+          {
+            "id": "cellC",
+            "primaryType": "table_cell_region",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.5,
+              "y": 0.3,
+              "width": 0.4,
+              "height": 0.2
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 7
+          }
+        ],
+        "regionParentId": null,
+        "complexity": "medium",
+        "support": {
+          "ocrEvidence": [
+            {
+              "resultId": "ocr1",
+              "regionId": "cellA",
+              "version": 1,
+              "text": "नाम",
+              "verified": false,
+              "sourceDesignation": "raw_ocr"
+            }
+          ],
+          "reviewEvidence": [
+            {
+              "id": 10,
+              "version": 1,
+              "regionId": "cellA",
+              "sourceRef": "image:ocr1",
+              "state": "verified",
+              "text": "नाम",
+              "sourceDesignation": "human_corrected_ocr"
+            }
+          ]
+        },
+        "regionRelationships": [],
+        "illustrationOptions": {
+          "enabledTypes": [
+            "flowchart",
+            "table",
+            "map",
+            "mixed"
+          ]
+        },
+        "illustrationOrder": []
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "contentType": "table",
+        "nodes": [],
+        "edges": [],
+        "table": {
+          "rowRegionIds": [
+            "r0",
+            "r1"
+          ],
+          "columnRegionIds": [
+            "col0",
+            "col1"
+          ],
+          "cells": [
+            {
+              "regionId": "cellA",
+              "row": 0,
+              "column": 0,
+              "rowSpan": 1,
+              "columnSpan": 2,
+              "headerCandidate": "row"
+            },
+            {
+              "regionId": "cellB",
+              "row": 1,
+              "column": 0,
+              "rowSpan": 1,
+              "columnSpan": 1,
+              "headerCandidate": "none"
+            },
+            {
+              "regionId": "cellC",
+              "row": 1,
+              "column": 1,
+              "rowSpan": 1,
+              "columnSpan": 1,
+              "headerCandidate": "unknown"
+            }
+          ],
+          "borders": "visible"
+        },
+        "map": null,
+        "groups": [],
+        "proposedOrderRegionIds": [
+          "cellA",
+          "cellB",
+          "cellC"
+        ],
+        "warnings": []
+      },
+      "synthetic": true
+    },
+    {
+      "id": "hindi-headings",
+      "file": "hindi-headings.png",
+      "rootId": "rgn_12345678",
+      "input": {
+        "kind": "illustration_structure",
+        "assetId": 1,
+        "occurrenceId": 2,
+        "request": {
+          "requestId": "request123",
+          "analysisId": "rga_12345678",
+          "regionId": "rgn_12345678",
+          "occurrenceId": 2,
+          "reprocess": false
+        },
+        "source": {
+          "analysisId": "rga_12345678",
+          "analysisVersion": 1,
+          "regionId": "rgn_12345678",
+          "normalizedBox": {
+            "x": 0,
+            "y": 0,
+            "width": 1,
+            "height": 1
+          },
+          "pixelBox": {
+            "left": 0,
+            "top": 0,
+            "width": 800,
+            "height": 450
+          },
+          "sourceWidth": 800,
+          "sourceHeight": 450,
+          "sourceSha256": "1569361b01b897c08803a7acf48140f2cb5ec8e37dd388335d57e46f053317d8",
+          "coordinateSystem": "stored_pixels_top_left",
+          "locationIsEstimate": true
+        },
+        "actorId": 7,
+        "modelId": "vision1",
+        "regions": [
+          {
+            "id": "rgn_12345678",
+            "primaryType": "table_region",
+            "parentId": null,
+            "box": {
+              "x": 0,
+              "y": 0,
+              "width": 1,
+              "height": 1
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 0
+          },
+          {
+            "id": "r0",
+            "primaryType": "table_row_region",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.1,
+              "y": 0.1,
+              "width": 0.8,
+              "height": 0.2
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 1
+          },
+          {
+            "id": "r1",
+            "primaryType": "table_row_region",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.1,
+              "y": 0.3,
+              "width": 0.8,
+              "height": 0.2
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 2
+          },
+          {
+            "id": "col0",
+            "primaryType": "table_column_region",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.1,
+              "y": 0.1,
+              "width": 0.4,
+              "height": 0.4
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 3
+          },
+          {
+            "id": "col1",
+            "primaryType": "table_column_region",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.5,
+              "y": 0.1,
+              "width": 0.4,
+              "height": 0.4
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 4
+          },
+          {
+            "id": "cellA",
+            "primaryType": "table_cell_region",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.1,
+              "y": 0.1,
+              "width": 0.8,
+              "height": 0.2
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 5
+          },
+          {
+            "id": "cellB",
+            "primaryType": "table_cell_region",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.1,
+              "y": 0.3,
+              "width": 0.4,
+              "height": 0.2
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 6
+          },
+          {
+            "id": "cellC",
+            "primaryType": "table_cell_region",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.5,
+              "y": 0.3,
+              "width": 0.4,
+              "height": 0.2
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 7
+          }
+        ],
+        "regionParentId": null,
+        "complexity": "medium",
+        "support": {
+          "ocrEvidence": [
+            {
+              "resultId": "ocr1",
+              "regionId": "cellA",
+              "version": 1,
+              "text": "नाम",
+              "verified": false,
+              "sourceDesignation": "raw_ocr"
+            }
+          ],
+          "reviewEvidence": [
+            {
+              "id": 10,
+              "version": 1,
+              "regionId": "cellA",
+              "sourceRef": "image:ocr1",
+              "state": "verified",
+              "text": "नाम",
+              "sourceDesignation": "human_corrected_ocr"
+            }
+          ]
+        },
+        "regionRelationships": [],
+        "illustrationOptions": {
+          "enabledTypes": [
+            "flowchart",
+            "table",
+            "map",
+            "mixed"
+          ]
+        },
+        "illustrationOrder": []
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "contentType": "table",
+        "nodes": [],
+        "edges": [],
+        "table": {
+          "rowRegionIds": [
+            "r0",
+            "r1"
+          ],
+          "columnRegionIds": [
+            "col0",
+            "col1"
+          ],
+          "cells": [
+            {
+              "regionId": "cellA",
+              "row": 0,
+              "column": 0,
+              "rowSpan": 1,
+              "columnSpan": 2,
+              "headerCandidate": "row"
+            },
+            {
+              "regionId": "cellB",
+              "row": 1,
+              "column": 0,
+              "rowSpan": 1,
+              "columnSpan": 1,
+              "headerCandidate": "none"
+            },
+            {
+              "regionId": "cellC",
+              "row": 1,
+              "column": 1,
+              "rowSpan": 1,
+              "columnSpan": 1,
+              "headerCandidate": "unknown"
+            }
+          ],
+          "borders": "visible"
+        },
+        "map": null,
+        "groups": [],
+        "proposedOrderRegionIds": [
+          "cellA",
+          "cellB",
+          "cellC"
+        ],
+        "warnings": []
+      },
+      "synthetic": true
+    },
+    {
+      "id": "missing-borders",
+      "file": "missing-borders.png",
+      "rootId": "rgn_12345678",
+      "input": {
+        "kind": "illustration_structure",
+        "assetId": 1,
+        "occurrenceId": 2,
+        "request": {
+          "requestId": "request123",
+          "analysisId": "rga_12345678",
+          "regionId": "rgn_12345678",
+          "occurrenceId": 2,
+          "reprocess": false
+        },
+        "source": {
+          "analysisId": "rga_12345678",
+          "analysisVersion": 1,
+          "regionId": "rgn_12345678",
+          "normalizedBox": {
+            "x": 0,
+            "y": 0,
+            "width": 1,
+            "height": 1
+          },
+          "pixelBox": {
+            "left": 0,
+            "top": 0,
+            "width": 800,
+            "height": 450
+          },
+          "sourceWidth": 800,
+          "sourceHeight": 450,
+          "sourceSha256": "de71da11eebf7a041769406bbeed7b4b08f13076233b4ac509c1618eaa5e5380",
+          "coordinateSystem": "stored_pixels_top_left",
+          "locationIsEstimate": true
+        },
+        "actorId": 7,
+        "modelId": "vision1",
+        "regions": [
+          {
+            "id": "rgn_12345678",
+            "primaryType": "table_region",
+            "parentId": null,
+            "box": {
+              "x": 0,
+              "y": 0,
+              "width": 1,
+              "height": 1
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 0
+          },
+          {
+            "id": "r0",
+            "primaryType": "table_row_region",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.1,
+              "y": 0.1,
+              "width": 0.8,
+              "height": 0.2
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 1
+          },
+          {
+            "id": "r1",
+            "primaryType": "table_row_region",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.1,
+              "y": 0.3,
+              "width": 0.8,
+              "height": 0.2
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 2
+          },
+          {
+            "id": "col0",
+            "primaryType": "table_column_region",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.1,
+              "y": 0.1,
+              "width": 0.4,
+              "height": 0.4
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 3
+          },
+          {
+            "id": "col1",
+            "primaryType": "table_column_region",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.5,
+              "y": 0.1,
+              "width": 0.4,
+              "height": 0.4
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 4
+          },
+          {
+            "id": "cellA",
+            "primaryType": "table_cell_region",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.1,
+              "y": 0.1,
+              "width": 0.8,
+              "height": 0.2
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 5
+          },
+          {
+            "id": "cellB",
+            "primaryType": "table_cell_region",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.1,
+              "y": 0.3,
+              "width": 0.4,
+              "height": 0.2
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 6
+          },
+          {
+            "id": "cellC",
+            "primaryType": "table_cell_region",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.5,
+              "y": 0.3,
+              "width": 0.4,
+              "height": 0.2
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 7
+          }
+        ],
+        "regionParentId": null,
+        "complexity": "medium",
+        "support": {
+          "ocrEvidence": [
+            {
+              "resultId": "ocr1",
+              "regionId": "cellA",
+              "version": 1,
+              "text": "नाम",
+              "verified": false,
+              "sourceDesignation": "raw_ocr"
+            }
+          ],
+          "reviewEvidence": [
+            {
+              "id": 10,
+              "version": 1,
+              "regionId": "cellA",
+              "sourceRef": "image:ocr1",
+              "state": "verified",
+              "text": "नाम",
+              "sourceDesignation": "human_corrected_ocr"
+            }
+          ]
+        },
+        "regionRelationships": [],
+        "illustrationOptions": {
+          "enabledTypes": [
+            "flowchart",
+            "table",
+            "map",
+            "mixed"
+          ]
+        },
+        "illustrationOrder": []
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "contentType": "table",
+        "nodes": [],
+        "edges": [],
+        "table": {
+          "rowRegionIds": [],
+          "columnRegionIds": [],
+          "cells": [
+            {
+              "regionId": "cellA",
+              "row": null,
+              "column": null,
+              "rowSpan": 1,
+              "columnSpan": 1,
+              "headerCandidate": "row"
+            },
+            {
+              "regionId": "cellB",
+              "row": null,
+              "column": null,
+              "rowSpan": 1,
+              "columnSpan": 1,
+              "headerCandidate": "none"
+            },
+            {
+              "regionId": "cellC",
+              "row": null,
+              "column": null,
+              "rowSpan": 1,
+              "columnSpan": 1,
+              "headerCandidate": "unknown"
+            }
+          ],
+          "borders": "partial"
+        },
+        "map": null,
+        "groups": [],
+        "proposedOrderRegionIds": [
+          "cellA",
+          "cellB",
+          "cellC"
+        ],
+        "warnings": [
+          "missing_borders",
+          "partial_table"
+        ]
+      },
+      "synthetic": true
+    },
+    {
+      "id": "route-map",
+      "file": "route-map.png",
+      "rootId": "rgn_12345678",
+      "input": {
+        "kind": "illustration_structure",
+        "assetId": 1,
+        "occurrenceId": 2,
+        "request": {
+          "requestId": "request123",
+          "analysisId": "rga_12345678",
+          "regionId": "rgn_12345678",
+          "occurrenceId": 2,
+          "reprocess": false
+        },
+        "source": {
+          "analysisId": "rga_12345678",
+          "analysisVersion": 1,
+          "regionId": "rgn_12345678",
+          "normalizedBox": {
+            "x": 0,
+            "y": 0,
+            "width": 1,
+            "height": 1
+          },
+          "pixelBox": {
+            "left": 0,
+            "top": 0,
+            "width": 800,
+            "height": 450
+          },
+          "sourceWidth": 800,
+          "sourceHeight": 450,
+          "sourceSha256": "530409fd08057339ad5ded2b4593700453bd39115fddbb0c482fc807d9c400dd",
+          "coordinateSystem": "stored_pixels_top_left",
+          "locationIsEstimate": true
+        },
+        "actorId": 7,
+        "modelId": "vision1",
+        "regions": [
+          {
+            "id": "rgn_12345678",
+            "primaryType": "map_region",
+            "parentId": null,
+            "box": {
+              "x": 0,
+              "y": 0,
+              "width": 1,
+              "height": 1
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 0
+          },
+          {
+            "id": "title",
+            "primaryType": "heading_region",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.12,
+              "y": 0.04,
+              "width": 0.7,
+              "height": 0.08
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 1
+          },
+          {
+            "id": "legend",
+            "primaryType": "legend_region",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.05,
+              "y": 0.75,
+              "width": 0.4,
+              "height": 0.18
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 2
+          },
+          {
+            "id": "north",
+            "primaryType": "map_orientation_region",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.86,
+              "y": 0.1,
+              "width": 0.07,
+              "height": 0.2
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 3
+          },
+          {
+            "id": "scale",
+            "primaryType": "text_region",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.5,
+              "y": 0.85,
+              "width": 0.35,
+              "height": 0.08
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 4
+          },
+          {
+            "id": "route",
+            "primaryType": "map_route_region",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.2,
+              "y": 0.25,
+              "width": 0.5,
+              "height": 0.35
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 5
+          },
+          {
+            "id": "area",
+            "primaryType": "map_area_region",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.1,
+              "y": 0.15,
+              "width": 0.6,
+              "height": 0.5
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 6
+          },
+          {
+            "id": "landmark",
+            "primaryType": "map_landmark_region",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.6,
+              "y": 0.3,
+              "width": 0.12,
+              "height": 0.12
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 7
+          }
+        ],
+        "regionParentId": null,
+        "complexity": "medium",
+        "support": {
+          "ocrEvidence": [
+            {
+              "resultId": "ocr1",
+              "regionId": "scale",
+              "version": 1,
+              "text": "5 km",
+              "verified": false,
+              "sourceDesignation": "raw_ocr"
+            }
+          ],
+          "reviewEvidence": [
+            {
+              "id": 10,
+              "version": 1,
+              "regionId": "scale",
+              "sourceRef": "image:ocr1",
+              "state": "verified",
+              "text": "5 km",
+              "sourceDesignation": "human_corrected_ocr"
+            }
+          ]
+        },
+        "regionRelationships": [],
+        "illustrationOptions": {
+          "enabledTypes": [
+            "flowchart",
+            "table",
+            "map",
+            "mixed"
+          ]
+        },
+        "illustrationOrder": []
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "contentType": "map",
+        "nodes": [],
+        "edges": [],
+        "table": null,
+        "map": {
+          "mode": "schematic_candidate",
+          "titleRegionIds": [
+            "title"
+          ],
+          "legendRegionIds": [
+            "legend"
+          ],
+          "orientationRegionIds": [
+            "north"
+          ],
+          "scaleLabelRegionIds": [
+            "scale"
+          ],
+          "routeRegionIds": [
+            "route"
+          ],
+          "areaRegionIds": [
+            "area"
+          ],
+          "landmarkRegionIds": [
+            "landmark"
+          ],
+          "labelRegionIds": []
+        },
+        "groups": [],
+        "proposedOrderRegionIds": [],
+        "warnings": []
+      },
+      "synthetic": true
+    },
+    {
+      "id": "map-legend",
+      "file": "map-legend.png",
+      "rootId": "rgn_12345678",
+      "input": {
+        "kind": "illustration_structure",
+        "assetId": 1,
+        "occurrenceId": 2,
+        "request": {
+          "requestId": "request123",
+          "analysisId": "rga_12345678",
+          "regionId": "rgn_12345678",
+          "occurrenceId": 2,
+          "reprocess": false
+        },
+        "source": {
+          "analysisId": "rga_12345678",
+          "analysisVersion": 1,
+          "regionId": "rgn_12345678",
+          "normalizedBox": {
+            "x": 0,
+            "y": 0,
+            "width": 1,
+            "height": 1
+          },
+          "pixelBox": {
+            "left": 0,
+            "top": 0,
+            "width": 800,
+            "height": 450
+          },
+          "sourceWidth": 800,
+          "sourceHeight": 450,
+          "sourceSha256": "900f019b3f777d41982c48e23246f60cda5b554f0f61e1958f096f8a8a5a974c",
+          "coordinateSystem": "stored_pixels_top_left",
+          "locationIsEstimate": true
+        },
+        "actorId": 7,
+        "modelId": "vision1",
+        "regions": [
+          {
+            "id": "rgn_12345678",
+            "primaryType": "map_region",
+            "parentId": null,
+            "box": {
+              "x": 0,
+              "y": 0,
+              "width": 1,
+              "height": 1
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 0
+          },
+          {
+            "id": "title",
+            "primaryType": "heading_region",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.12,
+              "y": 0.04,
+              "width": 0.7,
+              "height": 0.08
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 1
+          },
+          {
+            "id": "legend",
+            "primaryType": "legend_region",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.05,
+              "y": 0.75,
+              "width": 0.4,
+              "height": 0.18
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 2
+          },
+          {
+            "id": "north",
+            "primaryType": "map_orientation_region",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.86,
+              "y": 0.1,
+              "width": 0.07,
+              "height": 0.2
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 3
+          },
+          {
+            "id": "scale",
+            "primaryType": "text_region",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.5,
+              "y": 0.85,
+              "width": 0.35,
+              "height": 0.08
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 4
+          },
+          {
+            "id": "route",
+            "primaryType": "map_route_region",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.2,
+              "y": 0.25,
+              "width": 0.5,
+              "height": 0.35
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 5
+          },
+          {
+            "id": "area",
+            "primaryType": "map_area_region",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.1,
+              "y": 0.15,
+              "width": 0.6,
+              "height": 0.5
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 6
+          },
+          {
+            "id": "landmark",
+            "primaryType": "map_landmark_region",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.6,
+              "y": 0.3,
+              "width": 0.12,
+              "height": 0.12
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 7
+          }
+        ],
+        "regionParentId": null,
+        "complexity": "medium",
+        "support": {
+          "ocrEvidence": [
+            {
+              "resultId": "ocr1",
+              "regionId": "scale",
+              "version": 1,
+              "text": "5 km",
+              "verified": false,
+              "sourceDesignation": "raw_ocr"
+            }
+          ],
+          "reviewEvidence": [
+            {
+              "id": 10,
+              "version": 1,
+              "regionId": "scale",
+              "sourceRef": "image:ocr1",
+              "state": "verified",
+              "text": "5 km",
+              "sourceDesignation": "human_corrected_ocr"
+            }
+          ]
+        },
+        "regionRelationships": [],
+        "illustrationOptions": {
+          "enabledTypes": [
+            "flowchart",
+            "table",
+            "map",
+            "mixed"
+          ]
+        },
+        "illustrationOrder": []
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "contentType": "map",
+        "nodes": [],
+        "edges": [],
+        "table": null,
+        "map": {
+          "mode": "schematic_candidate",
+          "titleRegionIds": [
+            "title"
+          ],
+          "legendRegionIds": [
+            "legend"
+          ],
+          "orientationRegionIds": [
+            "north"
+          ],
+          "scaleLabelRegionIds": [
+            "scale"
+          ],
+          "routeRegionIds": [
+            "route"
+          ],
+          "areaRegionIds": [
+            "area"
+          ],
+          "landmarkRegionIds": [
+            "landmark"
+          ],
+          "labelRegionIds": []
+        },
+        "groups": [],
+        "proposedOrderRegionIds": [],
+        "warnings": []
+      },
+      "synthetic": true
+    },
+    {
+      "id": "scientific-infographic",
+      "file": "scientific-infographic.png",
+      "rootId": "rgn_12345678",
+      "input": {
+        "kind": "illustration_structure",
+        "assetId": 1,
+        "occurrenceId": 2,
+        "request": {
+          "requestId": "request123",
+          "analysisId": "rga_12345678",
+          "regionId": "rgn_12345678",
+          "occurrenceId": 2,
+          "reprocess": false
+        },
+        "source": {
+          "analysisId": "rga_12345678",
+          "analysisVersion": 1,
+          "regionId": "rgn_12345678",
+          "normalizedBox": {
+            "x": 0,
+            "y": 0,
+            "width": 1,
+            "height": 1
+          },
+          "pixelBox": {
+            "left": 0,
+            "top": 0,
+            "width": 800,
+            "height": 450
+          },
+          "sourceWidth": 800,
+          "sourceHeight": 450,
+          "sourceSha256": "ba7bfb67b96bb2ffe05ab6e18af221c195efd4d52b22c6afd759d5c92b5feaf0",
+          "coordinateSystem": "stored_pixels_top_left",
+          "locationIsEstimate": true
+        },
+        "actorId": 7,
+        "modelId": "vision1",
+        "regions": [
+          {
+            "id": "rgn_12345678",
+            "primaryType": "mixed_content_region",
+            "parentId": null,
+            "box": {
+              "x": 0,
+              "y": 0,
+              "width": 1,
+              "height": 1
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 0
+          },
+          {
+            "id": "panel1",
+            "primaryType": "diagram_group_region",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.05,
+              "y": 0.08,
+              "width": 0.42,
+              "height": 0.82
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 1
+          },
+          {
+            "id": "panel2",
+            "primaryType": "diagram_group_region",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.53,
+              "y": 0.08,
+              "width": 0.42,
+              "height": 0.82
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 2
+          },
+          {
+            "id": "chart",
+            "primaryType": "graph_region",
+            "parentId": "panel1",
+            "box": {
+              "x": 0.1,
+              "y": 0.1,
+              "width": 0.3,
+              "height": 0.4
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 3
+          },
+          {
+            "id": "science",
+            "primaryType": "scientific_diagram_region",
+            "parentId": "panel2",
+            "box": {
+              "x": 0.6,
+              "y": 0.1,
+              "width": 0.3,
+              "height": 0.4
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 4
+          }
+        ],
+        "regionParentId": null,
+        "complexity": "medium",
+        "support": {
+          "ocrEvidence": [
+            {
+              "resultId": "ocr1",
+              "regionId": "chart",
+              "version": 1,
+              "text": "Source text",
+              "verified": false,
+              "sourceDesignation": "raw_ocr"
+            }
+          ],
+          "reviewEvidence": [
+            {
+              "id": 10,
+              "version": 1,
+              "regionId": "chart",
+              "sourceRef": "image:ocr1",
+              "state": "verified",
+              "text": "Source text",
+              "sourceDesignation": "human_corrected_ocr"
+            }
+          ]
+        },
+        "regionRelationships": [],
+        "illustrationOptions": {
+          "enabledTypes": [
+            "flowchart",
+            "table",
+            "map",
+            "mixed"
+          ]
+        },
+        "illustrationOrder": []
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "contentType": "mixed",
+        "nodes": [
+          {
+            "regionId": "chart",
+            "role": "chart",
+            "labelRegionIds": []
+          },
+          {
+            "regionId": "science",
+            "role": "diagram",
+            "labelRegionIds": []
+          }
+        ],
+        "edges": [],
+        "table": null,
+        "map": null,
+        "groups": [
+          {
+            "regionId": "panel1",
+            "memberRegionIds": [
+              "chart"
+            ]
+          },
+          {
+            "regionId": "panel2",
+            "memberRegionIds": [
+              "science"
+            ]
+          }
+        ],
+        "proposedOrderRegionIds": [],
+        "warnings": []
+      },
+      "synthetic": true
+    },
+    {
+      "id": "multi-panel-mixed",
+      "file": "multi-panel-mixed.png",
+      "rootId": "rgn_12345678",
+      "input": {
+        "kind": "illustration_structure",
+        "assetId": 1,
+        "occurrenceId": 2,
+        "request": {
+          "requestId": "request123",
+          "analysisId": "rga_12345678",
+          "regionId": "rgn_12345678",
+          "occurrenceId": 2,
+          "reprocess": false
+        },
+        "source": {
+          "analysisId": "rga_12345678",
+          "analysisVersion": 1,
+          "regionId": "rgn_12345678",
+          "normalizedBox": {
+            "x": 0,
+            "y": 0,
+            "width": 1,
+            "height": 1
+          },
+          "pixelBox": {
+            "left": 0,
+            "top": 0,
+            "width": 800,
+            "height": 450
+          },
+          "sourceWidth": 800,
+          "sourceHeight": 450,
+          "sourceSha256": "32cb3cc50869873b59bcb24d46ec5ffefdb29d1a3edc9dd59c2b7be3a06d0510",
+          "coordinateSystem": "stored_pixels_top_left",
+          "locationIsEstimate": true
+        },
+        "actorId": 7,
+        "modelId": "vision1",
+        "regions": [
+          {
+            "id": "rgn_12345678",
+            "primaryType": "mixed_content_region",
+            "parentId": null,
+            "box": {
+              "x": 0,
+              "y": 0,
+              "width": 1,
+              "height": 1
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 0
+          },
+          {
+            "id": "panel1",
+            "primaryType": "diagram_group_region",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.05,
+              "y": 0.08,
+              "width": 0.42,
+              "height": 0.82
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 1
+          },
+          {
+            "id": "panel2",
+            "primaryType": "diagram_group_region",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.53,
+              "y": 0.08,
+              "width": 0.42,
+              "height": 0.82
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 2
+          },
+          {
+            "id": "chart",
+            "primaryType": "graph_region",
+            "parentId": "panel1",
+            "box": {
+              "x": 0.1,
+              "y": 0.1,
+              "width": 0.3,
+              "height": 0.4
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 3
+          },
+          {
+            "id": "science",
+            "primaryType": "scientific_diagram_region",
+            "parentId": "panel2",
+            "box": {
+              "x": 0.6,
+              "y": 0.1,
+              "width": 0.3,
+              "height": 0.4
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 4
+          }
+        ],
+        "regionParentId": null,
+        "complexity": "medium",
+        "support": {
+          "ocrEvidence": [
+            {
+              "resultId": "ocr1",
+              "regionId": "chart",
+              "version": 1,
+              "text": "Source text",
+              "verified": false,
+              "sourceDesignation": "raw_ocr"
+            }
+          ],
+          "reviewEvidence": [
+            {
+              "id": 10,
+              "version": 1,
+              "regionId": "chart",
+              "sourceRef": "image:ocr1",
+              "state": "verified",
+              "text": "Source text",
+              "sourceDesignation": "human_corrected_ocr"
+            }
+          ]
+        },
+        "regionRelationships": [],
+        "illustrationOptions": {
+          "enabledTypes": [
+            "flowchart",
+            "table",
+            "map",
+            "mixed"
+          ]
+        },
+        "illustrationOrder": []
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "contentType": "mixed",
+        "nodes": [
+          {
+            "regionId": "chart",
+            "role": "chart",
+            "labelRegionIds": []
+          },
+          {
+            "regionId": "science",
+            "role": "diagram",
+            "labelRegionIds": []
+          }
+        ],
+        "edges": [],
+        "table": null,
+        "map": null,
+        "groups": [
+          {
+            "regionId": "panel1",
+            "memberRegionIds": [
+              "chart"
+            ]
+          },
+          {
+            "regionId": "panel2",
+            "memberRegionIds": [
+              "science"
+            ]
+          }
+        ],
+        "proposedOrderRegionIds": [],
+        "warnings": []
+      },
+      "synthetic": true
+    },
+    {
+      "id": "unreadable-labels",
+      "file": "unreadable-labels.png",
+      "rootId": "rgn_12345678",
+      "input": {
+        "kind": "illustration_structure",
+        "assetId": 1,
+        "occurrenceId": 2,
+        "request": {
+          "requestId": "request123",
+          "analysisId": "rga_12345678",
+          "regionId": "rgn_12345678",
+          "occurrenceId": 2,
+          "reprocess": false
+        },
+        "source": {
+          "analysisId": "rga_12345678",
+          "analysisVersion": 1,
+          "regionId": "rgn_12345678",
+          "normalizedBox": {
+            "x": 0,
+            "y": 0,
+            "width": 1,
+            "height": 1
+          },
+          "pixelBox": {
+            "left": 0,
+            "top": 0,
+            "width": 800,
+            "height": 450
+          },
+          "sourceWidth": 800,
+          "sourceHeight": 450,
+          "sourceSha256": "739bbc768997d12bd3a48e40af6f0768f2a7dabfcadd0fef3a6d5d8269f469be",
+          "coordinateSystem": "stored_pixels_top_left",
+          "locationIsEstimate": true
+        },
+        "actorId": 7,
+        "modelId": "vision1",
+        "regions": [
+          {
+            "id": "rgn_12345678",
+            "primaryType": "flowchart_region",
+            "parentId": null,
+            "box": {
+              "x": 0,
+              "y": 0,
+              "width": 1,
+              "height": 1
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 0
+          },
+          {
+            "id": "a",
+            "primaryType": "flowchart_node",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.1,
+              "y": 0.2,
+              "width": 0.2,
+              "height": 0.2
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 1
+          },
+          {
+            "id": "b",
+            "primaryType": "flowchart_node",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.6,
+              "y": 0.2,
+              "width": 0.2,
+              "height": 0.2
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 2
+          },
+          {
+            "id": "c",
+            "primaryType": "flowchart_node",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.6,
+              "y": 0.6,
+              "width": 0.2,
+              "height": 0.2
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 3
+          },
+          {
+            "id": "arrow1",
+            "primaryType": "flowchart_connector",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.29,
+              "y": 0.2822222222222222,
+              "width": 0.32,
+              "height": 0.035555555555555556
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 4
+          },
+          {
+            "id": "arrow2",
+            "primaryType": "flowchart_connector",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.29,
+              "y": 0.2822222222222222,
+              "width": 0.32,
+              "height": 0.43555555555555553
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 5
+          },
+          {
+            "id": "arrow3",
+            "primaryType": "flowchart_connector",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.18,
+              "y": 0.06,
+              "width": 0.54,
+              "height": 0.18
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 6
+          }
+        ],
+        "regionParentId": null,
+        "complexity": "medium",
+        "support": {
+          "ocrEvidence": [],
+          "reviewEvidence": []
+        },
+        "regionRelationships": [],
+        "illustrationOptions": {
+          "enabledTypes": [
+            "flowchart",
+            "table",
+            "map",
+            "mixed"
+          ]
+        },
+        "illustrationOrder": []
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "contentType": "flowchart",
+        "nodes": [
+          {
+            "regionId": "a",
+            "role": "decision",
+            "labelRegionIds": [
+              "a"
+            ]
+          },
+          {
+            "regionId": "b",
+            "role": "start_end",
+            "labelRegionIds": []
+          },
+          {
+            "regionId": "c",
+            "role": "process",
+            "labelRegionIds": []
+          }
+        ],
+        "edges": [
+          {
+            "connectorRegionId": "arrow1",
+            "fromRegionId": "a",
+            "toRegionId": "b",
+            "direction": "from_to",
+            "arrowhead": "at_to",
+            "labelRegionIds": []
+          },
+          {
+            "connectorRegionId": "arrow2",
+            "fromRegionId": "a",
+            "toRegionId": "c",
+            "direction": "from_to",
+            "arrowhead": "at_to",
+            "labelRegionIds": []
+          }
+        ],
+        "table": null,
+        "map": null,
+        "groups": [],
+        "proposedOrderRegionIds": [
+          "a",
+          "b",
+          "c"
+        ],
+        "warnings": [
+          "unreadable_labels"
+        ]
+      },
+      "synthetic": true
+    },
+    {
+      "id": "repeated-occurrence",
+      "file": "repeated-occurrence.png",
+      "rootId": "rgn_12345678",
+      "input": {
+        "kind": "illustration_structure",
+        "assetId": 1,
+        "occurrenceId": 3,
+        "request": {
+          "requestId": "request123",
+          "analysisId": "rga_12345678",
+          "regionId": "rgn_12345678",
+          "occurrenceId": 3,
+          "reprocess": false
+        },
+        "source": {
+          "analysisId": "rga_12345678",
+          "analysisVersion": 1,
+          "regionId": "rgn_12345678",
+          "normalizedBox": {
+            "x": 0,
+            "y": 0,
+            "width": 1,
+            "height": 1
+          },
+          "pixelBox": {
+            "left": 0,
+            "top": 0,
+            "width": 800,
+            "height": 450
+          },
+          "sourceWidth": 800,
+          "sourceHeight": 450,
+          "sourceSha256": "0ce2dac2fa6c334d412571abafcbbc0dfef2630e36db517048399156e34cca26",
+          "coordinateSystem": "stored_pixels_top_left",
+          "locationIsEstimate": true
+        },
+        "actorId": 7,
+        "modelId": "vision1",
+        "regions": [
+          {
+            "id": "rgn_12345678",
+            "primaryType": "flowchart_region",
+            "parentId": null,
+            "box": {
+              "x": 0,
+              "y": 0,
+              "width": 1,
+              "height": 1
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 0
+          },
+          {
+            "id": "a",
+            "primaryType": "flowchart_node",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.1,
+              "y": 0.2,
+              "width": 0.2,
+              "height": 0.2
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 1
+          },
+          {
+            "id": "b",
+            "primaryType": "flowchart_node",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.6,
+              "y": 0.2,
+              "width": 0.2,
+              "height": 0.2
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 2
+          },
+          {
+            "id": "c",
+            "primaryType": "flowchart_node",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.6,
+              "y": 0.6,
+              "width": 0.2,
+              "height": 0.2
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 3
+          },
+          {
+            "id": "arrow1",
+            "primaryType": "flowchart_connector",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.29,
+              "y": 0.2822222222222222,
+              "width": 0.32,
+              "height": 0.035555555555555556
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 4
+          },
+          {
+            "id": "arrow2",
+            "primaryType": "flowchart_connector",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.29,
+              "y": 0.2822222222222222,
+              "width": 0.32,
+              "height": 0.43555555555555553
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 5
+          },
+          {
+            "id": "arrow3",
+            "primaryType": "flowchart_connector",
+            "parentId": "rgn_12345678",
+            "box": {
+              "x": 0.18,
+              "y": 0.06,
+              "width": 0.54,
+              "height": 0.18
+            },
+            "locationStatus": "verified_frame",
+            "sourceOrder": 6
+          }
+        ],
+        "regionParentId": null,
+        "complexity": "medium",
+        "support": {
+          "ocrEvidence": [
+            {
+              "resultId": "ocr1",
+              "regionId": "a",
+              "version": 1,
+              "text": "Source text",
+              "verified": false,
+              "sourceDesignation": "raw_ocr"
+            }
+          ],
+          "reviewEvidence": [
+            {
+              "id": 10,
+              "version": 1,
+              "regionId": "a",
+              "sourceRef": "image:ocr1",
+              "state": "verified",
+              "text": "Source text",
+              "sourceDesignation": "human_corrected_ocr"
+            }
+          ]
+        },
+        "regionRelationships": [],
+        "illustrationOptions": {
+          "enabledTypes": [
+            "flowchart",
+            "table",
+            "map",
+            "mixed"
+          ]
+        },
+        "illustrationOrder": []
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "contentType": "flowchart",
+        "nodes": [
+          {
+            "regionId": "a",
+            "role": "decision",
+            "labelRegionIds": [
+              "a"
+            ]
+          },
+          {
+            "regionId": "b",
+            "role": "start_end",
+            "labelRegionIds": []
+          },
+          {
+            "regionId": "c",
+            "role": "process",
+            "labelRegionIds": []
+          }
+        ],
+        "edges": [
+          {
+            "connectorRegionId": "arrow1",
+            "fromRegionId": "a",
+            "toRegionId": "b",
+            "direction": "from_to",
+            "arrowhead": "at_to",
+            "labelRegionIds": []
+          },
+          {
+            "connectorRegionId": "arrow2",
+            "fromRegionId": "a",
+            "toRegionId": "c",
+            "direction": "from_to",
+            "arrowhead": "at_to",
+            "labelRegionIds": []
+          }
+        ],
+        "table": null,
+        "map": null,
+        "groups": [],
+        "proposedOrderRegionIds": [
+          "a",
+          "b",
+          "c"
+        ],
+        "warnings": []
+      },
+      "synthetic": true
+    }
+  ]
+}
