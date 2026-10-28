@@ -1,7 +1,8 @@
+import {illustrationFixture} from "./illustration-fixtures"
 import {domainFixture} from "./domain-fixtures"
 import {beforeEach,it,expect,vi} from "vitest"
 import type {BackgroundJob} from "@/lib/background-jobs"
-const d=vi.hoisted(()=>({query:vi.fn(),work:vi.fn(),write:vi.fn(),cancel:vi.fn(),policy:vi.fn(),authorize:vi.fn(),source:vi.fn(),support:vi.fn(),meter:vi.fn(),vision:vi.fn(),axes:vi.fn(),data:vi.fn(),science:vi.fn(),domain:vi.fn(),domainParent:vi.fn(),domainSupport:vi.fn()}))
+const d=vi.hoisted(()=>({query:vi.fn(),work:vi.fn(),write:vi.fn(),cancel:vi.fn(),policy:vi.fn(),authorize:vi.fn(),source:vi.fn(),support:vi.fn(),meter:vi.fn(),vision:vi.fn(),axes:vi.fn(),data:vi.fn(),science:vi.fn(),domain:vi.fn(),domainParent:vi.fn(),domainSupport:vi.fn(),illustration:vi.fn(),illustrationSupport:vi.fn()}))
 vi.mock("@/lib/db",()=>({query:d.query}))
 vi.mock("@/lib/background-jobs",()=>({isBackgroundJobCancelRequested:d.cancel}))
 vi.mock("@/lib/permission-store",()=>({getScope:async()=>"all"}))
@@ -9,6 +10,8 @@ vi.mock("@/lib/alt-text/advanced-evidence-store",()=>({getAdvancedEvidenceWork:d
 vi.mock("@/lib/alt-text/scientific-domain-service",()=>({scientificDomainPolicy:d.domain,authorizedDomainParent:d.domainParent}))
 vi.mock("@/lib/alt-text/scientific-domain-support",()=>({loadDomainSupport:d.domainSupport}))
 vi.mock("@/lib/alt-text/scientific-structure-service",()=>({scientificStructurePolicy:d.science}))
+vi.mock("@/lib/alt-text/illustration-service",()=>({illustrationPolicy:d.illustration,ILLUSTRATION_ROOT_TYPES:["flowchart_region","table_region","map_region","mixed_content_region"]}))
+vi.mock("@/lib/alt-text/illustration-support",()=>({illustrationSupport:d.illustrationSupport}))
 vi.mock("@/lib/alt-text/chart-service",()=>({chartPolicy:d.policy}))
 vi.mock("@/lib/alt-text/advanced-evidence-source",()=>({advancedRegionSource:d.source,authorizeAdvancedAsset:d.authorize,chartOcrEvidence:d.support,AdvancedEvidenceError:class extends Error{constructor(public status:number,public code:string,message:string){super(message)}}}))
 vi.mock("@/lib/alt-text/vision-service",()=>({analyzeVisionEvidence:d.vision}))
@@ -57,3 +60,8 @@ it("rejects changed domain parent, subject settings and image before a paid call
 it("finishes a saved domain receipt without selecting or calling a provider again",async()=>{const f=domainFixture();domainWork({providerReceipt:{...receipt,raw:f.output}});await run();expect(d.domain).not.toHaveBeenCalled();expect(d.meter).not.toHaveBeenCalled();expect(d.vision).not.toHaveBeenCalled();expect(d.write).toHaveBeenLastCalledWith(job,8,"completed",expect.objectContaining({kind:"scientific_domain"}))})
 
 it("accepts recursively reordered persisted JSON keys while still guarding real source changes",async()=>{const f=domainWork(),reorder=(v:any):any=>Array.isArray(v)?v.map(reorder):v&&typeof v==="object"?Object.fromEntries(Object.entries(v).reverse().map(([k,x])=>[k,reorder(x)])):v;d.work.mockResolvedValue({row:{status:"queued"},input:reorder({...input,kind:"scientific_domain",domainParent:f.parent,domainSupport:f.support,domainOptions:f.options}),saved:null});await expect(run()).resolves.toMatchObject({status:"completed"});expect(d.meter).toHaveBeenCalledOnce()})
+
+function illustrationWork(saved:any=null){const f=illustrationFixture();d.work.mockResolvedValue({row:{status:saved?"received":"queued"},input:f.input,saved});d.illustration.mockResolvedValue({enabled:true,model:{id:"vision1"},options:f.input.illustrationOptions});d.source.mockResolvedValue({source:f.input.source,regions:f.regions,relationships:[],bytes:new Uint8Array([1])});d.illustrationSupport.mockResolvedValue({support:f.input.support,ocrOrder:[]});d.vision.mockResolvedValue({...receipt,raw:f.output});return f}
+it("uses shared credits and receipt persistence for structured illustrations",async()=>{illustrationWork();await run();expect(d.meter.mock.calls[0][0]).toMatchObject({operationId:"illustration8",feature:"publishing.alt_text.illustration_structure"});expect(d.write).toHaveBeenNthCalledWith(2,job,8,"received",expect.objectContaining({providerReceipt:expect.anything()}));expect(d.write).toHaveBeenLastCalledWith(job,8,"completed",expect.objectContaining({kind:"illustration_structure",structureVerified:false,readingOrderVerified:false}));expect(d.support).not.toHaveBeenCalled()})
+it("does not call vision for stale illustration OCR/order or revoked type settings",async()=>{illustrationWork();d.illustrationSupport.mockResolvedValue({support:{ocrEvidence:[],reviewEvidence:[]},ocrOrder:[{changed:true}]});await expect(run()).rejects.toThrow("ILLUSTRATION_SUPPORT_CHANGED");illustrationWork();d.illustration.mockResolvedValue({enabled:true,model:{id:"vision1"},options:{enabledTypes:[]}});await expect(run()).rejects.toThrow("ILLUSTRATION_SETTINGS_CHANGED");expect(d.meter).not.toHaveBeenCalled();expect(d.vision).not.toHaveBeenCalled()})
+it("replays a persisted illustration receipt without another provider or credit call",async()=>{const f=illustrationFixture();illustrationWork({providerReceipt:{...receipt,raw:f.output}});await run();expect(d.illustration).not.toHaveBeenCalled();expect(d.meter).not.toHaveBeenCalled();expect(d.vision).not.toHaveBeenCalled()})

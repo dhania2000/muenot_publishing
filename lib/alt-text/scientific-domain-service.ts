@@ -33,7 +33,8 @@ export async function readScientificDomain(assetId:number,occurrenceId:number|nu
  try{await assertDomainSourceCurrent(parent,actor,false)}catch(error){if(!(error instanceof AdvancedEvidenceError))throw error;sourceMatchesCurrent=false}
  const currentContext=records.some((r)=>r.result?.support.context)?await loadDomainDocumentContext(parent,actor):null
  const visible=records.map((r)=>{const saved=r.result?.support.context;if(!r.result||!saved||currentContext?.documentId===saved.documentId&&currentContext.occurrenceId===saved.occurrenceId)return r;return {...r,result:{...r.result,support:{...r.result.support,context:null},warnings:[...r.result.warnings,"Saved document context is unavailable under the current document permissions or source status."]}}})
- return {success:true as const,parent,policy,sourceMatchesCurrent,canRun:withinScope(actor.updateScope,actor.userId,asset),results:visible,activeJobs:records.some((r)=>["queued","running","received"].includes(r.status))}
+ const {model:_model,...publicPolicy}=policy
+ return {success:true as const,parent,policy:publicPolicy,sourceMatchesCurrent,canRun:withinScope(actor.updateScope,actor.userId,asset),results:visible,activeJobs:records.some((r)=>["queued","running","received"].includes(r.status))}
 }
 export async function startScientificDomain(assetId:number,occurrenceId:number|null,parentId:number,body:unknown,actor:HistoryActor,role:"admin"|"employee"){
  const r=body as Record<string,unknown>|null

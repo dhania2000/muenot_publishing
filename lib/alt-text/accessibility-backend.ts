@@ -18,7 +18,7 @@ import { checkMathReadiness } from "./math-engine"
  * Engines implemented today: Phase 1 vision generation (which also returns an image
  * classification), Phase 3 Task 4 vision region detection and Phase 3 Task 5 self-hosted OCR.
  */
-export const IMPLEMENTED_ACCESSIBILITY_ENGINES: readonly CapabilityId[] = ["standard_description", "auto_classification", "region_detection", "ocr", "math_analysis", "math_ocr", "latex_output", "mathml_output", "chart_analysis", "chart_axes", "chart_data_extraction", "scientific_diagram_analysis", "scientific_domain_analysis"]
+export const IMPLEMENTED_ACCESSIBILITY_ENGINES: readonly CapabilityId[] = ["standard_description", "auto_classification", "region_detection", "ocr", "math_analysis", "math_ocr", "latex_output", "mathml_output", "chart_analysis", "chart_axes", "chart_data_extraction", "scientific_diagram_analysis", "scientific_domain_analysis", "flowchart_analysis", "table_image_analysis", "map_geometry_analysis", "mixed_complex_analysis"]
 
 const OCR_CHECK_FAILED = "The OCR engine health check failed. Reload this page to try again."
 
@@ -63,6 +63,6 @@ export async function detectAccessibilityBackend(tenantId: number, role: "admin"
     ocrIssue: ocr.issue,
     mathReady: math.available,
     mathIssue: math.reason,
-    disabledByPolicy: [...(process.env.ALT_TEXT_OCR_DISABLED === "1" ? ["ocr" as const] : []), ...(process.env.ALT_TEXT_MATH_DISABLED === "1" ? ["math_analysis" as const,"math_ocr" as const] : []),...(process.env.ALT_TEXT_ADVANCED_DISABLED==="1"?["chart_analysis" as const,"chart_axes" as const,"chart_data_extraction" as const,"scientific_diagram_analysis" as const,"scientific_domain_analysis" as const]:[])],
+    disabledByPolicy: [...(process.env.ALT_TEXT_OCR_DISABLED === "1" ? ["ocr" as const] : []), ...(process.env.ALT_TEXT_MATH_DISABLED === "1" ? ["math_analysis" as const,"math_ocr" as const] : []),...(process.env.ALT_TEXT_ADVANCED_DISABLED==="1"?["chart_analysis" as const,"chart_axes" as const,"chart_data_extraction" as const,"scientific_diagram_analysis" as const,"scientific_domain_analysis" as const,"flowchart_analysis" as const,"table_image_analysis" as const,"map_geometry_analysis" as const,"mixed_complex_analysis" as const]:[])],
   }
 }

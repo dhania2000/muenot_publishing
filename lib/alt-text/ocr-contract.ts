@@ -103,6 +103,7 @@ export const OCR_TEXT_REGION_TYPES: readonly RegionType[] = [
   "legend_region",
   "axis_region",
   "table_region",
+  "table_cell_region",
   "flowchart_node",
   "mixed_content_region",
 ]

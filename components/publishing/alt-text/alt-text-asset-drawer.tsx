@@ -49,6 +49,7 @@ import { ImageClassificationPanel } from "./image-classification-panel"
 import { ImageOcrPanel } from "./image-ocr-panel"
 import { ImageRegionsPanel } from "./image-regions-panel"
 import { MathRecognitionPanel } from "./math-recognition-panel"
+import {IllustrationStructureSection} from "./illustration-structure-panel"
 import {ScientificStructureSection} from "./scientific-structure-panel"
 import {ChartStructurePanel} from "./chart-structure-panel"
 
@@ -318,6 +319,7 @@ function DrawerBody({
       <MathRecognitionPanel key={`math-${asset.id}`} assetId={asset.id} />
       <ChartStructurePanel key={`chart-${asset.id}`} assetId={asset.id}/>
       <ScientificStructureSection key={`science-${asset.id}`} assetId={asset.id}/>
+      <IllustrationStructureSection key={`illustration-${asset.id}`} assetId={asset.id}/>
 
       <Separator />
 
