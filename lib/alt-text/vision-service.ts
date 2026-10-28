@@ -89,6 +89,7 @@ export type VisionGenerationResult = {
 }
 
 export type GenerateAltTextFromImageInput = {
+  advancedEvidence?: import("./description-evidence").DescriptionEvidence | null
   image: { bytes: Uint8Array; mediaType: SupportedImageType }
   generation: GenerationSettings
   altTextSettings: AltTextSettings
@@ -142,6 +143,7 @@ export async function generateAltTextFromImage(input: GenerateAltTextFromImageIn
     shortMaxChars: altTextSettings.shortMaxChars,
     generation,
     document: input.document ?? null,
+    advancedEvidence: input.advancedEvidence,
     classificationRules: input.classify === false ? undefined : CLASSIFICATION_PROMPT_RULES,
     classificationHint: input.classificationHint ?? null,
   })
@@ -184,6 +186,15 @@ export async function generateAltTextFromImage(input: GenerateAltTextFromImageIn
   if (input.document) {
     const notices = documentContextNotices(input.document).filter((n) => !output.warnings.includes(n))
     if (notices.length) output = { ...output, warnings: [...output.warnings, ...notices] }
+  }
+  if (input.advancedEvidence) {
+    output = { ...output, warnings: [...new Set([...input.advancedEvidence.warnings, ...output.warnings])] }
+    if (generation.imagePurpose !== "decorative" && output.purpose === "decorative" && input.advancedEvidence.strategy !== "standard") {
+      throw new AiError("provider_error", "A complex informative image requires an editor's explicit decorative decision.", { reason: "invalid_output" })
+    }
+    if (generation.imagePurpose !== "decorative" && !["standard", "text", "fallback"].includes(input.advancedEvidence.strategy) && !output.longDescription.trim()) {
+      throw new AiError("provider_error", "The complex image response omitted its detailed description.", { reason: "invalid_output" })
+    }
   }
   {
     const { rawAnalysis, ...rest } = output

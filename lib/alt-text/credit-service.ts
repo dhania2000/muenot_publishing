@@ -27,6 +27,7 @@ import type { UsageMeasure } from "@/lib/ai/credits/credits-core"
 import { abortMeteredRequest, beginMeteredRequest, finishMeteredRequest, type MeteredRequest } from "@/lib/ai/credits/credits-service"
 import { AiError } from "@/lib/ai/governance-core"
 import { buildPrompt, validateImage, type AltTextResult, type AltTextSettings, type GenerationSettings } from "./core"
+import { CLASSIFICATION_PROMPT_RULES } from "./classification"
 import {
   generateAltTextFromImage,
   isVisionCompatible,
@@ -80,13 +81,17 @@ export function altTextRequestId(operationId?: string | null): string {
 
 export type VisionReservationSizing = { promptChars: number; maxOutputTokens: number; estimate: UsageMeasure }
 
-export function estimateAltTextReservation(input: { generation: GenerationSettings; altTextSettings: AltTextSettings; model: Pick<CatalogModel, "maxOutputTokens"> }) {
+export function estimateAltTextReservation(input: { generation: GenerationSettings; altTextSettings: AltTextSettings; model: Pick<CatalogModel, "maxOutputTokens">; document?: GenerateAltTextFromImageInput["document"]; advancedEvidence?: GenerateAltTextFromImageInput["advancedEvidence"]; classify?: boolean; classificationHint?: GenerateAltTextFromImageInput["classificationHint"] }) {
   const { instructions, prompt } = buildPrompt({
     language: input.generation.outputLanguage,
     audience: input.altTextSettings.defaultAudience,
     context: input.generation.imageContext,
     shortMaxChars: input.altTextSettings.shortMaxChars,
     generation: input.generation,
+    document: input.document,
+    advancedEvidence: input.advancedEvidence,
+    classificationHint: input.classificationHint,
+    classificationRules: input.classify === false ? undefined : CLASSIFICATION_PROMPT_RULES,
   })
   return estimateVisionReservation({ textChars: instructions.length + prompt.length, model: input.model })
 }
@@ -286,9 +291,8 @@ export async function runMeteredAltTextGeneration(
     tenantId: input.tenantId,
     userId: input.userId,
     model: vision.model,
-    generation: vision.generation,
-    altTextSettings: vision.altTextSettings,
     requestId,
+    sizing: estimateAltTextReservation(vision),
   })
   if (held.replay) return { status: "replayed", credits: held.replay }
 

@@ -10,6 +10,7 @@
  *   live in GenerateActions, rendered by the workspace toolbar.
  */
 import { useState } from "react"
+import { GenerationEvidenceSummary } from "./generation-evidence-summary"
 import { AlertCircle, AlignLeft, Download, FileText, ImageUp, RefreshCw, Save, ScanText, ShieldCheck, Sparkles } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -40,6 +41,7 @@ export type GenerationStatus = "idle" | "generating"
 
 /** A parsed AI result plus the settings it was generated with (not the live form). */
 export type GeneratedOutput = {
+  candidate?: boolean
   result: AltTextResult
   language: LanguageCode
   purpose: GenerationPurpose
@@ -51,6 +53,7 @@ export type SavedContent = { shortAlt: string | null; longDescription: string | 
 export type GenerationUsage = { model: string; creditsCharged: number | null; creditsReserved: number }
 
 export type ResultsPanelActions = {
+  onUseCandidate?: () => void
   /** Why Generate is blocked (e.g. uploading, scan pending); null when allowed. */
   generateBlockedReason: string | null
   onGenerate: () => void
@@ -280,6 +283,7 @@ export function AltTextResultsPanel({
           </div>
         ) : (
           <>
+            {output?.candidate && <Alert><AlertCircle aria-hidden="true" /><AlertTitle>Review candidate · approved text preserved</AlertTitle><AlertDescription><p>The new description is saved in History. Review it, then save it as a new review version when ready. Exports continue to use the current saved text.</p><Button type="button" className="mt-2" variant="outline" size="sm" disabled={busy || !actions.canSave || !actions.onUseCandidate} onClick={actions.onUseCandidate}>Save candidate for review</Button></AlertDescription></Alert>}
             <div role="tabpanel" id="alt-view-short" aria-labelledby="alt-view-tab-short" hidden={view !== "short"}>
               <EditableField
                 id="alt-short-text"
@@ -310,6 +314,7 @@ export function AltTextResultsPanel({
               <ExtractedText text={result.extractedText} lang={lang} />
             </div>
             <div role="tabpanel" id="alt-view-review" aria-labelledby="alt-view-tab-review" hidden={view !== "review"} className="flex flex-col gap-5">
+              <GenerationEvidenceSummary value={result.generationEvidence} />
               <ClassificationSummary items={classificationItems} />
               <div className="flex flex-col gap-2">
                 <h3 className="text-xs font-medium text-muted-foreground">Accessibility warnings</h3>

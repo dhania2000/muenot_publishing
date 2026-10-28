@@ -152,6 +152,7 @@ describe("alt text batch processor", () => {
     expect(classifyGenerateFailure({ status: 409, code: "SCAN_PENDING" })).toBe("busy")
     expect(classifyGenerateFailure({ status: 400, code: "INVALID_REQUEST" })).toBe("permanent")
     expect(classifyGenerateFailure({ status: 502, code: "PROVIDER_ERROR" })).toBe("halt")
+    expect(classifyGenerateFailure({ status: 503, code: "EVIDENCE_UNAVAILABLE" })).toBe("halt")
   })
 })
 

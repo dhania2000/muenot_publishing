@@ -551,14 +551,13 @@ function QualityExtras({
           <CardDescription>Uses the existing review and approval workflow; no separate review system.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <label htmlFor="tenant-require-review" className={cn("flex items-start gap-2.5 text-sm", readOnly ? "cursor-not-allowed text-muted-foreground" : "cursor-pointer")}>
+          <label htmlFor="tenant-require-review" className="flex cursor-not-allowed items-start gap-2.5 text-sm text-muted-foreground">
             <input
               id="tenant-require-review"
               type="checkbox"
               className="mt-0.5 size-4 shrink-0 accent-primary"
-              checked={draft.requireReview}
-              disabled={readOnly}
-              onChange={(e) => onChange("requireReview", e.target.checked)}
+              checked={true}
+              disabled={true}
             />
             <span className="leading-snug">Human review required before AI output is approved</span>
           </label>

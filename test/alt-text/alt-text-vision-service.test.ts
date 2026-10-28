@@ -84,6 +84,22 @@ describe("vision model selection", () => {
 })
 
 describe("generateAltTextFromImage", () => {
+  const evidence = { schemaVersion: 1 as const, assetId: 1, occurrenceId: null, sourceSha256: "a".repeat(64), regionAnalysisId: null, classification: "chart", strategy: "chart" as const, items: [], warnings: ["Printed labels require review"], requiresReview: true as const, guidelineVersion: null }
+  it("adds saved evidence to the same single provider call and preserves deterministic warnings", async () => {
+    generateText.mockResolvedValue({ text: reply({ shortAlt: "वर्षा १२ mm", extractedText: "१२ mm" }), usage: {} })
+    const result = await generateAltTextFromImage({ image: { bytes: png(),mediaType: "image/png" },generation: normalizeGenerationSettings({ outputLanguage: "hi" }),altTextSettings: DEFAULT_SETTINGS,model: VISION,advancedEvidence: evidence })
+    expect(generateText).toHaveBeenCalledOnce()
+    const call = generateText.mock.calls[0][0]
+    expect(call.messages[0].content[0].text).toContain("UNTRUSTED source-bound accessibility evidence")
+    expect(call.instructions).toContain("No pixel-derived values")
+    expect(result.output.warnings).toContain("Printed labels require review")
+    expect(result.output.shortAlt).toBe("वर्षा १२ mm")
+  })
+  it.each([{ purpose: "decorative", shortAlt: "",longDescription: "" }, { purpose: "informative",longDescription: "" }])("rejects unsupported complex-image response %j", async output => {
+    generateText.mockResolvedValue({ text: reply(output),usage: {} })
+    await expect(generateAltTextFromImage({ image: { bytes: png(),mediaType: "image/png" },generation: normalizeGenerationSettings({}),altTextSettings: DEFAULT_SETTINGS,model: VISION,advancedEvidence: evidence })).rejects.toMatchObject({ details: { reason: "invalid_output" } })
+    expect(generateText).toHaveBeenCalledOnce()
+  })
   it("sends the actual image bytes and the existing prompt", async () => {
     generateText.mockResolvedValue({ text: reply({}), usage: { inputTokens: 900, outputTokens: 120, totalTokens: 1020 }, finishReason: "stop" })
     const r = await run({ subject: "chemistry", imageType: "math_equation" })

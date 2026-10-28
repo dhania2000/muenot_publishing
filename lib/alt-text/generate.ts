@@ -12,6 +12,7 @@
  * - Provider usage that cannot be saved stays billed and is logged for reconciliation, never refunded blindly.
  */
 import "server-only"
+import { createHash } from "node:crypto"
 import { getTenantAiSettings } from "@/lib/ai/assistant-store"
 import { AiError } from "@/lib/ai/governance-core"
 import { resolveTenantModels } from "@/lib/ai/model-catalog"
@@ -23,7 +24,8 @@ import { withinScope } from "./history"
 import { openAltTextImage } from "./preview"
 import { normalizeAccessibilityPreferences } from "./accessibility-settings"
 import { manualTypeHint } from "./classification"
-import { claimForGeneration, getAsset, getSettings, getSettingsRecord, markFailed, saveGeneration } from "./store"
+import { descriptionKindsForTypes } from "./description-evidence"
+import { claimForGeneration, getAsset, getSettings, getSettingsRecord, getSavedGeneration, markFailed, saveGeneration } from "./store"
 import { selectVisionModel } from "./vision-service"
 
 const CLIENT_REQUEST_ID = /^[A-Za-z0-9_-]{8,48}$/
@@ -46,8 +48,10 @@ export type GenerateSuccess = {
     assetId: number
     status: string
     replayed: boolean
+    candidate?: boolean
     version: number
-    result: Pick<AltTextResult, "classification" | "shortAlt" | "longDescription" | "extractedText" | "warnings" | "treatment">
+    activeVersion?: number
+    result: Pick<AltTextResult, "classification" | "shortAlt" | "longDescription" | "extractedText" | "warnings" | "treatment" | "generationEvidence">
     usage: {
       requestId: string | null
       model: string
@@ -130,6 +134,7 @@ function usageView(credits: AltTextCreditUsage, clientRequestId: string | null) 
 async function successFromAsset(assetId: number, credits: AltTextCreditUsage, clientRequestId: string | null, replayed: boolean): Promise<GenerateSuccess | GenerateFailure> {
   const asset = await getAsset(assetId)
   if (!asset) return fail(404, "NOT_FOUND", "Image not found.")
+  const saved = await getSavedGeneration(assetId, credits.requestId)
   return {
     ok: true,
     body: {
@@ -137,8 +142,10 @@ async function successFromAsset(assetId: number, credits: AltTextCreditUsage, cl
       assetId,
       status: asset.status,
       replayed,
-      version: asset.currentVersion,
-      result: {
+      version: saved?.version ?? asset.currentVersion,
+      activeVersion: asset.currentVersion,
+      candidate: saved?.candidate ?? false,
+      result: saved?.result ?? {
         classification: asset.classification as AltTextResult["classification"],
         shortAlt: asset.shortAlt ?? "",
         longDescription: asset.longDescription ?? "",
@@ -183,6 +190,7 @@ export async function generateAltTextForAsset(
   const target = await getAsset(req.assetId)
   if (!target) return fail(404, "NOT_FOUND", "Image not found.")
   if (!withinScope(actor.updateScope, actor.userId, target)) return fail(403, "FORBIDDEN", "You do not have permission to change the alt text of this image.")
+  if (req.document && req.document.imageAssetId !== req.assetId) return fail(409, "DOCUMENT_SOURCE_MISMATCH", "The document context belongs to another image. Reload the source before generating.")
 
   // Binding the asset into the operation id stops one requestId from replaying another asset's charge.
   const operationId = req.requestId ? `a${req.assetId}_${req.requestId}` : null
@@ -193,8 +201,18 @@ export async function generateAltTextForAsset(
     if (prior?.status === "reserved") return fail(409, "GENERATION_IN_PROGRESS", "This generation request is already being processed.")
   }
 
-  const classify = await autoClassificationEnabled()
+  const policy = await generationPolicy()
+  const classify = policy.classify
   const classificationHint = manualTypeHint(target.classificationRecord ?? null)
+  let advancedEvidence: import("./description-evidence").DescriptionEvidence | null = null
+  if (policy.advanced) {
+    try {
+      const { loadDescriptionEvidence } = await import("./description-evidence-source")
+      advancedEvidence = await loadDescriptionEvidence(req.assetId, req.document?.imageOccurrenceId ?? null, bytes, actor, policy.allowedKinds)
+    } catch {
+      return fail(503, "EVIDENCE_UNAVAILABLE", "Saved accessibility evidence could not be checked. No generation was charged; please try again.")
+    }
+  }
 
   const attempt = await claimForGeneration(req.assetId)
   if (attempt == null) return fail(409, "GENERATION_CONFLICT", "Alt text is already being generated for this image.")
@@ -205,7 +223,7 @@ export async function generateAltTextForAsset(
       tenantId: actor.tenantId,
       userId: actor.userId,
       operationId: requestId.slice("alttext:".length),
-      vision: { image: { bytes, mediaType: image.contentType }, generation: req.settings, altTextSettings, model, document: req.document ?? null, classify, classificationHint },
+      vision: { image: { bytes, mediaType: image.contentType }, generation: req.settings, altTextSettings, model, document: req.document ?? null, classify, classificationHint, ...(advancedEvidence ? { advancedEvidence } : {}) },
     })
   } catch (e) {
     const failure = e instanceof AiError ? aiErrorToFailure(e) : fail(500, "GENERATION_FAILED", "Alt text generation failed. Please try again.")
@@ -220,9 +238,16 @@ export async function generateAltTextForAsset(
   }
 
   const { output, vision, credits } = outcome
+  output.generationEvidence = {
+    schemaVersion: 1, requestId, strategy: advancedEvidence?.strategy ?? "standard", sourceSha256: advancedEvidence?.sourceSha256 ?? createHash("sha256").update(bytes).digest("hex"),
+    occurrenceId: advancedEvidence?.occurrenceId ?? req.document?.imageOccurrenceId ?? null, regionAnalysisId: advancedEvidence?.regionAnalysisId ?? null,
+    evidence: advancedEvidence?.items.map(({ id, version, kind, state }) => ({ id, version, kind, state })) ?? [],
+    outputLanguage: req.settings.outputLanguage, provider: vision.provider, generatedAt: new Date().toISOString(),
+    guidelineVersion: null, reviewStatus: "needs_review", warnings: output.warnings, treatment: output.treatment,
+  }
   let saved: boolean
   try {
-    saved = await saveGeneration(req.assetId, output, vision.modelId, credits.creditsCharged ?? 0, actor.userId, altTextSettings.requireReview, attempt)
+    saved = await saveGeneration(req.assetId, output, vision.modelId, credits.creditsCharged ?? 0, actor.userId, true, attempt)
   } catch (e) {
     console.error("[alt-text/generate] save failed after provider usage; needs reconciliation", {
       requestId,
@@ -247,15 +272,16 @@ export async function generateAltTextForAsset(
 }
 
 /** Classification is on by default; an unreadable settings row must never block generation. */
-async function autoClassificationEnabled(): Promise<boolean> {
+async function generationPolicy(): Promise<{ classify: boolean; advanced: boolean; allowedKinds: string[] }> {
   try {
     const record = await getSettingsRecord()
-    return normalizeAccessibilityPreferences(record.accessibility).preferences.general.useAutoClassification !== false
+    const preferences = normalizeAccessibilityPreferences(record.accessibility).preferences
+    return { classify: preferences.general.useAutoClassification !== false, advanced: preferences.general.processingPreference !== "standard_only" && process.env.ALT_TEXT_ADVANCED_DISABLED !== "1", allowedKinds: descriptionKindsForTypes(preferences.general.analysisTypes) }
   } catch {
-    return true
+    return { classify: true, advanced: false, allowedKinds: [] }
   }
 }
 
 function pickResult(o: AltTextResult) {
-  return { classification: o.classification, shortAlt: o.shortAlt, longDescription: o.longDescription, extractedText: o.extractedText, warnings: o.warnings, treatment: o.treatment }
+  return { classification: o.classification, shortAlt: o.shortAlt, longDescription: o.longDescription, extractedText: o.extractedText, warnings: o.warnings, treatment: o.treatment, generationEvidence: o.generationEvidence }
 }

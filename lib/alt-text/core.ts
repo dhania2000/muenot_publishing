@@ -6,6 +6,7 @@
  */
 import { documentContextRules, formatDocumentContextBlock, type DocumentPromptContext } from "./document-prompt"
 import type { AutomatedClassification } from "./classification"
+import { DESCRIPTION_EVIDENCE_RULES, formatDescriptionEvidence } from "./description-evidence"
 
 export const IMAGE_CLASSIFICATIONS = [
   "photograph",
@@ -366,6 +367,7 @@ export function validateImage(file: { type: string; size: number; name: string }
 }
 
 export type PromptInput = {
+  advancedEvidence?: import("./description-evidence").DescriptionEvidence | null
   language: LanguageCode
   audience: Audience
   context: string
@@ -503,6 +505,7 @@ export function buildPrompt(input: PromptInput) {
     "treatment: one sentence telling the editor how to apply the result (alt attribute only, alt plus adjacent long description, or alt=\"\").",
     "NEVER invent numbers, labels, trends or relationships you cannot clearly see. If precise values cannot be determined, describe them approximately as approximate and add a warning. Add a warning for every uncertain or illegible element.",
     input.document ? documentContextRules(input.document) : "",
+    input.advancedEvidence ? DESCRIPTION_EVIDENCE_RULES : "",
     input.classificationRules ?? "",
     input.classificationRules
       ? 'Respond with ONLY a JSON object: {"classification": string, "purpose": string, "shortAlt": string, "longDescription": string, "extractedText": string, "warnings": string[], "treatment": string, "analysis": {"primaryCategory": string, "secondaryCategories": string[], "complexityLevel": string, "contentHints": string[], "certainty": string, "evidenceSummary": string, "uncertaintyReasons": string[]}}'
@@ -515,12 +518,14 @@ export function buildPrompt(input: PromptInput) {
   if (g.chapterTopic) blocks.push(`UNTRUSTED chapter/topic supplied by the editor:\n"""${fence(g.chapterTopic, GENERATION_FIELD_LIMITS.chapterTopic)}"""`)
   if (g.imageContext) blocks.push(`UNTRUSTED surrounding context supplied by the editor (use it to judge purpose, do not repeat it verbatim):\n"""${fence(g.imageContext, GENERATION_FIELD_LIMITS.imageContext)}"""`)
   if (input.document) blocks.push(formatDocumentContextBlock(input.document))
+  if (input.advancedEvidence) blocks.push(formatDescriptionEvidence(input.advancedEvidence))
   if (blocks.length === 0) blocks.push("No surrounding context was supplied. Describe the image for a general reader.")
   blocks.push("Describe the attached image now.")
   return { instructions, prompt: blocks.join("\n\n") }
 }
 
 export type AltTextResult = {
+  generationEvidence?: import("./description-evidence").GenerationEvidenceMetadata
   classification: ImageClassification
   shortAlt: string
   longDescription: string

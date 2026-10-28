@@ -28,6 +28,9 @@ const s = vi.hoisted(() => ({
   asset: null as any,
   claim: 1 as number | null,
   prior: null as any,
+  policy: null as any,
+  evidence: null as any,
+  savedGeneration: null as any,
   saveResult: true as boolean | Error,
   image: null as any,
   calls: { claim: 0, save: [] as any[], failed: [] as any[], open: [] as any[] },
@@ -53,6 +56,8 @@ vi.mock("@/lib/alt-text/preview", () => ({
 vi.mock("@/lib/alt-text/store", () => ({
   getSettings: vi.fn(async () => ({ defaultLanguage: "en", defaultAudience: "business_document", preferredModelId: null, shortMaxChars: 125, requireReview: true, maxFileMb: 10, maxBatchSize: 20 })),
   getAsset: vi.fn(async () => s.asset),
+  getSettingsRecord: vi.fn(async () => s.policy),
+  getSavedGeneration: vi.fn(async () => s.savedGeneration),
   claimForGeneration: vi.fn(async () => (s.calls.claim++, s.claim)),
   saveGeneration: vi.fn(async (...args: any[]) => {
     s.calls.save.push(args)
@@ -62,6 +67,7 @@ vi.mock("@/lib/alt-text/store", () => ({
   }),
   markFailed: vi.fn(async (...args: any[]) => void s.calls.failed.push(args)),
 }))
+vi.mock("@/lib/alt-text/description-evidence-source", () => ({ loadDescriptionEvidence: vi.fn(async () => { if (s.evidence instanceof Error) throw s.evidence; return s.evidence }) }))
 vi.mock("@/lib/alt-text/credit-service", () => ({
   altTextRequestId: (op?: string | null) => `alttext:${op ?? "random-uuid"}`,
   getAltTextCreditUsage: vi.fn(async () => s.prior),
@@ -82,6 +88,9 @@ beforeEach(() => {
   s.asset = { id: 3, status: "uploaded", currentVersion: 0, classification: null, shortAlt: null, longDescription: null, extractedText: null, warnings: [], treatment: null, storageKey: "tenants/9/secret", createdBy: 5, reviewerId: null }
   s.claim = 1
   s.prior = null
+  s.policy = null
+  s.evidence = null
+  s.savedGeneration = null
   s.saveResult = true
   s.image = { ok: true, body: PNG, contentType: "image/png", size: PNG.length, filename: "x.png" }
   s.calls = { claim: 0, save: [], failed: [], open: [] }
@@ -100,6 +109,26 @@ describe("parseGenerateRequest", () => {
 })
 
 describe("generateAltTextForAsset", () => {
+  it("uses the saved-evidence path only when the tenant opts in and preserves metering ownership", async () => {
+    s.policy = { accessibility: { general: { processingPreference: "advanced_when_available",analysisTypes: ["math"] } } }
+    s.evidence = { schemaVersion: 1,assetId: 3,occurrenceId: null,sourceSha256: "a".repeat(64),regionAnalysisId: "rga_12345678",classification: "math_equation",strategy: "math",items: [{ id: "math:1",version: 2,kind: "math",regionId: "rgn_12345678",state: "candidate",payload: { latex: "x=1" } }],warnings: [],requiresReview: true,guidelineVersion: null }
+    const r = await generateAltTextForAsset(req,actor,{ run })
+    expect(r.ok).toBe(true)
+    expect(run).toHaveBeenCalledOnce()
+    expect(run.mock.calls[0][0].vision.advancedEvidence).toBe(s.evidence)
+    expect(s.calls.save[0][1].generationEvidence).toMatchObject({ strategy: "math",outputLanguage: "hi",reviewStatus: "needs_review",evidence: [{ id: "math:1",version: 2 }] })
+  })
+  it("stops before a processing claim or charge when saved evidence cannot be checked", async () => {
+    s.policy = { accessibility: { general: { processingPreference: "both",analysisTypes: ["math"] } } }; s.evidence = new Error("DB unavailable")
+    expect(await generateAltTextForAsset(req,actor,{ run })).toMatchObject({ ok: false,code: "EVIDENCE_UNAVAILABLE" })
+    expect(run).not.toHaveBeenCalled(); expect(s.calls.claim).toBe(0)
+  })
+  it("replays an exact candidate while keeping the approved active version", async () => {
+    s.asset.status = "approved"; s.asset.currentVersion = 3; s.asset.shortAlt = "Approved original"; s.prior = CREDITS
+    s.savedGeneration = { version: 7,candidate: true,result: { ...OUTPUT,shortAlt: "New candidate" } }
+    expect(await generateAltTextForAsset(req,actor,{ run })).toMatchObject({ ok: true,body: { version: 7,activeVersion: 3,candidate: true,replayed: true,result: { shortAlt: "New candidate" } } })
+    expect(run).not.toHaveBeenCalled(); expect(s.asset.shortAlt).toBe("Approved original")
+  })
   it("generates from real bytes, saves a version and returns metered usage", async () => {
     const r = await generateAltTextForAsset(req, actor, { run })
     expect(run).toHaveBeenCalledOnce()

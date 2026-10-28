@@ -33,7 +33,9 @@ export type GenerateResponse = {
   status: string
   replayed: boolean
   version: number
-  result: Pick<AltTextResult, "classification" | "shortAlt" | "longDescription" | "extractedText" | "warnings" | "treatment">
+  activeVersion?: number
+  candidate?: boolean
+  result: Pick<AltTextResult, "classification" | "shortAlt" | "longDescription" | "extractedText" | "warnings" | "treatment" | "generationEvidence">
   usage: { requestId: string | null; model: string; creditsReserved: number; creditsCharged: number | null; status: string }
 }
 
