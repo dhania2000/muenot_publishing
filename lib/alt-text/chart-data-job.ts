@@ -1,4 +1,5 @@
 import "server-only"
+import {isDeepStrictEqual as evidenceEqual} from "node:util"
 import type {AdvancedEvidenceInput} from "./advanced-evidence-store"
 import {writeAdvancedEvidence} from "./advanced-evidence-store"
 import {AdvancedEvidenceError} from "./advanced-evidence-source"
@@ -12,7 +13,7 @@ export async function runChartDataDelivery(input:AdvancedEvidenceInput,job:Backg
  const policy=await chartDataPolicy()
  if(policy.trendsEnabled!==input.dataTrendEnabled)throw new AdvancedEvidenceError(409,"DATA_POLICY_CHANGED","Trend settings changed. Refresh the extraction request.")
  if(!policy.enabled)throw new AdvancedEvidenceError(409,"DATA_DISABLED","Data-label interpretation is disabled.")
- if(JSON.stringify(parent)!==JSON.stringify(input.dataParent))throw new AdvancedEvidenceError(409,"DATA_PARENT_CHANGED","Chart or axis evidence changed.")
+ if(!evidenceEqual(parent,input.dataParent))throw new AdvancedEvidenceError(409,"DATA_PARENT_CHANGED","Chart or axis evidence changed.")
  await assertChartDataCurrent(parent,actor);await guard();await writeAdvancedEvidence(job,evidenceId,"running")
  const result=extractChartLabelData(parent,[],policy.trendsEnabled===true)
  await guard();await writeAdvancedEvidence(job,evidenceId,"completed",result)

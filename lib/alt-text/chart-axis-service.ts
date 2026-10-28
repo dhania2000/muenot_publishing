@@ -1,4 +1,5 @@
 import "server-only"
+import {isDeepStrictEqual as evidenceEqual} from "node:util"
 import {getSettingsRecord} from "./store"
 import {resolveEffectiveAccessibilitySettings} from "./accessibility-settings"
 import {advancedRegionSource,authorizeAdvancedAsset,AdvancedEvidenceError} from "./advanced-evidence-source"
@@ -32,7 +33,7 @@ export async function startChartAxes(assetId:number,occurrenceId:number|null,par
  const {parent}=await authorizedParentChart(assetId,occurrenceId,parentId,actor,true),policy=await chartAxisPolicy()
  if(!policy.enabled)throw new AdvancedEvidenceError(409,"AXIS_ANALYSIS_UNAVAILABLE",policy.reason??"Axis interpretation is disabled.")
  const request={requestId:r.requestId,occurrenceId,analysisId:parent.result.regionAnalysisId,regionId:parent.result.chartRegionId,reprocess:r.reprocess===true},source=await advancedRegionSource(assetId,request,actor,["graph_region"])
- if(JSON.stringify(source.source)!==JSON.stringify(parent.result.source))throw new AdvancedEvidenceError(409,"CHART_SOURCE_CHANGED","The chart's region or image changed. Refresh chart structure first.")
+ if(!evidenceEqual(source.source,parent.result.source))throw new AdvancedEvidenceError(409,"CHART_SOURCE_CHANGED","The chart's region or image changed. Refresh chart structure first.")
  const reviewedLabels=await loadReviewedChartLabels(parent.result)
  return enqueueAdvancedEvidence({kind:"chart_axes",assetId,occurrenceId,request,source:source.source,actorId:actor.userId,modelId:CHART_AXIS_ENGINE,regions:source.regions,regionParentId:source.region.parentId,complexity:source.complexity,support:{ocrEvidence:[],reviewEvidence:[]},parentEvidence:parent,reviewedLabels,axisOptions:policy.options})
 }

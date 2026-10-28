@@ -107,7 +107,7 @@ export const REGION_NEXT_CAPABILITY: Partial<Record<RegionType, CapabilityId>> =
   flowchart_node: "flowchart_analysis",
   flowchart_connector: "flowchart_analysis",
   table_region: "table_image_analysis",
-  geometry_region: "map_geometry_analysis",
+  geometry_region: "scientific_domain_analysis",
   map_region: "map_geometry_analysis",
   mixed_content_region: "mixed_complex_analysis",
 }

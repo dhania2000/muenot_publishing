@@ -1,0 +1,159 @@
+{
+  "purpose": "Known literal label text and supplied claim/reference contracts. No live domain/OCR/vision accuracy or scientific correctness measurement.",
+  "samples": [
+    {
+      "id": "molecular-structure",
+      "file": "molecular-structure.png",
+      "subject": "chemistry",
+      "kind": "molecular_structure_candidate",
+      "sourceText": "H₂O",
+      "expectedChemicalStatus": "recognized_lexically",
+      "readable": true,
+      "scientificAccuracyVerified": false,
+      "synthetic": true
+    },
+    {
+      "id": "reaction-scheme",
+      "file": "reaction-scheme.png",
+      "subject": "chemistry",
+      "kind": "reactant_label_candidate",
+      "sourceText": "H₂ + O₂ → H₂O",
+      "expectedChemicalStatus": "reaction_notation_only",
+      "readable": true,
+      "scientificAccuracyVerified": false,
+      "synthetic": true
+    },
+    {
+      "id": "atomic-model",
+      "file": "atomic-model.png",
+      "subject": "chemistry",
+      "kind": "atomic_model_candidate",
+      "sourceText": "Na⁺",
+      "expectedChemicalStatus": "recognized_lexically",
+      "readable": true,
+      "scientificAccuracyVerified": false,
+      "synthetic": true
+    },
+    {
+      "id": "circuit-crossing",
+      "file": "circuit-crossing.png",
+      "subject": "physics",
+      "kind": "visible_wire_candidate",
+      "sourceText": "10 Ω",
+      "expectedChemicalStatus": null,
+      "readable": true,
+      "scientificAccuracyVerified": false,
+      "synthetic": true
+    },
+    {
+      "id": "ray-optics",
+      "file": "ray-optics.png",
+      "subject": "physics",
+      "kind": "ray_optics_candidate",
+      "sourceText": "30°",
+      "expectedChemicalStatus": null,
+      "readable": true,
+      "scientificAccuracyVerified": false,
+      "synthetic": true
+    },
+    {
+      "id": "free-body",
+      "file": "free-body.png",
+      "subject": "physics",
+      "kind": "force_arrow_candidate",
+      "sourceText": "10 N",
+      "expectedChemicalStatus": null,
+      "readable": true,
+      "scientificAccuracyVerified": false,
+      "synthetic": true
+    },
+    {
+      "id": "cell-label",
+      "file": "cell-label.png",
+      "subject": "biology",
+      "kind": "cell_structure_candidate",
+      "sourceText": "नाभिक",
+      "expectedChemicalStatus": null,
+      "readable": true,
+      "scientificAccuracyVerified": false,
+      "synthetic": true
+    },
+    {
+      "id": "anatomy-label",
+      "file": "anatomy-label.png",
+      "subject": "biology",
+      "kind": "anatomy_label_candidate",
+      "sourceText": "Liver",
+      "expectedChemicalStatus": null,
+      "readable": true,
+      "scientificAccuracyVerified": false,
+      "synthetic": true
+    },
+    {
+      "id": "plant-label",
+      "file": "plant-label.png",
+      "subject": "biology",
+      "kind": "plant_structure_candidate",
+      "sourceText": "Leaf",
+      "expectedChemicalStatus": null,
+      "readable": true,
+      "scientificAccuracyVerified": false,
+      "synthetic": true
+    },
+    {
+      "id": "geometry-markers",
+      "file": "geometry-markers.png",
+      "subject": "geometry",
+      "kind": "perpendicular_marker_candidate",
+      "sourceText": "AB ⊥ CD; ∠ABC = 90°",
+      "expectedChemicalStatus": null,
+      "readable": true,
+      "scientificAccuracyVerified": false,
+      "synthetic": true
+    },
+    {
+      "id": "coordinate-label",
+      "file": "coordinate-label.png",
+      "subject": "geometry",
+      "kind": "coordinate_label_candidate",
+      "sourceText": "(−2, 3)",
+      "expectedChemicalStatus": null,
+      "readable": true,
+      "scientificAccuracyVerified": false,
+      "synthetic": true
+    },
+    {
+      "id": "ambiguous-charge",
+      "file": "ambiguous-charge.png",
+      "subject": "chemistry",
+      "kind": "bond_drawing_candidate",
+      "sourceText": "Fe3+",
+      "expectedChemicalStatus": "ambiguous",
+      "readable": true,
+      "scientificAccuracyVerified": false,
+      "synthetic": true
+    },
+    {
+      "id": "blurred-source",
+      "file": "blurred-source.png",
+      "subject": "biology",
+      "kind": "anatomy_label_candidate",
+      "sourceText": "unreadable",
+      "expectedChemicalStatus": null,
+      "readable": false,
+      "scientificAccuracyVerified": false,
+      "synthetic": true
+    },
+    {
+      "id": "hindi-english-symbols",
+      "file": "hindi-english-symbols.png",
+      "subject": "physics",
+      "kind": "field_vector_candidate",
+      "sourceText": "बल = 10 N",
+      "expectedChemicalStatus": null,
+      "readable": true,
+      "scientificAccuracyVerified": false,
+      "synthetic": true
+    }
+  ]
+}
