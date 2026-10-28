@@ -120,7 +120,7 @@ export async function resolveDocumentPromptContext(assetId: number, actor: Histo
 
 const fail = (status: number, code: string, error: string, details?: Record<string, unknown>): BatchFailure => ({ ok: false, status, code, error, ...(details ? { details } : {}) })
 
-export type DocumentGenerationRequest = { settings: unknown; idempotencyKey: string | null }
+export type DocumentGenerationRequest = { settings: unknown; idempotencyKey: string | null;accessibilityPipeline?:unknown }
 
 export type DocumentGenerationResult = {
   success: true
@@ -144,6 +144,8 @@ export async function submitDocumentGeneration(
   actor: BatchActor,
 ): Promise<{ ok: true; body: DocumentGenerationResult } | BatchFailure> {
   const settings = normalizeGenerationSettings(req.settings ?? undefined)
+  const pipeline=req.accessibilityPipeline==null?null:(await import("./processing-pipeline-contract")).parseProcessingSelection(req.accessibilityPipeline)
+  if(req.accessibilityPipeline!=null&&(!pipeline||!pipeline.stages.includes("generation")||!pipeline.billableConfirmed))return fail(400,"INVALID_PROCESSING_SELECTION","Select supported advanced stages including generation and confirm their provider usage.")
   const settingsErrors = validateGenerationSettings(settings)
   if (Object.keys(settingsErrors).length) return fail(422, "INVALID_SETTINGS", "Generation settings are invalid.", { fields: settingsErrors })
 
@@ -165,6 +167,7 @@ export async function submitDocumentGeneration(
       settings,
       overrides: {},
       idempotencyKey: req.idempotencyKey,
+      ...(pipeline?{accessibilityPipeline:pipeline}:{}),
     },
     actor,
   )

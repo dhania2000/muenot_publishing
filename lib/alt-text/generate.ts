@@ -32,6 +32,8 @@ const CLIENT_REQUEST_ID = /^[A-Za-z0-9_-]{8,48}$/
 const ALLOWED_KEYS = new Set(["assetId", "settings", "requestId", "occurrenceId"])
 
 export type GenerateRequest = {
+  expectedSourceSha256?: string
+  signal?: AbortSignal
   occurrenceId?: number | null
   assetId: number
   settings: GenerationSettings
@@ -189,6 +191,8 @@ export async function generateAltTextForAsset(
   if (!image.ok) return fail(image.status, image.code, image.error)
   const bytes = await readImageBytes(image.body, altTextSettings.maxFileMb * 1024 * 1024)
   if (!bytes) return fail(413, "FILE_TOO_LARGE", `Images must be ${altTextSettings.maxFileMb} MB or smaller to generate alt text.`)
+  if (req.expectedSourceSha256 && createHash("sha256").update(bytes).digest("hex") !== req.expectedSourceSha256) return fail(409,"PIPELINE_SOURCE_CHANGED","The source image changed. Start a new processing run.")
+  if (req.signal?.aborted) return fail(409,"PIPELINE_INTERRUPTED","Processing was interrupted before generation.")
 
   // Generation overwrites saved content, so it needs the same record scope as a manual edit.
   const target = await getAsset(req.assetId)
@@ -233,7 +237,7 @@ export async function generateAltTextForAsset(
       tenantId: actor.tenantId,
       userId: actor.userId,
       operationId: requestId.slice("alttext:".length),
-      vision: { image: { bytes, mediaType: image.contentType }, generation: req.settings, altTextSettings, model, document, classify, classificationHint, ...(advancedEvidence ? { advancedEvidence } : {}) },
+      vision: { image: { bytes, mediaType: image.contentType }, generation: req.settings, altTextSettings, model, document, classify, classificationHint, ...(advancedEvidence ? { advancedEvidence } : {}), ...(req.signal ? {abortSignal:req.signal} : {}) },
     })
   } catch (e) {
     const failure = e instanceof AiError ? aiErrorToFailure(e) : fail(500, "GENERATION_FAILED", "Alt text generation failed. Please try again.")

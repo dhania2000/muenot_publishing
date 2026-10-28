@@ -7,9 +7,9 @@ import "server-only"
 import { createHash, randomUUID } from "node:crypto"
 import { query, withTransaction } from "@/lib/db"
 import { classifyJobFailure, JobCancelledError, JobDeferredError, retryDisposition } from "@/lib/job-retry-policy"
-import { assertEnqueueAllowed, jobLimitsFromEnv, payloadBytes } from "@/lib/observability/job-limits"
+import { assertEnqueueAllowed, jobLimitsFromEnv, payloadBytes,globalRunningCapFor } from "@/lib/observability/job-limits"
 
-export const BACKGROUND_JOB_TYPES = ["alt_text.batch_processing", "alt_text.document_preparation", "alt_text.pdf_page_ocr", "alt_text.math_recognition", "alt_text.advanced_analysis"] as const
+export const BACKGROUND_JOB_TYPES = ["alt_text.batch_processing", "alt_text.document_preparation", "alt_text.pdf_page_ocr", "alt_text.math_recognition", "alt_text.advanced_analysis", "alt_text.accessibility_processing"] as const
 export type BackgroundJobType = (typeof BACKGROUND_JOB_TYPES)[number]
 export const BACKGROUND_JOB_STATUSES = ["queued", "running", "completed", "failed", "dead_letter", "cancelled"] as const
 export type BackgroundJobStatus = (typeof BACKGROUND_JOB_STATUSES)[number]
@@ -20,7 +20,7 @@ export type DocumentPreparationJobPayload = { documentId: number }
 export type PdfPageOcrJobPayload = { documentId: number; request: import("./alt-text/pdf-page-ocr-types").PageOcrRequest }
 export type MathRecognitionJobPayload = { evidenceId: number }
 export type AdvancedAnalysisJobPayload = {evidenceId:number}
-export type BackgroundJobPayload = AltTextBatchJobPayload | DocumentPreparationJobPayload | PdfPageOcrJobPayload | MathRecognitionJobPayload
+export type BackgroundJobPayload = AltTextBatchJobPayload | DocumentPreparationJobPayload | PdfPageOcrJobPayload | MathRecognitionJobPayload | {pipelineId:number}
 
 /** Cluster-wide running cap for document preparation (memory-heavy parsing). Phase 2 types keep their own policy. */
 export const documentPreparationGlobalCap = () => bounded(process.env.ALT_TEXT_DOCUMENT_JOBS_GLOBAL_MAX, 2, 1, 20)
@@ -93,6 +93,8 @@ function mapJob(row: any): BackgroundJob {
 }
 
 function validatePayload(type: BackgroundJobType, payload: unknown): BackgroundJobPayload {
+  const pipelineId=(payload as {pipelineId?:number})?.pipelineId
+  if(type==="alt_text.accessibility_processing"&&Number.isSafeInteger(pipelineId)&&pipelineId!>0)return {pipelineId:pipelineId!}
   const evidenceId = (payload as MathRecognitionJobPayload)?.evidenceId
   if (["alt_text.math_recognition","alt_text.advanced_analysis"].includes(type) && Number.isSafeInteger(evidenceId) && evidenceId > 0) return { evidenceId }
   const batchId = (payload as { batchId?: unknown })?.batchId
@@ -227,6 +229,10 @@ type JobHandlerContext = { signal: AbortSignal; job: BackgroundJob }
 type JobHandler = (payload: BackgroundJobPayload, context: JobHandlerContext) => Promise<Record<string, unknown> | void>
 
 const JOB_HANDLERS: Record<BackgroundJobType, JobHandler> = {
+  async "alt_text.accessibility_processing"(payload,context){
+    const {runProcessingPipelineJob}=await import("@/lib/alt-text/processing-pipeline-job")
+    return runProcessingPipelineJob(payload as {pipelineId:number},context)
+  },
   async "alt_text.advanced_analysis"(payload,context){
     const {runAdvancedEvidenceJob}=await import("@/lib/alt-text/advanced-evidence-job")
     return runAdvancedEvidenceJob(payload as AdvancedAnalysisJobPayload,context)
@@ -286,6 +292,11 @@ export async function requestBackgroundJobCancel(jobId: number, tenantId: number
 }
 
 async function afterSettle(job: BackgroundJob, status: BackgroundJobStatus) {
+  if(job.job_type==="alt_text.accessibility_processing"){
+    const {settleProcessingPipeline}=await import("@/lib/alt-text/processing-pipeline-store")
+    await settleProcessingPipeline(job,status)
+    return
+  }
   if(job.job_type==="alt_text.advanced_analysis"){
     const {settleAdvancedEvidence}=await import("@/lib/alt-text/advanced-evidence-store")
     await settleAdvancedEvidence(job,status)
@@ -341,28 +352,35 @@ async function recoverExpiredLeases() {
   await query(`UPDATE alt_text_accessibility_evidence e JOIN platform_background_jobs j ON e.job_id=j.id AND e.tenant_id=j.tenant_id
     SET e.status='failed',e.error_code='LEASE_EXPIRED' WHERE j.job_type='alt_text.advanced_analysis' AND j.status='dead_letter'
       AND e.status IN ('queued','running','received')`).catch((e)=>{if((e as {code?:string}).code!=="ER_NO_SUCH_TABLE")throw e})
+  const stopped=await query<any[]>(`SELECT j.* FROM platform_background_jobs j JOIN alt_text_accessibility_evidence e ON e.job_id=j.id AND e.tenant_id=j.tenant_id WHERE j.job_type='alt_text.accessibility_processing' AND j.status='dead_letter' AND e.kind='processing_pipeline' AND e.status IN ('queued','processing') LIMIT 20`).catch((e)=>{if((e as {code?:string}).code!=="ER_NO_SUCH_TABLE")throw e;return []})
+  for(const row of stopped)await afterSettle(mapJob(row),"dead_letter")
 }
 
 async function claimNext(workerId: string): Promise<BackgroundJob | null> {
+  const limits=jobLimitsFromEnv()
   return withTransaction(async (conn) => {
-    // Every claimant locks the same existing OCR queue row until commit. Without a shared lock,
-    // two claim transactions could both observe zero running OCR jobs and allocate two rasters.
-    await conn.query("SELECT id FROM platform_background_jobs WHERE job_type IN ('alt_text.pdf_page_ocr','alt_text.math_recognition','alt_text.advanced_analysis') ORDER BY id LIMIT 1 FOR UPDATE")
+    // Serialize the short claim/count transaction across every job type, including a queue
+    // containing only batch work. A heavy-only sentinel did not protect tenant/batch caps.
+    await conn.query("SELECT id FROM platform_background_jobs ORDER BY id LIMIT 1 FOR UPDATE")
     const [rows] = await conn.query<any[]>(
       `SELECT j.* FROM platform_background_jobs j
         WHERE j.status = 'queued' AND j.available_at <= UTC_TIMESTAMP()
+          AND (j.tenant_id=0 OR (SELECT COUNT(*) FROM platform_background_jobs t WHERE t.tenant_id=j.tenant_id AND t.status='running') < ?)
+          AND (j.job_type<>'alt_text.batch_processing' OR (SELECT COUNT(*) FROM platform_background_jobs b WHERE b.job_type='alt_text.batch_processing' AND b.status='running') < ?)
           AND (j.concurrency_key IS NULL OR (
             SELECT COUNT(*) FROM platform_background_jobs r WHERE r.status = 'running' AND r.concurrency_key = j.concurrency_key
           ) < j.concurrency_limit)
           AND (j.job_type <> 'alt_text.document_preparation' OR (
             SELECT COUNT(*) FROM platform_background_jobs g WHERE g.status = 'running' AND g.job_type = 'alt_text.document_preparation'
           ) < ?)
-          AND (j.job_type NOT IN ('alt_text.pdf_page_ocr','alt_text.math_recognition','alt_text.advanced_analysis') OR (
-            SELECT COUNT(*) FROM platform_background_jobs o WHERE o.status='running' AND o.job_type IN ('alt_text.pdf_page_ocr','alt_text.math_recognition','alt_text.advanced_analysis')
+          AND (j.job_type NOT IN ('alt_text.pdf_page_ocr','alt_text.math_recognition','alt_text.advanced_analysis','alt_text.accessibility_processing') OR (
+            SELECT COUNT(*) FROM platform_background_jobs o WHERE o.status='running' AND o.job_type IN ('alt_text.pdf_page_ocr','alt_text.math_recognition','alt_text.advanced_analysis','alt_text.accessibility_processing')
           ) < 1)
-        ORDER BY j.priority DESC, j.available_at ASC, j.id ASC
+        ORDER BY j.priority DESC,
+          COALESCE((SELECT MAX(f.updated_at) FROM platform_background_jobs f WHERE f.tenant_id=j.tenant_id AND f.started_at IS NOT NULL),'1970-01-01') ASC,
+          j.available_at ASC, j.id ASC
         LIMIT 1 FOR UPDATE SKIP LOCKED`,
-      [documentPreparationGlobalCap()],
+      [limits.tenantMaxRunning,globalRunningCapFor("alt_text.batch_processing"),documentPreparationGlobalCap()],
     )
     const row = rows[0]
     if (!row) return null
@@ -377,15 +395,25 @@ async function claimNext(workerId: string): Promise<BackgroundJob | null> {
 
 async function settle(job: BackgroundJob, status: BackgroundJobStatus, result: Record<string, unknown> | null, errorMessage: string | null, delaySeconds = 0) {
   const terminal = status !== "queued"
-  await query(
+  const saved=await query<any>(
     `UPDATE platform_background_jobs SET status=?, result=?, error_message=?, worker_id=NULL, locked_at=NULL, lease_expires_at=NULL,
        available_at = IF(? = 'queued', DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? SECOND), available_at),
        completed_at = ${terminal ? "UTC_TIMESTAMP()" : "NULL"}
-     WHERE id=? AND worker_id=?`,
+     WHERE id=? AND worker_id=? AND status='running' AND lease_expires_at>UTC_TIMESTAMP()`,
     [status, result ? JSON.stringify(result) : null, errorMessage?.slice(0, 2000) ?? null, status, delaySeconds, job.id, job.worker_id],
   )
+  if(!Number(saved.affectedRows))return false
   await appendEvent(job.id, status === "queued" ? "retry_scheduled" : status, { attempt: job.attempts, delaySeconds: status === "queued" ? delaySeconds : null })
   if (terminal) await afterSettle(job, status)
+  return true
+}
+
+/** Only the current live claimant may renew its lease. The renewal never outlives the
+ * invocation deadline plus its existing 30-second settlement grace. */
+export async function heartbeatBackgroundJob(job:BackgroundJob,deadline:Date){
+  const renewed=await query<any>(`UPDATE platform_background_jobs SET lease_expires_at=LEAST(DATE_ADD(UTC_TIMESTAMP(),INTERVAL 45 SECOND),DATE_ADD(?,INTERVAL 30 SECOND))
+    WHERE id=? AND worker_id=? AND status='running' AND lease_expires_at>UTC_TIMESTAMP()`,[deadline,job.id,job.worker_id])
+  return Number(renewed.affectedRows)>0
 }
 
 export function retryDelaySeconds(attempt: number, baseSeconds: number): number {
@@ -393,35 +421,48 @@ export function retryDelaySeconds(attempt: number, baseSeconds: number): number 
 }
 
 async function runJob(job: BackgroundJob): Promise<BackgroundJobStatus> {
+  const finish=async(status:BackgroundJobStatus,result:Record<string,unknown>|null,message:string|null,delay=0):Promise<BackgroundJobStatus>=>
+    await settle(job,status,result,message,delay)?status:(await getBackgroundJob(job.id))?.status??"failed"
   if (job.cancel_requested) {
-    await settle(job, "cancelled", null, "CANCELLED")
-    return "cancelled"
+    return finish("cancelled",null,"CANCELLED")
   }
   const controller = new AbortController()
   let timedOut = false
+  let stopped=false
+  let heartbeatTimer:ReturnType<typeof setTimeout>|undefined
+  const deadline=new Date(Date.now()+job.timeout_seconds*1000)
+  const pulse=async()=>{
+    if(stopped||controller.signal.aborted)return
+    try{if(!await heartbeatBackgroundJob(job,deadline)){controller.abort();return}}
+    catch{controller.abort();return}
+    if(!stopped&&!controller.signal.aborted){heartbeatTimer=setTimeout(()=>void pulse(),15000);heartbeatTimer.unref?.()}
+  }
+  heartbeatTimer=setTimeout(()=>void pulse(),15000);heartbeatTimer.unref?.()
   const timer = setTimeout(() => { timedOut = true; controller.abort() }, job.timeout_seconds * 1000)
   try {
     const result = await JOB_HANDLERS[job.job_type](job.payload, { signal: controller.signal, job })
-    await settle(job, "completed", result ?? null, null)
-    return "completed"
+    if(controller.signal.aborted)throw new Error(timedOut?"JOB_TIMEOUT":"JOB_LEASE_LOST")
+    return finish("completed",result??null,null)
   } catch (error) {
-    if (error instanceof JobCancelledError) {
-      await settle(job, "cancelled", null, error.code)
-      return "cancelled"
+    if (!timedOut&&error instanceof JobCancelledError) {
+      return finish("cancelled",null,error.code)
     }
     if (error instanceof JobDeferredError && !controller.signal.aborted) {
-      await query("UPDATE platform_background_jobs SET attempts = GREATEST(attempts - 1, 0) WHERE id=?", [job.id])
-      await settle(job, "queued", null, error.code, error.delaySeconds)
-      return "queued"
+      const deferred=await query<any>("UPDATE platform_background_jobs SET attempts = GREATEST(attempts - 1, 0) WHERE id=? AND worker_id=? AND status='running' AND lease_expires_at>UTC_TIMESTAMP()", [job.id,job.worker_id])
+      if(!Number(deferred.affectedRows))return (await getBackgroundJob(job.id))?.status??"failed"
+      return finish("queued",null,error.code,error.delaySeconds)
     }
     const message = error instanceof Error ? error.message : String(error)
     const status = retryDisposition(classifyJobFailure(error, timedOut), job.attempts, job.max_attempts)
-    await settle(job, status, null, message, status === "queued" ? retryDelaySeconds(job.attempts, job.backoff_seconds) : 0)
-    return status
+    return finish(status,null,message,status==="queued"?retryDelaySeconds(job.attempts,job.backoff_seconds):0)
   } finally {
+    stopped=true
     clearTimeout(timer)
+    if(heartbeatTimer)clearTimeout(heartbeatTimer)
   }
 }
+
+export {claimNext as claimNextBackgroundJob,settle as settleBackgroundJob,runJob as executeBackgroundJob}
 
 /** Drains due jobs until the time budget is spent. Used by /api/jobs/run and post-submit kicks. */
 export async function runDueBackgroundJobs(opts: { maxJobs?: number; budgetMs?: number } = {}) {

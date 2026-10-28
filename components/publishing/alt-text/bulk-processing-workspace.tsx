@@ -78,6 +78,8 @@ import { BatchHistory } from "./batch-history"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { BulkImagePicker } from "./bulk-image-picker"
 import { GenerationSettingsPanel } from "./generation-settings-panel"
+import {BatchProcessingSelection} from "./batch-processing-selection"
+import type {ProcessingSelection} from "@/lib/alt-text/processing-pipeline-contract"
 import { useBulkImageQueue } from "./use-bulk-image-queue"
 
 const TABLE_COLUMNS = ["Image Preview", "Filename", "Image Type", "Processing Status", "Short Alt Text Preview", "Actions"] as const
@@ -142,6 +144,8 @@ export function BulkProcessingWorkspace({
   const [nameTouched, setNameTouched] = useState(false)
   const [draftSettings, setDraftSettings] = useState<GenerationSettings>(DEFAULT_GENERATION_SETTINGS)
   const [batchDefaults, setBatchDefaults] = useState<GenerationSettings>(DEFAULT_GENERATION_SETTINGS)
+  const [advancedSelection,setAdvancedSelection]=useState<ProcessingSelection|null>(null)
+  const configuredAdvancedBatch=useRef<string|null>(null)
   const [overrides, setOverrides] = useState<Record<string, ImageOverride>>({})
   const [editingId, setEditingId] = useState<string | null>(null)
   const [view, setView] = useState<"current" | "history">("current")
@@ -206,8 +210,9 @@ export function BulkProcessingWorkspace({
     [validItems, upload.entries, batchInfo, batchDefaults, overrides],
   )
   const [submission, setSubmission] = useState<SubmissionState>(IDLE_SUBMISSION)
+  const submissionFingerprint=plan.ok?JSON.stringify([plan.fingerprint,advancedSelection]):null
   const inFlight = useRef(false)
-  if (submission.phase === "queued" && plan.ok && plan.fingerprint !== submission.fingerprint) setSubmission(IDLE_SUBMISSION)
+  if (submission.phase === "queued" && plan.ok && submissionFingerprint !== submission.fingerprint) setSubmission(IDLE_SUBMISSION)
   const submitting = submission.phase === "creating" || submission.phase === "submitting"
   const pendingDraftId = submission.phase === "error" ? submission.batchId : null
   const startBlocker = pendingDraftId
@@ -223,13 +228,14 @@ export function BulkProcessingWorkspace({
 
   const startProcessing = async () => {
     if (inFlight.current) return
+    if(advancedSelection&&!advancedSelection.billableConfirmed){setSubmission(s=>({...s,phase:"error",error:"Confirm advanced provider usage before starting this batch."}));return}
     let batchId = pendingDraftId
     if (!batchId && !plan.ok) return
     inFlight.current = true
     try {
       if (!batchId && plan.ok) {
-        const key = submission.idempotencyKey && submission.fingerprint === plan.fingerprint ? submission.idempotencyKey : newIdempotencyKey()
-        setSubmission({ ...IDLE_SUBMISSION, phase: "creating", idempotencyKey: key, fingerprint: plan.fingerprint })
+        const key = submission.idempotencyKey && submission.fingerprint === submissionFingerprint ? submission.idempotencyKey : newIdempotencyKey()
+        setSubmission({ ...IDLE_SUBMISSION, phase: "creating", idempotencyKey: key, fingerprint: submissionFingerprint })
         const created = await createAltTextBatch(plan.payload, key)
         if (!created.ok) {
           setSubmission((s) => ({ ...s, phase: "error", error: describeBatchError(created.error) }))
@@ -240,6 +246,11 @@ export function BulkProcessingWorkspace({
       if (!batchId) return
       const id = batchId
       setSubmission((s) => ({ ...s, phase: "submitting", batchId: id, error: null }))
+      if(advancedSelection||configuredAdvancedBatch.current===id){
+        const configured=await fetch(`/api/alt-text/batches/${id}/processing`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({selection:advancedSelection})})
+        if(!configured.ok){const result=await configured.json();setSubmission(s=>({...s,phase:"error",error:result.error??"Processing modes could not be saved."}));return}
+        configuredAdvancedBatch.current=advancedSelection?id:null
+      }
       const queued = await submitAltTextBatch(id)
       if (!queued.ok && queued.error.code !== "BATCH_ALREADY_SUBMITTED") {
         setSubmission((s) => ({ ...s, phase: "error", error: describeBatchError(queued.error) }))
@@ -254,7 +265,7 @@ export function BulkProcessingWorkspace({
           : "This batch was already queued on the server.",
       }))
       openBatch(id)
-    } finally {
+    } catch(e){setSubmission(s=>({...s,phase:"error",error:e instanceof Error?e.message:"The batch could not be queued."}))} finally {
       inFlight.current = false
     }
   }
@@ -686,6 +697,7 @@ export function BulkProcessingWorkspace({
 
             {wizardStep === "settings" && (
               <div className="flex flex-col gap-4">
+                <BatchProcessingSelection assetId={plan.ok?plan.payload.assetIds[0]??null:null} settings={draftSettings} value={advancedSelection} onChange={setAdvancedSelection}/>
                 <GenerationSettingsPanel
                   bare
                   settings={draftSettings}

@@ -32,6 +32,9 @@ import {
   startDocumentPreparation,
 } from "@/lib/alt-text/client"
 import { AccessibleDocumentSheet } from "./accessible-document-sheet"
+import {BatchProcessingSelection} from "./batch-processing-selection"
+import {DEFAULT_GENERATION_SETTINGS} from "@/lib/alt-text/core"
+import type {ProcessingSelection} from "@/lib/alt-text/processing-pipeline-contract"
 import { isAccessibleExportFormat } from "@/lib/alt-text/docx-export-contract"
 import { DocumentPreparationStatus } from "./document-preparation-status"
 import { useDocumentPreparation } from "./use-document-preparation"
@@ -101,6 +104,7 @@ export function ExtractedImagesPanel({ openRequest }: { openRequest?: DocumentOp
   const [analyzing, setAnalyzing] = useState(false)
   const [generating, setGenerating] = useState(false)
   const generationKey = useRef<string | null>(null)
+  const [advancedSelection,setAdvancedSelection]=useState<ProcessingSelection|null>(null)
   const [contextTarget, setContextTarget] = useState<ContextSheetTarget | null>(null)
   const [details, setDetails] = useState<DetailsTarget | null>(null)
   const [exportOpen, setExportOpen] = useState(false)
@@ -125,6 +129,7 @@ export function ExtractedImagesPanel({ openRequest }: { openRequest?: DocumentOp
   const filtersActive = JSON.stringify({ ...review.filters, sort: DEFAULT_FILTERS.sort }) !== JSON.stringify(DEFAULT_FILTERS)
 
   function selectDocument(id: string) {
+    setAdvancedSelection(null)
     setSelected(id)
     setDetails(null)
     setContextTarget(null)
@@ -202,11 +207,12 @@ export function ExtractedImagesPanel({ openRequest }: { openRequest?: DocumentOp
 
   async function generate() {
     if (!doc || !canGenerate) return
+    if(advancedSelection&&!advancedSelection.billableConfirmed){toast.error("Confirm advanced provider usage before queuing this document.");return}
     setGenerating(true)
     // One key per click target set: a retried/duplicated request replays the same batch.
     const key = generationKey.current ?? newIdempotencyKey()
     generationKey.current = key
-    const r = await generateDocumentAltText(doc.id, key)
+    const r = await generateDocumentAltText(doc.id, key,advancedSelection?.settings,advancedSelection)
     setGenerating(false)
     if (!r.ok) {
       if (r.error.code !== "RATE_LIMITED") generationKey.current = null
@@ -290,6 +296,7 @@ export function ExtractedImagesPanel({ openRequest }: { openRequest?: DocumentOp
         </CardHeader>
 
         <CardContent className="flex flex-col gap-5">
+          {doc&&<BatchProcessingSelection assetId={review.images.find(i=>i.altTextAssetId)?.altTextAssetId??null} settings={DEFAULT_GENERATION_SETTINGS} value={advancedSelection} onChange={v=>{generationKey.current=null;setAdvancedSelection(v)}}/>}
           {prep.preparation && <DocumentPreparationStatus preparation={prep.preparation} stale={prep.stale} cancelling={cancelling} onCancel={cancelProcessing} />}
           {!documentId || !hasImages ? (
             <Empty className="rounded-md border py-10">

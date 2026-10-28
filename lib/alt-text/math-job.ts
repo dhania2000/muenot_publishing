@@ -5,9 +5,10 @@ import {query} from "@/lib/db"
 import {runForTenant} from "@/lib/tenant-scope"
 import {isBackgroundJobCancelRequested,type BackgroundJob,type MathRecognitionJobPayload} from "@/lib/background-jobs"
 import {JobCancelledError,JobDeferredError} from "@/lib/job-retry-policy"
+import {guardProcessingBatchAsset} from "./processing-batch-guard"
 import {getMathWork,writeMathState} from "./math-store"
 import {MATH_MODEL,MathEngineError,recognizeMath} from "./math-engine"
-import {mathPolicy,MathRequestError,resolveEquationSource} from "./math-service"
+import {mathPolicy,MathRequestError,resolveEquationSource,authorizeMathWorker} from "./math-service"
 import type {MathRecognitionResult} from "./math-contract"
 
 /** Private in-memory crop. Image orientation and bounds were validated against the saved region. */
@@ -20,6 +21,7 @@ export async function runMathRecognitionJob(payload:MathRecognitionJobPayload,{j
   if(!work)return {superseded:true}
   if(["candidate","no_expression_detected","incomplete"].includes(work.row.status))return {replayed:true}
   const guard=async()=>{
+   await guardProcessingBatchAsset(work.input.assetId)
    if(signal.aborted)throw Object.assign(new Error("MATH_JOB_TIMEOUT"),{name:"AbortError"})
    if(await isBackgroundJobCancelRequested(job.id))throw new JobCancelledError("MATH_CANCELLED")
    const lease=await query<any[]>("SELECT id FROM platform_background_jobs WHERE id=? AND tenant_id=? AND worker_id=? AND status='running' AND lease_expires_at>UTC_TIMESTAMP()",[job.id,job.tenant_id,job.worker_id])
@@ -29,8 +31,9 @@ export async function runMathRecognitionJob(payload:MathRecognitionJobPayload,{j
   try{
    if(!(await mathPolicy()).enabled)throw new MathRequestError(409,"MATH_UNAVAILABLE","Mathematical OCR was disabled before this work started.")
    const {input}=work
+   const actor=await authorizeMathWorker(input.assetId,input.occurrenceId,input.actorId,job.tenant_id)
    if(input.modelFingerprint!==JSON.stringify(MATH_MODEL))throw new MathRequestError(409,"MATH_MODEL_CHANGED","The model version changed. Submit a new recognition request.")
-   const current=await resolveEquationSource(input.assetId,input.occurrenceId,input.request,{userId:input.actorId,tenantId:job.tenant_id,scope:"all"})
+   const current=await resolveEquationSource(input.assetId,input.occurrenceId,input.request,{userId:input.actorId,tenantId:job.tenant_id,scope:actor.viewScope})
    if(!evidenceEqual(current.source,input.source))throw new MathRequestError(409,"MATH_SOURCE_CHANGED","Source image or region changed after submission.")
    await writeMathState(job,payload.evidenceId,"recognizing")
    const png=await cropEquationImage(current.bytes,current.source.pixelBox)
@@ -44,7 +47,7 @@ export async function runMathRecognitionJob(payload:MathRecognitionJobPayload,{j
    await writeMathState(job,payload.evidenceId,result.status,result)
    return {evidenceId:payload.evidenceId,status:result.status}
   }catch(error){
-   if(error instanceof JobCancelledError||signal.aborted||error instanceof Error&&error.message==="MATH_LEASE_LOST")throw error
+   if(error instanceof JobCancelledError||error instanceof JobDeferredError||signal.aborted||error instanceof Error&&error.message==="MATH_LEASE_LOST")throw error
    const code=error instanceof MathEngineError||error instanceof MathRequestError?error.code:"MATH_EXECUTION_FAILED"
    if(code==="MATH_BUSY"){await writeMathState(job,payload.evidenceId,"queued",null,code);throw new JobDeferredError(code,30)}
    if(error instanceof MathRequestError){await writeMathState(job,payload.evidenceId,"failed",null,code);throw error}

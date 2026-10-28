@@ -4,7 +4,8 @@ import {query} from "@/lib/db"
 import {runForTenant} from "@/lib/tenant-scope"
 import {getScope} from "@/lib/permission-store"
 import {isBackgroundJobCancelRequested,type AdvancedAnalysisJobPayload,type BackgroundJob} from "@/lib/background-jobs"
-import {JobCancelledError} from "@/lib/job-retry-policy"
+import {JobCancelledError,JobDeferredError} from "@/lib/job-retry-policy"
+import {guardProcessingBatchAsset} from "./processing-batch-guard"
 import {AiError} from "@/lib/ai/governance-core"
 import {getAdvancedEvidenceWork,writeAdvancedEvidence} from "./advanced-evidence-store"
 import {advancedRegionSource,authorizeAdvancedAsset,chartOcrEvidence,AdvancedEvidenceError} from "./advanced-evidence-source"
@@ -33,6 +34,7 @@ export async function runAdvancedEvidenceJob(payload:AdvancedAnalysisJobPayload,
   if(work.row.status==="completed")return {replayed:true}
   const {input}=work
   const guard=async()=>{
+   await guardProcessingBatchAsset(input.assetId)
    if(signal.aborted)throw Object.assign(new Error("ADVANCED_TIMEOUT"),{name:"AbortError"})
    if(await isBackgroundJobCancelRequested(job.id))throw new JobCancelledError("ADVANCED_CANCELLED")
    const lease=await query<any[]>("SELECT id FROM platform_background_jobs WHERE id=? AND tenant_id=? AND worker_id=? AND status='running' AND lease_expires_at>UTC_TIMESTAMP()",[job.id,job.tenant_id,job.worker_id])
@@ -119,7 +121,7 @@ export async function runAdvancedEvidenceJob(payload:AdvancedAnalysisJobPayload,
    await writeAdvancedEvidence(job,payload.evidenceId,"completed",result)
    return {evidenceId:payload.evidenceId,status:"completed"}
   }catch(error){
-   if(signal.aborted||error instanceof JobCancelledError||error instanceof Error&&error.message==="ADVANCED_LEASE_LOST")throw error
+   if(signal.aborted||error instanceof JobCancelledError||error instanceof JobDeferredError||error instanceof Error&&error.message==="ADVANCED_LEASE_LOST")throw error
    const code=error instanceof AdvancedEvidenceError?error.code:error instanceof AiError?error.code:"ADVANCED_EXECUTION_FAILED"
    if(error instanceof AdvancedEvidenceError||error instanceof AiError&&!["provider_error","rate_limited"].includes(error.code)){
     await writeAdvancedEvidence(job,payload.evidenceId,"failed",null,code)

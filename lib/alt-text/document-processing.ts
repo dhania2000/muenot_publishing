@@ -237,7 +237,7 @@ export async function readBatchCreditUsage(batchId: string, actor: HistoryActor)
   const keyPrefix = batchOperationKey(batchId, 0, 0).replace(/v0n0$/, "")
   const own = actor.viewScope !== "all"
   const rows = await query<any[]>(
-    `SELECT r.status, r.model_id, r.credits, r.settled_credits, l.amount,
+    `SELECT r.request_id,r.status, r.model_id, r.credits, r.settled_credits, l.amount,
             JSON_UNQUOTE(JSON_EXTRACT(l.metadata_json, '$.needsReconciliation')) AS recon
        FROM alt_text_assets a
        JOIN ai_credit_reservations r
@@ -250,11 +250,28 @@ export async function readBatchCreditUsage(batchId: string, actor: HistoryActor)
     if (e?.code === "ER_NO_SUCH_TABLE") return []
     throw e
   })
+  // Additional governed requests belong to a persisted processing run, not to a second
+  // ledger. Match exact recorded operation ids and the run's durable child-job references.
+  const advancedRows=await query<any[]>(`SELECT DISTINCT r.request_id,r.status,r.model_id,r.credits,r.settled_credits,l.amount,
+    JSON_UNQUOTE(JSON_EXTRACT(l.metadata_json,'$.needsReconciliation')) AS recon
+    FROM ai_credit_reservations r LEFT JOIN ai_credit_ledger l ON l.tenant_id=r.tenant_id AND l.idempotency_key=CONCAT('usage:',r.request_id)
+    WHERE r.tenant_id=? ${own?"AND r.user_id=?":""} AND EXISTS (
+      SELECT 1 FROM alt_text_accessibility_evidence p JOIN alt_text_assets a ON a.id=p.asset_id AND a.tenant_id=p.tenant_id
+      WHERE p.tenant_id=r.tenant_id AND a.batch_id=? AND p.kind='processing_pipeline' AND (
+        JSON_CONTAINS(JSON_EXTRACT(p.result_json,'$.nodes[*].creditRequestId'),JSON_QUOTE(r.request_id)) OR EXISTS (
+          SELECT 1 FROM alt_text_accessibility_evidence child WHERE child.tenant_id=p.tenant_id AND child.asset_id=p.asset_id AND child.occurrence_key=p.occurrence_key
+          AND child.kind IN ('chart_structure','scientific_structure','scientific_domain','illustration_structure')
+          AND JSON_CONTAINS(JSON_EXTRACT(p.result_json,'$.nodes[*].requestId'),JSON_QUOTE(JSON_UNQUOTE(JSON_EXTRACT(child.input_json,'$.request.requestId'))))
+          AND r.request_id=CONCAT('alttext:',CASE child.kind WHEN 'chart_structure' THEN 'chart' WHEN 'scientific_structure' THEN 'science' WHEN 'scientific_domain' THEN 'domain' ELSE 'illustration' END,child.id)
+        )
+      )
+    ) LIMIT 5000`,own?[tenantId,actor.userId,batchId]:[tenantId,batchId]).catch((e:{code?:string})=>{if(e.code==="ER_NO_SUCH_TABLE")return [];throw e})
+  const uniqueRows=[...new Map([...rows,...advancedRows].map((row,i)=>[row.request_id??`legacy:${i}`,row])).values()]
   const models = new Set<string>()
   const attempts = { total: 0, settled: 0, reserved: 0, released: 0, needsReconciliation: 0 }
   let creditsCharged = 0
   let creditsReserved = 0
-  for (const r of rows) {
+  for (const r of uniqueRows) {
     attempts.total++
     if (r.model_id) models.add(String(r.model_id))
     if (r.status === "settled") {
@@ -269,6 +286,6 @@ export async function readBatchCreditUsage(batchId: string, actor: HistoryActor)
   }
   return {
     ok: true,
-    body: { success: true, batchId, scope: own ? "own" : "batch", attribution: "request_id", models: [...models].sort(), attempts, creditsCharged, creditsReserved },
+    body: { success: true, batchId, scope: own ? "own" : "batch", attribution: "request_id",truncated:rows.length>=5000||advancedRows.length>=5000, models: [...models].sort(), attempts, creditsCharged, creditsReserved },
   }
 }

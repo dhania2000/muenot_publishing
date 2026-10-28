@@ -15,7 +15,7 @@
  * - No region is ever fabricated: invalid provider output is rejected and reported, not repaired.
  */
 import "server-only"
-import { randomBytes } from "node:crypto"
+import { randomBytes,createHash } from "node:crypto"
 import { getTenantAiSettings } from "@/lib/ai/assistant-store"
 import { AiError } from "@/lib/ai/governance-core"
 import { resolveTenantModels } from "@/lib/ai/model-catalog"
@@ -78,7 +78,7 @@ const newAnalysisId = () => `rga_${randomBytes(10).toString("hex")}`
 
 /* ───────────── Shared resolution ───────────── */
 
-async function regionCapability(ctx: RegionContext): Promise<CapabilityState> {
+export async function regionCapability(ctx: RegionContext): Promise<CapabilityState> {
   const [record, backend] = await Promise.all([getSettingsRecord(), detectAccessibilityBackend(ctx.tenantId, ctx.role)])
   const resolved = resolveEffectiveAccessibilitySettings({ storedAccessibility: record.accessibility, revision: record.revision, tenant: record.settings, backend })
   return resolved.capabilities?.region_detection ?? { status: "not_configured", label: "Image region detection", reason: "Capability state could not be resolved." }
@@ -192,6 +192,8 @@ export function parseDetectRequest(body: unknown): { ok: true; value: { occurren
 }
 
 export type DetectDeps = {
+  expectedSourceSha256?: string
+  signal?: AbortSignal
   run?: typeof runMeteredVisionCall
   detect?: typeof detectRegionsFromImage
   newId?: () => string
@@ -259,6 +261,8 @@ export async function detectImageRegions(
   if (!image.ok) return fail(image.status, image.code, image.error)
   const bytes = await readImageBytes(image.body, altTextSettings.maxFileMb * 1024 * 1024)
   if (!bytes) return fail(413, "FILE_TOO_LARGE", `Images must be ${altTextSettings.maxFileMb} MB or smaller to analyse.`)
+  if (deps.expectedSourceSha256 && createHash("sha256").update(bytes).digest("hex") !== deps.expectedSourceSha256) return fail(409,"PIPELINE_SOURCE_CHANGED","The source image changed. Start a new processing run.")
+  if (deps.signal?.aborted) return fail(409,"PIPELINE_INTERRUPTED","Processing was interrupted before region detection.")
   const header = readImageHeader(bytes, image.contentType)
   if (!header) return fail(422, "IMAGE_DIMENSIONS_UNAVAILABLE", "The image dimensions could not be read, so regions cannot be located reliably.")
   const oriented = orientedDimensions(header.width, header.height, header.orientation)
@@ -280,7 +284,7 @@ export async function detectImageRegions(
   try {
     outcome = await (deps.run ?? runMeteredVisionCall)(
       { tenantId: actor.tenantId, userId: actor.userId, operationId, model, sizing, feature: REGION_CREDIT_FEATURE },
-      () => detect({ image: { bytes, mediaType: image.contentType }, model, prompt, maxFileMb: altTextSettings.maxFileMb }),
+      () => detect({ image: { bytes, mediaType: image.contentType }, model, prompt, maxFileMb: altTextSettings.maxFileMb, ...(deps.signal?{abortSignal:deps.signal}:{}) }),
     )
   } catch (e) {
     if (e instanceof AiError) return aiErrorToFailure(e)

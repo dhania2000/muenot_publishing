@@ -49,6 +49,8 @@ export type BatchFailure = { ok: false; status: number; code: string; error: str
 export type BatchActor = { userId: number; tenantId: number; role: "admin" | "employee"; updateScope: PermissionScope }
 
 export type CreateBatchRequest = {
+  /** Server-validated opt-in document pipeline; public draft parser remains strict. */
+  accessibilityPipeline?: import("./processing-pipeline-contract").ProcessingSelection
   name: string
   description: string | null
   projectId: number | null
@@ -139,7 +141,10 @@ export async function createBatchFromRequest(req: CreateBatchRequest, actor: Bat
   if (req.idempotencyKey) {
     const existing = await findBatchIdByIdempotencyKey(req.idempotencyKey)
     const prior = existing ? await getBatch(existing) : null
-    if (prior) return { ok: true as const, status: 200, body: createdView(prior, true) }
+    if (prior) {
+      if(JSON.stringify(prior.accessibilityPipeline??null)!==JSON.stringify(req.accessibilityPipeline??null))return fail(409,"REQUEST_CONFLICT","This batch request already belongs to different processing modes.")
+      return { ok: true as const, status: 200, body: createdView(prior, true) }
+    }
   }
 
   // Preflight gives a clear 404 / 403 / 409; createBatch re-validates ownership under row locks.
@@ -161,6 +166,7 @@ export async function createBatchFromRequest(req: CreateBatchRequest, actor: Bat
         settings: req.settings,
         assets: req.assetIds.map((assetId) => ({ assetId, override: req.overrides[assetId] })),
         idempotencyKey: req.idempotencyKey,
+        ...(req.accessibilityPipeline?{accessibilityPipeline:req.accessibilityPipeline}:{}),
       },
       actor.userId,
     )

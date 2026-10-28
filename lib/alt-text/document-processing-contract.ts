@@ -50,6 +50,7 @@ export type BatchCreditUsageResponse = {
   /** "own": only the caller's own reservations (non-`all` view scope). */
   scope: "batch" | "own"
   attribution: "request_id"
+  truncated?: boolean
   models: string[]
   attempts: { total: number; settled: number; reserved: number; released: number; needsReconciliation: number }
   creditsCharged: number

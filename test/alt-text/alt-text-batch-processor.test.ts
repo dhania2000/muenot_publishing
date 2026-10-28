@@ -48,6 +48,23 @@ beforeEach(() => {
 })
 
 describe("alt text batch processor", () => {
+  it("schedules 120 opted-in images in bounded deliveries without duplicate ordinary generation",async()=>{
+    const selection={version:1,stages:["generation","qa"],billableConfirmed:true,ocrLanguageMode:null,settings:DEFAULT_GENERATION_SETTINGS}
+    store.getBatch.mockResolvedValue({id:BID,status:"processing",createdBy:7,submittedBy:7,accessibilityPipeline:selection})
+    const saved=new Set<number>(),ids=Array.from({length:120},(_,i)=>i+1)
+    store.getAsset.mockImplementation(async(id:number)=>({id,batchId:BID,status:saved.has(id)?"in_review":"uploaded",attempts:0,currentVersion:0,settingsOverride:id===1?{outputLanguage:"hi"}:null}))
+    store.finalizeBatchFromAssets.mockImplementation(async()=>({status:saved.size===120?"completed":"processing",stats:stats({total:120,completed:saved.size,pending:120-saved.size})}))
+    const schedule=vi.fn(async(_b:string,id:number)=>{expect(saved.has(id)).toBe(false);saved.add(id);return {summary:{status:"queued"}}})
+    for(let delivery=0;delivery<12;delivery++){const call=processAltTextBatch(plan(ids),{signal},{generate:generate as any,loadActor:async()=>actor,scheduleProcessing:schedule as any,resolveDocument:async(id:number)=>({kind:"document",document:{imageOccurrenceId:id+1000}}) as any});if(delivery<11)await expect(call).rejects.toBeInstanceOf(JobDeferredError);else await expect(call).resolves.toMatchObject({batchStatus:"completed"})}
+    expect(schedule).toHaveBeenCalledTimes(120);expect(generate).not.toHaveBeenCalled();expect(schedule.mock.calls[0]).toMatchObject([BID,1,1001,selection,{outputLanguage:"hi"},actor]);await processAltTextBatch(plan(ids),{signal},{loadActor:async()=>actor,scheduleProcessing:schedule as any});expect(schedule).toHaveBeenCalledTimes(120)
+  })
+  it("isolates an advanced scheduling failure and preserves the independent image's pending work",async()=>{
+    store.getBatch.mockResolvedValue({id:BID,status:"processing",createdBy:7,submittedBy:7,accessibilityPipeline:{stages:["generation"]}})
+    store.finalizeBatchFromAssets.mockResolvedValue({status:"processing",stats:stats({pending:1,failed:1})})
+    const schedule=vi.fn().mockRejectedValueOnce(Object.assign(new Error("this document occurrence changed"),{code:"SOURCE_CHANGED"})).mockResolvedValue({summary:{status:"queued"}})
+    await expect(processAltTextBatch(plan([1,2]),{signal},{loadActor:async()=>actor,generate:generate as any,scheduleProcessing:schedule,resolveDocument:async()=>({kind:"standalone"})})).rejects.toBeInstanceOf(JobDeferredError)
+    expect(schedule).toHaveBeenCalledTimes(2);expect(store.markFailed).toHaveBeenCalledTimes(1);expect(generate).not.toHaveBeenCalled()
+  })
   it("processes every image sequentially as the submitter and settles from records", async () => {
     const res = await run([1, 2, 3])
     expect(generate).toHaveBeenCalledTimes(3)

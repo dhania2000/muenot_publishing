@@ -279,11 +279,11 @@ export type DocumentGenerationResponse = {
 }
 
 /** Queue alt text generation for the document's selected, eligible occurrences (Phase 2 batch, HTTP 202). */
-export function generateDocumentAltText(documentId: number, idempotencyKey: string, settings?: GenerationSettings) {
+export function generateDocumentAltText(documentId: number, idempotencyKey: string, settings?: GenerationSettings,accessibilityPipeline?:import("./processing-pipeline-contract").ProcessingSelection|null) {
   return requestJson<DocumentGenerationResponse>(`/api/alt-text/documents/${documentId}/generate`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
-    body: JSON.stringify(settings ? { settings } : {}),
+    body: JSON.stringify({...settings?{settings}:{},...accessibilityPipeline?{accessibilityPipeline}:{}}),
   })
 }
 
