@@ -41,7 +41,7 @@ export async function loadDescriptionEvidence(assetId: number, occurrenceId: num
     seenOcr.add(key)
     if (o.assetId !== assetId || o.occurrenceId !== occurrenceId || o.inputSha256 !== sourceSha256 || !["completed", "completed_with_warnings"].includes(o.status) || !o.rawText || o.rawText.length > 8000 || o.region && (!frame || !regionIds.has(o.region.regionId) || o.region.analysisId !== analysis!.analysisId || o.region.analysisVersion !== analysis!.version)) continue
     originals.set(`image:${o.resultId}`, { raw: o.rawText, regionId: o.region?.regionId ?? null })
-    add(`image:${o.resultId}`, o.version, "ocr", o.region?.regionId ?? null, "raw", { text: o.rawText, warnings: o.warnings, confidence: o.meanConfidence, confidenceScale: o.confidenceScale, readingOrderVerified: false })
+    add(`image:${o.resultId}`, o.version, "ocr", o.region?.regionId ?? null, "raw", { text: o.rawText, recognitionLanguageMode:o.languageMode??o.language, warnings: o.warnings, confidence: o.meanConfidence, confidenceScale: o.confidenceScale, readingOrderVerified: false })
   }
   const current = new Map<number, { row: Row; value: any }>()
   for (const row of rows) {

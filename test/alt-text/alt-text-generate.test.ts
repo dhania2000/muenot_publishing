@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import {createHash} from "node:crypto"
+import {terminologyPolicy} from "@/lib/alt-text/terminology-policy"
 import { AiError } from "@/lib/ai/governance-core"
 
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 1, 2, 3, 4])
@@ -102,6 +103,12 @@ beforeEach(() => {
 })
 
 describe("parseGenerateRequest", () => {
+  it("rejects unsupported output languages instead of silently translating into a default",()=>{
+    expect(parseGenerateRequest({assetId:3,settings:{outputLanguage:"fr"}})).toMatchObject({ok:false,code:"UNSUPPORTED_LANGUAGE"})
+  })
+  it("cannot accept a client-supplied or cross-tenant glossary as approved guidance",()=>{
+    expect(parseGenerateRequest({assetId:3,settings:{outputLanguage:"hi"},guideline:{tenantId:10,approved:true,version:9}})).toMatchObject({ok:false,code:"INVALID_REQUEST"})
+  })
   it("normalizes settings and rejects client-supplied storage/tenant/url fields", () => {
     expect(req.settings.outputLanguage).toBe("hi")
     for (const bad of [{ assetId: 3, tenantId: 1 }, { assetId: 3, storageKey: "k" }, { assetId: 3, imageUrl: "http://x" }, { assetId: 3, apiKey: "sk" }]) {
@@ -113,6 +120,14 @@ describe("parseGenerateRequest", () => {
 })
 
 describe("generateAltTextForAsset", () => {
+  it("records the effective terminology policy in the existing generation version",async()=>{
+    const policy=terminologyPolicy(req.settings)
+    ;(OUTPUT as any).terminologyReview={policy,issues:[]}
+    const r=await generateAltTextForAsset(req,actor,{run})
+    expect(r).toMatchObject({ok:true,body:{result:{generationEvidence:{terminology:{policy:{ruleVersion:"literal-source.v1",outputLanguage:"hi",guideline:null}}}}}})
+    expect(s.calls.save[0][1].generationEvidence.terminology.policy).toEqual(policy)
+    delete (OUTPUT as any).terminologyReview
+  })
   it("rechecks source-document denial before a claim or provider call",async()=>{
     s.documentResolution={kind:"ineligible",code:"NOT_FOUND",error:"Source document not found"}
     expect(await generateAltTextForAsset(req,actor,{run})).toMatchObject({ok:false,status:404})

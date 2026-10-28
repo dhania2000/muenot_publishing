@@ -19,8 +19,10 @@ import { rawEntryMap } from "./ooxml-zip-rewrite"
 import type { CheckLocation, CheckStatus, Severity, ValidationCategory, ValidationCheck } from "./output-validation-contract"
 import { readPdfPackage, type PdfPackage } from "./pdf-package"
 import { readPptxPackage, type PptxPackage } from "./pptx-package"
+import { terminologyIssues,TERMINOLOGY_RULE_VERSION } from "./terminology-policy"
 
 export type ExpectedOccurrence = {
+  outputLanguage?: "en"|"hi"
   occurrenceId: number
   sourceLocator: string
   exportStatus: DocxExportItemStatus
@@ -279,7 +281,8 @@ export async function validateExportOutput(input: ValidationInput): Promise<Vali
         }
         if (!actual) issues.push("empty description on a non-decorative image")
         else if (PLACEHOLDER.test(actual)) issues.push("looks like placeholder text or a filename")
-        if (chars(actual) > input.shortMaxChars) issues.push(`longer than the configured ${input.shortMaxChars}-character short-description limit (${chars(actual)})`)
+        if (chars(actual) > input.shortMaxChars) issues.push(`longer than the configured ${input.shortMaxChars}-character editorial target (${chars(actual)}); this is not a universal WCAG limit`)
+        issues.push(...terminologyIssues(actual,occ.outputLanguage,expected?[{id:`approved:${occ.approvedVersionId}`,text:expected}]:[]).filter(i=>i.code!=="unicode_corruption").map(i=>`${TERMINOLOGY_RULE_VERSION}: ${i.message}`))
         if (corrupt) c.add({ ...R.quality, severity: "critical" }, "failed", issues.join("; "), ex)
         else c.add(R.quality, issues.length ? "warning" : "passed", issues.length ? issues.join("; ") : "No encoding, placeholder or length issues.", ex)
       }
