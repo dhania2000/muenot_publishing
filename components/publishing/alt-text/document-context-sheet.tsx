@@ -51,6 +51,7 @@ function SourceText({ item }: { item: ContextText }) {
       </span>
       <span className="text-xs text-muted-foreground">
         {item.provenance}
+        {` · ${item.source.kind} · ${item.source.ref ?? "reference unavailable"} · ${item.method}`}
         {item.provenance === "approximate" ? " · may be unrelated" : ""}
       </span>
     </span>
@@ -81,6 +82,7 @@ function ContextDetails({ ctx }: { ctx: DocumentImageContext }) {
           <SourceText item={ctx.caption} />
         </Field>
       )}
+      {ctx.captionAlternatives?.map((caption,i)=><Field key={i} label="Conflicting caption candidate"><SourceText item={caption}/></Field>)}
       {ctx.labels.length > 0 && (
         <Field label="Labels">
           <ul className="flex flex-col gap-1">
@@ -172,6 +174,8 @@ export function DocumentContextSheet({ target, onClose, onAnalyzed }: { target: 
             <p role="alert" className="text-sm text-destructive">The context could not be loaded.</p>
           ) : ctx ? (
             <>
+              {data?.imageAssetId && <img src={`/api/alt-text/assets/${data.imageAssetId}/image`} alt="Original image for document context review" className="max-h-52 w-full rounded border object-contain" />}
+              {data?.packet && <details className="rounded border p-3 text-sm"><summary className="cursor-pointer font-medium">Context used for generation · source references</summary><p className="mt-2 text-xs text-muted-foreground">Occurrence {data.packet.occurrenceId} · context v{data.packet.contextVersion}. Presenter notes {data.packet.policy.speakerNotes?"included as untrusted context":"excluded"}. Source text and scientific accuracy remain unverified.</p><ul className="mt-2 max-h-64 space-y-3 overflow-auto">{data.packet.snippets.map(s=><li key={s.id}><p className="whitespace-pre-wrap">{s.text}</p><p className="text-xs text-muted-foreground">{s.role} · {s.sourceKind} · {s.sourceRef} · {s.association}</p>{s.duplicateReferences.length>0&&<p className="text-xs text-muted-foreground">Duplicate sources: {s.duplicateReferences.map(r=>`${r.sourceKind}: ${r.sourceRef}`).join("; ")}</p>}</li>)}</ul>{data.packet.warnings.map((w,i)=><p key={i} className="mt-2 text-xs text-amber-700">{w}</p>)}</details>}
               {ctx.warnings.length > 0 && (
                 <ul aria-label="Context warnings" className="flex flex-col gap-2 rounded-md border border-amber-600/30 bg-amber-50 p-3">
                   {ctx.warnings.map((w) => (

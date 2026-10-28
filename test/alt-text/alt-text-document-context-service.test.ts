@@ -34,6 +34,7 @@ vi.mock("@/lib/alt-text/pptx-context", () => ({ buildPptxContextEvidence: deps.b
 vi.mock("@/lib/alt-text/pdf-package", () => ({ readPdfPackage: deps.readPdfPackage }))
 vi.mock("@/lib/alt-text/pptx-package", () => ({ readPptxPackage: deps.readPptxPackage }))
 vi.mock("@/lib/alt-text/store", () => ({ getSettings: deps.getSettings }))
+vi.mock("@/lib/alt-text/document-context-source", () => ({ documentContextSource: async()=>({sourceSha256:null,sourceRevision:"revision"}),contextSourceMatches:()=>false }))
 vi.mock("@/lib/alt-text/upload", () => ({ ALT_TEXT_UPLOAD_MAX_MB: 25 }))
 vi.mock("@/lib/alt-text/document-context", async (orig) => ({
   ...(await orig<typeof import("@/lib/alt-text/document-context")>()),

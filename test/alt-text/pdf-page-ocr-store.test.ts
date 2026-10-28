@@ -34,12 +34,20 @@ describe("tenant page evidence persistence",()=>{
   const p=await store.pageOcrSummary(2);expect(p.total).toBe(15);expect(p.progress.inScope).toBe(10);expect(p.progress.scopePercent).toBe(0)
  })
  it("adds bounded OCR context only from the same tenant and source page",async()=>{
-  d.query.mockResolvedValue([{evidence_json:{evidence:{textChars:0}},text:"प्रकाश ऊर्जा है।",language:"hin",warnings:[],identity:"hash"}])
-  const ev=await context.addPageOcrEvidence(2,3,{location:{page:3}})
-  expect(ev.nearby?.[0].source.kind).toBe("ocr_page_text");expect(ev.nearby?.[0].source.ref).toContain("pdf:p3")
+  d.query.mockResolvedValue([{source_sha256:"hash",result_json:{sourceSha256:"hash",documentId:2,pageIndex:2,status:"completed",identity:"run",languageMode:"hin",layout:{lines:[{text:"प्रकाश ऊर्जा है।"}]},lines:[{lineIndex:0,pageNorm:{x:0.1,y:0.1,width:0.2,height:0.1}}]}}])
+  const ev=await context.addPageOcrEvidence(2,3,{location:{page:3}},{sourceSha256:"hash",imagePosition:{kind:"pdf_ctm",ctm:[600,0,0,800,0,0],pageBox:[0,0,600,800],rotate:0}})
+  expect(ev.pageOcr?.lines[0].text).toBe("प्रकाश ऊर्जा है।");expect(ev.pageOcr?.lines[0].ref).toContain("pdf:p3")
   expect(d.query.mock.calls.at(-1)?.[1]).toEqual([5,2,2])
  })
- it("keeps native text instead of duplicating it with OCR context",async()=>{
+ it("excludes OCR from another source or outside this image placement",async()=>{
+  const original={location:{page:1}},source={sourceSha256:"hash",imagePosition:{kind:"pdf_ctm",ctm:[200,0,0,200,0,600],pageBox:[0,0,600,800],rotate:0}}
+  const result={sourceSha256:"hash",documentId:2,pageIndex:0,status:"completed",identity:"run",runId:3,languageMode:"hin",layout:{lines:[{text:"UNRELATED OUTSIDE FIGURE"}]},lines:[{lineIndex:0,pageNorm:{x:0.8,y:0.8,width:0.1,height:0.05}}]}
+  d.query.mockResolvedValue([{source_sha256:"hash",result_json:result}])
+  expect(await context.addPageOcrEvidence(2,1,original,source)).toBe(original)
+  result.lines[0].pageNorm={x:0.01,y:0.01,width:0.1,height:0.05};result.sourceSha256="other-source"
+  expect(await context.addPageOcrEvidence(2,1,original,source)).toBe(original)
+ })
+ it("omits page OCR when the source checksum and placement are unavailable",async()=>{
   d.query.mockResolvedValue([{evidence_json:{evidence:{textChars:100}},text:"uncertain OCR",language:"eng",warnings:[],identity:"hash"}])
   const original={nearby:[]};expect(await context.addPageOcrEvidence(2,1,original)).toBe(original)
  })

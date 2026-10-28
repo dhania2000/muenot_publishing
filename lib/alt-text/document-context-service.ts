@@ -8,6 +8,11 @@
  *   and never changes extraction state, source alt text, assets, credits or billing. No AI calls.
  */
 import "server-only"
+import { createHash } from "node:crypto"
+import { documentContextSource, contextSourceMatches, contextOcrMatches } from "./document-context-source"
+import { buildDocumentContextPacket } from "./document-context-packet"
+import { getSettingsRecord } from "./store"
+import { normalizeAccessibilityPreferences } from "./accessibility-settings"
 import type { DocumentOwnerScope } from "./document-store"
 import { getDocumentImage, getDocumentImageContext, getDocumentImages, saveDocumentImageContexts, type SaveImageContextInput } from "./document-store"
 import { DOCUMENT_IMAGE_PAGE_MAX, type DocumentImageRecord } from "./document-records"
@@ -92,6 +97,10 @@ export async function analyzeDocumentContexts(
 
   const original = await readVerifiedOriginal(doc, CONTEXT_ANALYSIS_LIMITS.maxDocumentBytes)
   if (!original.ok) return original
+  const source = await documentContextSource(doc)
+  if (!source) return fail(409,"DOCUMENT_SOURCE_CHANGED","The document source is no longer current. Reload before analyzing context.")
+  const sourceSha256 = createHash("sha256").update(original.bytes).digest("hex")
+  if (source.sourceSha256 && source.sourceSha256 !== sourceSha256) return fail(409,"DOCUMENT_SOURCE_CHANGED","The source document changed while its context was being analyzed.")
 
   const evidence = await readEvidence(doc.documentType, original.bytes)
   if (!evidence.ok) return evidence
@@ -119,12 +128,12 @@ export async function analyzeDocumentContexts(
       summary.failed++
       continue
     }
-    if (doc.documentType === "pdf" && ev.location?.page != null) ev = await addPageOcrEvidence(doc.id, ev.location.page, ev)
+    if (doc.documentType === "pdf" && ev.location?.page != null) ev = await addPageOcrEvidence(doc.id, ev.location.page, ev, {sourceSha256,imagePosition:occ.imagePosition})
     const meta = occ.sourceMetadata as Record<string, unknown> | null
     const rawAlt = meta?.originalDescription ?? meta?.altText
     const sourceAlt = typeof rawAlt === "string" && rawAlt.trim() ? rawAlt : null
     const merged: ContextEvidence = ev.existingAlt || !sourceAlt ? ev : { ...ev, existingAlt: { text: sourceAlt, source: { kind: "source_metadata", ref: occ.sourceLocator } } }
-    const ctx = buildDocumentImageContext({ documentId: doc.id, imageOccurrenceId: occ.id, documentType: doc.documentType, evidence: merged, settings: contextSettings, limits: opts.limits })
+    const ctx = buildDocumentImageContext({ documentId: doc.id, imageOccurrenceId: occ.id, documentType: doc.documentType, evidence: merged, settings: contextSettings, limits: opts.limits,sourceBinding:{sourceSha256,sourceRevision:source.sourceRevision,sourceLocator:occ.sourceLocator,imageSha256:occ.mediaSha256??null} })
     const status = ctx.confidence === "unavailable" ? "unavailable" : "analyzed"
     summary[status === "analyzed" ? "analyzed" : "unavailable"]++
     entries.push({ imageId: occ.id, status, confidence: ctx.confidence, version: DOCUMENT_CONTEXT_VERSION, context: ctx as unknown as Record<string, unknown> })
@@ -141,16 +150,21 @@ export function analyzeDocumentImageContext(documentId: number, imageId: number,
 }
 
 export type ImageContextView =
-  | { ok: true; imageId: number; status: "analyzed" | "unavailable" | "failed" | "not_analyzed"; analyzedAt: string | null; stale: boolean; context: DocumentImageContext | null }
+  | { ok: true; imageId: number; imageAssetId?:number|null; packet?:import("./document-context-packet").DocumentContextPacket|null; status: "analyzed" | "unavailable" | "failed" | "not_analyzed"; analyzedAt: string | null; stale: boolean; context: DocumentImageContext | null }
   | ExtractionFailure
 
 /** Read the stored context only — never triggers analysis. */
 export async function readDocumentImageContext(documentId: number, imageId: number, scope: DocumentOwnerScope): Promise<ImageContextView> {
   const doc = await getDocumentForExtraction(documentId, scope)
   if (!doc) return fail(404, "NOT_FOUND", "The document could not be found.")
+  if (doc.securityStatus !== "clean") return fail(409,"DOCUMENT_NOT_CLEAN","The source document has not passed its security scan.")
   const stored = await getDocumentImageContext(doc.id, imageId)
   if (!stored) return fail(404, "NOT_FOUND", "The image could not be found.")
   const context = parseStoredContext(stored.context)
-  const stale = stored.status != null && stored.version !== DOCUMENT_CONTEXT_VERSION
-  return { ok: true, imageId: stored.imageId, status: stored.status ?? "not_analyzed", analyzedAt: stored.analyzedAt, stale, context: context && context.imageOccurrenceId === stored.imageId ? context : null }
+  const occurrence = context ? await getDocumentImage(doc.id,imageId) : null
+  const source = context ? await documentContextSource(doc) : null
+  const stale = stored.status != null && (stored.version !== DOCUMENT_CONTEXT_VERSION || !context || context.documentId !== documentId || context.imageOccurrenceId !== imageId || !occurrence || !contextSourceMatches(context,source,occurrence) || !await contextOcrMatches(context))
+  let packet=null
+  if(context&&!stale){const record=await getSettingsRecord(),p=normalizeAccessibilityPreferences(record.accessibility).preferences.descriptions;packet=buildDocumentContextPacket(context,{enabled:p.useDocumentContext,speakerNotes:p.includeSpeakerNotes,sourceAlt:p.preserveExistingAlt})}
+  return { ok: true, imageId: stored.imageId, status: stored.status ?? "not_analyzed", analyzedAt: stored.analyzedAt, stale, context: !stale ? context : null, ...(context&&!stale?{imageAssetId:occurrence?.altTextAssetId??null,packet}:{}) }
 }

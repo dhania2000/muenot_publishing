@@ -52,7 +52,7 @@ const HALT_CODES = new Set([
 /** Transient per-image states: leave the image queued and revisit later. */
 const BUSY_CODES = new Set(["GENERATION_CONFLICT", "GENERATION_IN_PROGRESS", "SCAN_PENDING", "STORAGE_UNAVAILABLE"])
 /** Raised before generate() claims the asset, so the processor must record the failure itself. */
-const PRE_CLAIM_CODES = new Set(["NOT_FOUND", "UNSUPPORTED_TYPE", "FILE_TOO_LARGE", "FORBIDDEN", "INVALID_SETTINGS", "DOCUMENT_SOURCE_MISMATCH"])
+const PRE_CLAIM_CODES = new Set(["NOT_FOUND", "UNSUPPORTED_TYPE", "FILE_TOO_LARGE", "FORBIDDEN", "INVALID_SETTINGS", "DOCUMENT_SOURCE_MISMATCH", "DOCUMENT_SOURCE_CHANGED"])
 
 export type FailureKind = "halt" | "busy" | "permanent" | "superseded"
 
@@ -151,7 +151,7 @@ export async function processAltTextBatch(plan: AltTextBatchPlan, ctx: { signal:
     }
 
     // Document occurrences: re-read eligibility + occurrence-specific context at processing time.
-    const docCtx = await (deps.resolveDocument ?? resolveDocumentPromptContext)(assetId)
+    const docCtx = await (deps.resolveDocument ?? resolveDocumentPromptContext)(assetId, actor)
     if (docCtx.kind === "ineligible") {
       await failUnclaimed(assetId, docCtx.error, docCtx.code)
       counts.failed++

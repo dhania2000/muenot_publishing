@@ -29,9 +29,10 @@ import { claimForGeneration, getAsset, getSettings, getSettingsRecord, getSavedG
 import { selectVisionModel } from "./vision-service"
 
 const CLIENT_REQUEST_ID = /^[A-Za-z0-9_-]{8,48}$/
-const ALLOWED_KEYS = new Set(["assetId", "settings", "requestId"])
+const ALLOWED_KEYS = new Set(["assetId", "settings", "requestId", "occurrenceId"])
 
 export type GenerateRequest = {
+  occurrenceId?: number | null
   assetId: number
   settings: GenerationSettings
   requestId: string | null
@@ -84,7 +85,8 @@ export function parseGenerateRequest(body: unknown): { ok: true; value: Generate
   if (b.requestId != null && (typeof b.requestId !== "string" || !CLIENT_REQUEST_ID.test(b.requestId))) {
     return fail(400, "INVALID_REQUEST_ID", "requestId must be 8–48 letters, digits, '-' or '_'.")
   }
-  return { ok: true, value: { assetId, settings, requestId: (b.requestId as string | undefined) ?? null } }
+  if (b.occurrenceId != null && (!Number.isSafeInteger(b.occurrenceId) || Number(b.occurrenceId) <= 0)) return fail(400,"INVALID_ID","Invalid image occurrence identifier.")
+  return { ok: true, value: { assetId, settings, requestId: (b.requestId as string | undefined) ?? null, ...(b.occurrenceId != null ? {occurrenceId:Number(b.occurrenceId)} : {}) } }
 }
 
 export function aiErrorToFailure(e: AiError): GenerateFailure {
@@ -191,9 +193,15 @@ export async function generateAltTextForAsset(
   if (!target) return fail(404, "NOT_FOUND", "Image not found.")
   if (!withinScope(actor.updateScope, actor.userId, target)) return fail(403, "FORBIDDEN", "You do not have permission to change the alt text of this image.")
   if (req.document && req.document.imageAssetId !== req.assetId) return fail(409, "DOCUMENT_SOURCE_MISMATCH", "The document context belongs to another image. Reload the source before generating.")
+  const { resolveDocumentPromptContext } = await import("./document-generation")
+  const resolvedDocument = await resolveDocumentPromptContext(req.assetId,actor,req.occurrenceId ?? req.document?.imageOccurrenceId ?? null)
+  if (resolvedDocument.kind === "ineligible") return fail(resolvedDocument.code === "NOT_FOUND" ? 404 : 409,resolvedDocument.code,resolvedDocument.error)
+  const document = resolvedDocument.kind === "document" ? resolvedDocument.document : null
+  if (document?.packet && document.packet.source.imageSha256 !== createHash("sha256").update(bytes).digest("hex")) return fail(409,"DOCUMENT_SOURCE_CHANGED","The current image does not match the saved document occurrence. Refresh extraction and context before generating.")
 
   // Binding the asset into the operation id stops one requestId from replaying another asset's charge.
-  const operationId = req.requestId ? `a${req.assetId}_${req.requestId}` : null
+  const rawOperation = req.requestId ? `a${req.assetId}_${req.requestId}` : null
+  const operationId = rawOperation && (req.occurrenceId != null || rawOperation.length > 64) ? `d${createHash("sha256").update(JSON.stringify([req.assetId,req.occurrenceId??null,req.requestId])).digest("hex").slice(0,60)}` : rawOperation
   const requestId = altTextRequestId(operationId)
   if (operationId) {
     const prior = await getAltTextCreditUsage(actor.tenantId, actor.userId, requestId)
@@ -208,7 +216,7 @@ export async function generateAltTextForAsset(
   if (policy.advanced) {
     try {
       const { loadDescriptionEvidence } = await import("./description-evidence-source")
-      advancedEvidence = await loadDescriptionEvidence(req.assetId, req.document?.imageOccurrenceId ?? null, bytes, actor, policy.allowedKinds)
+      advancedEvidence = await loadDescriptionEvidence(req.assetId, document?.imageOccurrenceId ?? null, bytes, actor, policy.allowedKinds)
     } catch {
       return fail(503, "EVIDENCE_UNAVAILABLE", "Saved accessibility evidence could not be checked. No generation was charged; please try again.")
     }
@@ -223,7 +231,7 @@ export async function generateAltTextForAsset(
       tenantId: actor.tenantId,
       userId: actor.userId,
       operationId: requestId.slice("alttext:".length),
-      vision: { image: { bytes, mediaType: image.contentType }, generation: req.settings, altTextSettings, model, document: req.document ?? null, classify, classificationHint, ...(advancedEvidence ? { advancedEvidence } : {}) },
+      vision: { image: { bytes, mediaType: image.contentType }, generation: req.settings, altTextSettings, model, document, classify, classificationHint, ...(advancedEvidence ? { advancedEvidence } : {}) },
     })
   } catch (e) {
     const failure = e instanceof AiError ? aiErrorToFailure(e) : fail(500, "GENERATION_FAILED", "Alt text generation failed. Please try again.")
@@ -238,12 +246,14 @@ export async function generateAltTextForAsset(
   }
 
   const { output, vision, credits } = outcome
+  output.documentContextSnapshot = document?.packet ?? undefined
   output.generationEvidence = {
     schemaVersion: 1, requestId, strategy: advancedEvidence?.strategy ?? "standard", sourceSha256: advancedEvidence?.sourceSha256 ?? createHash("sha256").update(bytes).digest("hex"),
-    occurrenceId: advancedEvidence?.occurrenceId ?? req.document?.imageOccurrenceId ?? null, regionAnalysisId: advancedEvidence?.regionAnalysisId ?? null,
+    occurrenceId: advancedEvidence?.occurrenceId ?? document?.imageOccurrenceId ?? null, regionAnalysisId: advancedEvidence?.regionAnalysisId ?? null,
     evidence: advancedEvidence?.items.map(({ id, version, kind, state }) => ({ id, version, kind, state })) ?? [],
     outputLanguage: req.settings.outputLanguage, provider: vision.provider, generatedAt: new Date().toISOString(),
     guidelineVersion: null, reviewStatus: "needs_review", warnings: output.warnings, treatment: output.treatment,
+    ...(document?.packet ? {documentContext:{documentId:document.documentId,occurrenceId:document.imageOccurrenceId,contextVersion:document.contextVersion,source:document.packet.source,fingerprint:createHash("sha256").update(JSON.stringify(document.packet)).digest("hex"),references:document.packet.snippets.map(s=>({id:s.id,sourceKind:s.sourceKind,sourceRef:s.sourceRef,duplicates:s.duplicateReferences})),policy:document.packet.policy}} : {}),
   }
   let saved: boolean
   try {

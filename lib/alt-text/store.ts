@@ -564,6 +564,7 @@ export async function saveGeneration(
   attempt?: number,
 ): Promise<boolean> {
   const tenantId = tid()
+  const evidenceJson = JSON.stringify(result.generationEvidence ? { ...result.generationEvidence, ...(result.documentContextSnapshot ? { documentContextSnapshot: result.documentContextSnapshot } : {}) } : null)
   return withTransaction(async (conn) => {
     const claimGuard = attempt === undefined ? " AND status = 'processing'" : " AND status = 'processing' AND attempts = ?"
     const [claimed] = await conn.query<RowDataPacket[]>(`SELECT current_version, approved_at FROM alt_text_assets WHERE tenant_id = ? AND id = ?${claimGuard} FOR UPDATE`, [tenantId, id, ...(attempt === undefined ? [] : [attempt])])
@@ -572,7 +573,7 @@ export async function saveGeneration(
       const [prior] = await conn.query<RowDataPacket[]>("SELECT COALESCE(MAX(version), 0) + 1 AS next_version FROM alt_text_versions WHERE tenant_id = ? AND asset_id = ?", [tenantId, id])
       const version = Math.max(Number(claimed[0].current_version) + 1, Number(prior[0]?.next_version ?? 1))
       await conn.query(`INSERT INTO alt_text_versions (tenant_id,asset_id,version,action,classification,short_alt,long_description,extracted_text,note,model_id,actor_id,generation_evidence_json)
-        VALUES (?,?,?,'generated_candidate',?,?,?,?,?,?,?,?)`, [tenantId,id,version,result.classification,result.shortAlt,result.longDescription,result.extractedText,"Review candidate. The approved current text was preserved.",modelId,actorId,JSON.stringify(result.generationEvidence ?? null)])
+        VALUES (?,?,?,'generated_candidate',?,?,?,?,?,?,?,?)`, [tenantId,id,version,result.classification,result.shortAlt,result.longDescription,result.extractedText,"Review candidate. The approved current text was preserved.",modelId,actorId,evidenceJson])
       await conn.query("UPDATE alt_text_assets SET status = 'approved', credits_used = credits_used + ?, error_message = NULL, error_code = NULL WHERE tenant_id = ? AND id = ?", [credits,tenantId,id])
       return true
     }
@@ -608,7 +609,7 @@ export async function saveGeneration(
     await conn.query(
       `INSERT INTO alt_text_versions (tenant_id, asset_id, version, action, classification, short_alt, long_description, extracted_text, note, model_id, actor_id, generation_evidence_json)
        VALUES (?, ?, ?, 'generated', ?, ?, ?, ?, NULL, ?, ?, ?)`,
-      [tenantId, id, version, result.classification, result.shortAlt, result.longDescription, result.extractedText, modelId, actorId, JSON.stringify(result.generationEvidence ?? null)],
+      [tenantId, id, version, result.classification, result.shortAlt, result.longDescription, result.extractedText, modelId, actorId, evidenceJson],
     )
     return true
   })
@@ -768,7 +769,7 @@ export async function listVersions(assetId: number) {
     longDescription: r.long_description,
     note: r.note,
     modelId: r.model_id,
-    generationEvidence: r.generation_evidence_json ? parseJson(r.generation_evidence_json) as import("./description-evidence").GenerationEvidenceMetadata | null : null,
+    generationEvidence: publicGenerationEvidence(r.generation_evidence_json),
     actorId: r.actor_id as number,
     actorName: r.actor_name ?? "Unknown",
     createdAt: new Date(r.created_at).toISOString(),
@@ -782,8 +783,16 @@ export async function getSavedGeneration(assetId: number, requestId: string) {
     WHERE tenant_id=? AND asset_id=? AND action IN ('generated','generated_candidate') AND JSON_UNQUOTE(JSON_EXTRACT(generation_evidence_json,'$.requestId'))=? ORDER BY id DESC LIMIT 1`, [tid(),assetId,requestId])
   const row = rows[0]
   if (!row) return null
-  const metadata = parseJson(row.generation_evidence_json) as import("./description-evidence").GenerationEvidenceMetadata | null
+  const metadata = publicGenerationEvidence(row.generation_evidence_json)
   return { version: Number(row.version), candidate: row.action === "generated_candidate", result: { classification: row.classification as AltTextResult["classification"], shortAlt: row.short_alt ?? "", longDescription: row.long_description ?? "", extractedText: row.extracted_text ?? "", warnings: metadata?.warnings ?? [], treatment: metadata?.treatment ?? "", generationEvidence: metadata ?? undefined } }
+}
+
+/** Asset-view permission does not authorize disclosure of saved confidential document excerpts. */
+function publicGenerationEvidence(raw: unknown): import("./description-evidence").GenerationEvidenceMetadata | null {
+  const parsed = parseJson(raw)
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null
+  const { documentContextSnapshot: _private, ...publicFields } = parsed as Record<string,unknown>
+  return publicFields as unknown as import("./description-evidence").GenerationEvidenceMetadata
 }
 
 export async function listProjects() {

@@ -8,6 +8,7 @@ export function GenerationEvidenceSummary({ value }: { value?: GenerationEvidenc
       <p className="text-muted-foreground">Generated review candidate. Source transcription and scientific accuracy require separate review.</p>
       <p>{value.provider} · {value.outputLanguage} · <time dateTime={value.generatedAt}>{value.generatedAt}</time></p>
       <p>{value.occurrenceId == null ? "Standalone image" : `Document occurrence ${value.occurrenceId}`} · {value.evidence.length} saved evidence references</p>
+      {value.documentContext && <div className="space-y-1 text-xs"><p>Document {value.documentContext.documentId} · occurrence {value.documentContext.occurrenceId} · context v{value.documentContext.contextVersion}</p><p className="break-all">Context snapshot: {value.documentContext.fingerprint}</p><ul>{value.documentContext.references.map(r=><li key={r.id}>{r.sourceKind} · {r.sourceRef ?? r.id}</li>)}</ul></div>}
       {value.evidence.length > 0 && <ul className="max-h-48 space-y-1 overflow-auto text-xs">{value.evidence.map(e => <li key={e.id}><span className="font-mono break-all">{e.id}</span> · v{e.version} · {e.kind.replaceAll("_", " ")} · {e.state.replaceAll("_", " ")}</li>)}</ul>}
       <p className="text-xs text-muted-foreground">{value.guidelineVersion == null ? "No approved client guideline was applied." : `Guideline version ${value.guidelineVersion}`}</p>
     </div>

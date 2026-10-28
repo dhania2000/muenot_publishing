@@ -84,6 +84,8 @@ export type ContextWarningCode =
 export type ContextWarning = { code: ContextWarningCode; message: string }
 
 export type DocumentImageContext = {
+  sourceBinding?: import("./document-context-packet").ContextSourceBinding
+  pageOcr?: import("./document-context-packet").PageContextOcr
   version: typeof DOCUMENT_CONTEXT_VERSION
   documentId: number
   imageOccurrenceId: number
@@ -99,6 +101,7 @@ export type DocumentImageContext = {
   subtitle: ContextText | null
   sectionName: ContextText | null
   caption: ContextCaption | null
+  captionAlternatives?: ContextCaption[]
   nearbyText: ContextText[]
   /** Short labels positioned on/next to the image (PPTX text boxes, PDF short text). */
   labels: ContextText[]
@@ -219,10 +222,11 @@ const INSTRUCTION_RE =
   /\b(ignore (all|any|the)? ?(previous|prior|above) (instructions|prompts?)|disregard (the )?(system|previous)|you are (now )?(an?|the) (ai|assistant|model)|system prompt|developer message|act as (an?|the) )/i
 export const looksLikeInstruction = (text: string) => INSTRUCTION_RE.test(text)
 
-const key = (s: string) => s.normalize("NFKC").toLocaleLowerCase().replace(/\s+/g, " ").trim()
+// Deduplicate source text conservatively: case and compatibility characters can change notation.
+const key = (s: string) => s.normalize("NFC").replace(/\s+/g, " ").trim()
 
 function wordSet(s: string): Set<string> {
-  return new Set(key(s).split(/[^\p{L}\p{N}]+/u).filter((w) => w.length > 2))
+  return new Set(key(s).toLocaleLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length > 2))
 }
 
 // ─── Evidence (format readers → builder) ─────────────────────────────────────
@@ -245,6 +249,7 @@ export type NearbyRelation = "same_cell" | "anchor_paragraph" | "adjacent_paragr
 export type NearbyCandidate = EvidenceText & { relation: NearbyRelation; distance: number }
 
 export type ContextEvidence = {
+  pageOcr?: import("./document-context-packet").PageContextOcr
   documentTitle?: EvidenceText | null
   headings?: (EvidenceText & { level: number | null })[]
   pageTitle?: EvidenceText | null
@@ -308,6 +313,7 @@ export type BuildContextInput = {
   imageOccurrenceId: number
   documentType: DocumentImageContext["documentType"]
   evidence: ContextEvidence
+  sourceBinding?: import("./document-context-packet").ContextSourceBinding
   settings?: ContextSettingsInput
   limits?: Partial<ContextLimits>
 }
@@ -355,6 +361,7 @@ export function buildDocumentImageContext(input: BuildContextInput): DocumentIma
 
   // Captions: best rank, then not shared, then evidence order. Never merged.
   let caption: ContextCaption | null = null
+  const captionAlternatives: ContextCaption[] = []
   const candidates = (ev.captions ?? []).filter((c) => clean(c.text))
   if (candidates.length) {
     const sorted = [...candidates].sort((a, b) => CAPTION_RANK[a.captionSource] - CAPTION_RANK[b.captionSource] || a.sharedWith - b.sharedWith)
@@ -365,7 +372,13 @@ export function buildDocumentImageContext(input: BuildContextInput): DocumentIma
       used.add(key(clean(best.text)!))
       if (best.sharedWith > 1) warn("CAPTION_SHARED", `This caption is equally close to ${best.sharedWith} images; it may describe another image.`)
       const rival = sorted.find((c) => c !== best && key(clean(c.text)!) !== key(clean(best.text)!) && CAPTION_RANK[c.captionSource] === CAPTION_RANK[best.captionSource])
-      if (rival) warn("CAPTION_CANDIDATES_CONFLICT", "More than one caption candidate was found with the same evidence strength; the first in document order is shown.")
+      if (rival) {
+        for (const candidate of sorted.filter(c=>c!==best&&CAPTION_RANK[c.captionSource]===CAPTION_RANK[best.captionSource]&&key(clean(c.text)!)!==key(clean(best.text)!)).slice(0,3)) {
+          const alternative=toText(candidate,L.captionChars,CAPTION_CONFIDENCE(candidate))
+          if(alternative) captionAlternatives.push({...alternative,label:figureLabel(alternative.text),captionSource:candidate.captionSource})
+        }
+        warn("CAPTION_CANDIDATES_CONFLICT", "Caption candidates with the same evidence strength disagree. Alternatives are retained for review; none is verified.")
+      }
     }
   }
 
@@ -483,6 +496,9 @@ export function buildDocumentImageContext(input: BuildContextInput): DocumentIma
     confidence,
     warnings,
     untrustedSource: true,
+    ...(input.sourceBinding ? { sourceBinding: input.sourceBinding } : {}),
+    ...(captionAlternatives.length ? { captionAlternatives } : {}),
+    ...(ev.pageOcr ? { pageOcr: ev.pageOcr } : {}),
   }
   return enforceJsonBudget(ctx, L.maxJsonBytes)
 }
@@ -497,6 +513,7 @@ function enforceJsonBudget(ctx: DocumentImageContext, maxBytes: number): Documen
   note()
   while (size() > maxBytes && ctx.nearbyText.length) ctx.nearbyText.pop()
   while (size() > maxBytes && ctx.labels.length) ctx.labels.pop()
+  while (size() > maxBytes && ctx.pageOcr?.lines.length) ctx.pageOcr.lines.pop()
   if (size() > maxBytes) ctx.speakerNotes = null
   if (size() > maxBytes && ctx.table) ctx.table = { ...ctx.table, headerCells: [], cellText: ctx.table.cellText ? boundText(ctx.table.cellText, 80).text : null }
   if (size() > maxBytes && ctx.existingAltText) ctx.existingAltText = { ...ctx.existingAltText, text: boundText(ctx.existingAltText.text, 500).text }

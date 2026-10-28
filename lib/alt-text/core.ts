@@ -525,6 +525,8 @@ export function buildPrompt(input: PromptInput) {
 }
 
 export type AltTextResult = {
+  /** Server-only audit snapshot. Never parsed from provider output or returned by asset history. */
+  documentContextSnapshot?: import("./document-context-packet").DocumentContextPacket
   generationEvidence?: import("./description-evidence").GenerationEvidenceMetadata
   classification: ImageClassification
   shortAlt: string

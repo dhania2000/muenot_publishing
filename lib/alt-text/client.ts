@@ -204,6 +204,8 @@ export type ContextAnalysisResponse = {
 
 /** GET response of the context endpoint (stored context only; reading never runs analysis). */
 export type DocumentImageContextResponse = {
+  imageAssetId?: number | null
+  packet?: import("./document-context-packet").DocumentContextPacket | null
   success: true
   imageId: number
   status: "analyzed" | "unavailable" | "failed" | "not_analyzed"
@@ -224,11 +226,11 @@ export function newRequestId() {
   return `alt-${crypto.randomUUID().replace(/-/g, "")}`.slice(0, 40)
 }
 
-export function generateAltText(assetId: number, settings: GenerationSettings, requestId: string) {
+export function generateAltText(assetId: number, settings: GenerationSettings, requestId: string, occurrenceId?:number) {
   return requestJson<GenerateResponse>("/api/alt-text/generate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ assetId, settings, requestId }),
+    body: JSON.stringify({ assetId, settings, requestId, ...(occurrenceId!=null?{occurrenceId}:{}) }),
   })
 }
 
