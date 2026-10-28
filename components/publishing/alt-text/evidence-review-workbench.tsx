@@ -7,6 +7,7 @@ import type {StructuredReviewKind} from "@/lib/alt-text/structured-review-contra
 import type {OcrReviewTarget} from "@/lib/alt-text/ocr-review-contract"
 import {StructuredEvidenceReview} from "./structured-evidence-review"
 import {OcrEvidenceReview} from "./ocr-evidence-review"
+import {AdvancedQualityPanel} from "./advanced-quality-panel"
 type Source={id:number;kind:StructuredReviewKind;version:number;regionId:string}
 const titles:Record<StructuredReviewKind,string>={chart_axes:"Graph axes / labels",chart_data:"Graph data",scientific_structure:"Scientific components",illustration_structure:"Flowchart / table / map"}
 export function EvidenceReviewWorkbench({assetId,occurrenceId=null,onDirtyChange}:{assetId:number;occurrenceId?:number|null;onDirtyChange?:(v:boolean)=>void}){
@@ -21,5 +22,6 @@ export function EvidenceReviewWorkbench({assetId,occurrenceId=null,onDirtyChange
    <label className="grid gap-1 text-xs">Evidence type and source<select className="max-w-full rounded border bg-background p-2" value={current?.key??""} onChange={e=>{if(dirty&&!window.confirm("Discard unsaved evidence corrections?"))return;changed(false);setRevision(r=>r+1);setSelected(e.target.value)}}>{sources.map(s=><option key={s.key} value={s.key}>{s.label}</option>)}</select></label>
    {current&&("target" in current?<OcrEvidenceReview key={`${revision}:${current.key}`} target={current.target} onDirtyChange={changed}/>:<StructuredEvidenceReview key={`${revision}:${current.key}`} assetId={assetId} occurrenceId={occurrenceId} kind={current.source.kind} evidenceId={current.source.id} onDirtyChange={changed}/>)}
   </>}
+  <AdvancedQualityPanel assetId={assetId} occurrenceId={occurrenceId} canInspect={r=>sources.some(s=>s.key===`${r.kind}:${r.id}`)} onInspect={reference=>{const source=sources.find(s=>s.key===`${reference.kind}:${reference.id}`);if(!source)return;if(dirty&&!window.confirm("Discard unsaved corrections and inspect this QA evidence?"))return;changed(false);setRevision(r=>r+1);setSelected(source.key)}}/>
  </section>
 }

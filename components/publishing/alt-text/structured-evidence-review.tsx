@@ -1,6 +1,7 @@
 "use client"
 import {useEffect,useId,useRef,useState} from "react"
-import useSWR from "swr"
+import useSWR,{useSWRConfig} from "swr"
+import {advancedQualityUrl} from "@/lib/alt-text/advanced-quality-contract"
 import {Button} from "@/components/ui/button"
 import {altTextFetcher} from "@/lib/alt-text/client"
 import {isValidNormalizedBox} from "@/lib/alt-text/region-analysis"
@@ -34,6 +35,7 @@ function CorrectionFields({target,value,onChange,disabled,id}:{target:Structured
  return <><label className="grid gap-1 text-xs" htmlFor={`${id}-text`}>Human correction / terminology<textarea id={`${id}-text`} className={control} rows={6} maxLength={2000} disabled={disabled||v.designation==="unknown"} value={v.text} onChange={e=>patch({text:e.target.value})}/></label><label className="flex gap-2 text-xs"><input type="checkbox" disabled={disabled} checked={v.designation==="unknown"} onChange={e=>patch({designation:e.target.checked?"unknown":"human_correction",...(e.target.checked?{text:""}:{})})}/>Unknown / unreadable</label></>
 }
 export function StructuredEvidenceReview({assetId,occurrenceId=null,kind,evidenceId,onDirtyChange}:{assetId:number;occurrenceId?:number|null;kind:StructuredReviewKind;evidenceId:number;onDirtyChange?:(v:boolean)=>void}){
+ const {mutate:mutateCache}=useSWRConfig()
  const url=`/api/alt-text/assets/${assetId}/evidence-review?kind=${kind}&evidenceId=${evidenceId}${occurrenceId?`&occurrenceId=${occurrenceId}`:""}`
  const {data,error,mutate}=useSWR<StructuredReviewDetail>(url,altTextFetcher,{revalidateOnFocus:false,revalidateIfStale:false})
  const [draft,setDraft]=useState<StructuredCorrection[]>([]),[comment,setComment]=useState(""),[state,setState]=useState<StructuredReviewInput["state"]>("needs_review"),[version,setVersion]=useState(0),[baseline,setBaseline]=useState(""),[selected,setSelected]=useState(""),[mobile,setMobile]=useState("editor"),[busy,setBusy]=useState(false),[message,setMessage]=useState("")
@@ -51,7 +53,7 @@ export function StructuredEvidenceReview({assetId,occurrenceId=null,kind,evidenc
   const input:StructuredReviewInput={kind,evidenceId,occurrenceId,sourceFingerprint:data.sourceFingerprint,expectedVersion:version,requestId:"pending_save",state,comment,corrections:draft},invalid=validateStructuredCorrections(input,data.targets)
   if(invalid){setMessage(invalid);return}
   const key=JSON.stringify(input),requestId=pending.current?.key===key?pending.current.id:crypto.randomUUID();pending.current={key,id:requestId};setBusy(true);setMessage("")
-  try{const response=await fetch(`/api/alt-text/assets/${assetId}/evidence-review`,{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({...input,requestId})}),body=await response.json();if(!response.ok){if(response.status<500)pending.current=null;setMessage(body.error??"Correction could not be saved.");return}pending.current=null;setVersion(body.record.version);setBaseline(snapshot);await mutate();setMessage("Evidence review saved. Final description approval is unchanged.")}
+  try{const response=await fetch(`/api/alt-text/assets/${assetId}/evidence-review`,{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({...input,requestId})}),body=await response.json();if(!response.ok){if(response.status<500)pending.current=null;setMessage(body.error??"Correction could not be saved.");return}pending.current=null;setVersion(body.record.version);setBaseline(snapshot);await mutate();void mutateCache(advancedQualityUrl(assetId,occurrenceId));setMessage("Evidence review saved. Final description approval is unchanged.")}
   catch{setMessage("Connection failed. Retry to check the same save request.")}finally{setBusy(false)}
  }
  if(error)return <p role="alert">Evidence could not be loaded. Check access and the selected source occurrence.</p>

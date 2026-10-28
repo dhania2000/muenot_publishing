@@ -5,6 +5,7 @@ import {Button} from "@/components/ui/button"
 import {altTextFetcher} from "@/lib/alt-text/client"
 import {EVIDENCE_REVIEW_STATES,STRUCTURED_REVIEW_KINDS} from "@/lib/alt-text/structured-review-contract"
 import type {StructuredQueueItem} from "@/lib/alt-text/structured-review-queue"
+import {AdvancedQualityPanel} from "./advanced-quality-panel"
 import {StructuredEvidenceReview} from "./structured-evidence-review"
 export function StructuredReviewHistory({onDirtyChange}:{onDirtyChange:(v:boolean)=>void}){
  const [filters,setFilters]=useState({search:"",state:"pending",priority:"all",source:"all",reviewerId:"",kind:"all"}),[search,setSearch]=useState(""),[page,setPage]=useState(1),[current,setCurrent]=useState<StructuredQueueItem|null>(null),[dirty,setDirty]=useState(false),[revision,setRevision]=useState(0)
@@ -22,6 +23,6 @@ export function StructuredReviewHistory({onDirtyChange}:{onDirtyChange:(v:boolea
   <p className="text-xs">Priority groups use saved analysis warnings. They do not measure scientific accuracy. {data?.total??0} records.</p>
   {error?<p role="alert">Could not load the review queue.</p>:!data?<p role="status">Loading review queue…</p>:<ul className="divide-y rounded border">{data.items.map(r=><li key={r.evidenceId} className="flex flex-wrap items-center gap-3 p-2 text-xs"><div className="min-w-0 flex-1"><strong className="break-all">{r.label}</strong><p>{r.kind.replaceAll('_',' ')} · #{r.evidenceId} · {r.occurrenceId?`document occurrence #${r.occurrenceId}`:'image'} · {r.state.replaceAll('_',' ')} · {r.priority}</p><p>Reviewer {r.reviewerId??'unassigned'} · {r.updatedAt}</p></div><Button size="sm" variant="outline" aria-label={`Open evidence ${r.evidenceId} for ${r.label}`} onClick={()=>{if(dirty&&!window.confirm("Discard unsaved evidence corrections?"))return;changed(false);setRevision(v=>v+1);setCurrent(r)}}>Open</Button></li>)}{!data.items.length&&<li className="p-3 text-sm">No evidence matches these filters.</li>}</ul>}
   <nav className="flex items-center gap-3" aria-label="Structured review queue pagination"><Button size="sm" variant="outline" disabled={page===1} onClick={()=>change(()=>setPage(p=>p-1))}>Previous page</Button><span className="text-xs">Page {page}</span><Button size="sm" variant="outline" disabled={page*25>=(data?.total??0)} onClick={()=>change(()=>setPage(p=>p+1))}>Next page</Button><Button size="sm" variant="outline" onClick={()=>void mutate()}>Refresh queue</Button></nav>
-  {current&&<StructuredEvidenceReview key={`${revision}:${current.evidenceId}`} assetId={current.assetId} occurrenceId={current.occurrenceId} kind={current.kind} evidenceId={current.evidenceId} onDirtyChange={changed}/>}
+  {current&&<><StructuredEvidenceReview key={`${revision}:${current.evidenceId}`} assetId={current.assetId} occurrenceId={current.occurrenceId} kind={current.kind} evidenceId={current.evidenceId} onDirtyChange={changed}/><AdvancedQualityPanel assetId={current.assetId} occurrenceId={current.occurrenceId}/></>}
  </div>
 }

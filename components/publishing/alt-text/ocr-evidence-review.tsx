@@ -1,6 +1,7 @@
 "use client"
 import {useEffect,useRef,useState} from "react"
-import useSWR from "swr"
+import useSWR,{useSWRConfig} from "swr"
+import {advancedQualityUrl} from "@/lib/alt-text/advanced-quality-contract"
 import {Button} from "@/components/ui/button"
 import {altTextFetcher} from "@/lib/alt-text/client"
 import type {OcrReviewSource,OcrReviewState,OcrReviewTarget,OcrReviewVersion} from "@/lib/alt-text/ocr-review-contract"
@@ -13,6 +14,7 @@ export function OcrEvidenceReviewButton({target}:{target:OcrReviewTarget}){
  return <><Button size="sm" variant="outline" onClick={()=>setOpen(true)}>Review / correct evidence</Button><WorkbenchDrawer open={open} onOpenChange={close} title="OCR evidence review" description="Corrections remain separate from raw OCR and final Alt Text approval." size="xl">{open&&<OcrEvidenceReview key={JSON.stringify(target)} target={target} onDirtyChange={setDirty}/>}</WorkbenchDrawer></>
 }
 export function OcrEvidenceReview({target,onDirtyChange}:{target:OcrReviewTarget;onDirtyChange?:(dirty:boolean)=>void}){
+ const {mutate:mutateCache}=useSWRConfig()
  const url=`/api/alt-text/ocr-review?target=${encodeURIComponent(JSON.stringify(target))}`
  const {data,error,mutate}=useSWR<Detail>(url,altTextFetcher,{revalidateOnFocus:false,revalidateIfStale:false})
  const [text,setText]=useState(""),[comment,setComment]=useState(""),[view,setView]=useState("Correction"),[busy,setBusy]=useState(false),[message,setMessage]=useState<string|null>(null),[preview,setPreview]=useState(false),[confirmReprocess,setConfirmReprocess]=useState(false)
@@ -27,7 +29,7 @@ export function OcrEvidenceReview({target,onDirtyChange}:{target:OcrReviewTarget
   try{
    const response=await fetch("/api/alt-text/ocr-review",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({target,expectedVersion:baseline.version,requestId:id,text,comment,state})}),body=await response.json()
    if(!response.ok){if(response.status<500)pending.current=null;setMessage(body.error??"Correction could not be saved.");return}
-   pending.current=null;setBaseline({text,comment,version:body.record.version});await mutate();setMessage("Evidence review saved. Final Alt Text approval is unchanged.")
+   pending.current=null;setBaseline({text,comment,version:body.record.version});await mutate();if(target.assetId!==null)void mutateCache(advancedQualityUrl(target.assetId,target.occurrenceId));setMessage("Evidence review saved. Final Alt Text approval is unchanged.")
   }catch{setMessage("Connection failed. Retry to check the same save request.")}finally{setBusy(false)}
  }
  async function reload(){if(dirty&&!window.confirm("Discard your unsaved edits and load the latest review?"))return;const fresh=await mutate();if(fresh){const t=fresh.history[0]?.correctedText??fresh.source.rawText,c=fresh.history[0]?.comment??"";setText(t);setComment(c);setBaseline({text:t,comment:c,version:fresh.history[0]?.version??0})}setMessage(null)}
