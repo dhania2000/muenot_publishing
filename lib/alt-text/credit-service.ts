@@ -9,7 +9,7 @@
  *
  * Billing policy (no new pricing — every amount comes from rateForModel / rateUsage):
  * - Reservation: prompt chars + IMAGE_INPUT_TOKEN_RESERVE image tokens, plus the
- *   full output-token ceiling, rated with the model's own credit rate.
+ *   full output-token ceiling, rated with the standalone engine's model tier.
  * - Settlement: provider-reported tokens. If input or output counts are missing,
  *   the reservation estimate is settled (never zero, never above the hold) and the
  *   ledger entry is flagged `needsReconciliation`; no tokens are metered.
@@ -157,10 +157,9 @@ export async function getAltTextCreditUsage(tenantId: number, userId: number, re
 const isDuplicateKey = (e: unknown) => (e as { code?: string })?.code === "ER_DUP_ENTRY"
 
 /**
- * Preflight + hold. The engine verifies plan entitlement, blocked/premium
- * models, per-request/daily/user/department limits and balance, and raises the
- * ERP's existing insufficient-credit AiError. Returns `replay` when this
- * operation was already settled so no second provider call is made.
+ * Preflight + hold using the standalone engine's tier rate and optional monthly credit cap.
+ * Model/tenant governance is checked by the caller. Returns `replay` when this operation was
+ * already settled so no second provider call is made.
  */
 export async function reserveAltTextCredits(
   input: { tenantId: number; userId: number; model: CatalogModel; requestId: string } & (
@@ -195,7 +194,7 @@ export async function releaseAltTextCredits(r: AltTextReservation): Promise<void
   await abortMeteredRequest(r.metered, { sourceModule: SOURCE_MODULE })
 }
 
-/** Settles against provider-reported usage; exactly-once per request id via settleCredits. */
+/** Settles provider-reported usage through the engine's conditional reservation and ledger transaction. */
 /** The billing-relevant part of any vision call result. */
 export type VisionCallMeta = Pick<VisionGenerationResult, "modelId" | "provider" | "usage" | "finishReason" | "latencyMs">
 
@@ -222,7 +221,7 @@ export async function settleAltTextCredits(r: AltTextReservation, vision: Vision
     charged = (await settle()).credits
   } catch (first) {
     console.error("[alt-text] credit settlement failed, retrying", { requestId: r.metered.requestId, error: (first as Error)?.message })
-    // settleCredits only transitions 'reserved' rows, so a retry cannot double-charge.
+    // The engine only transitions 'reserved' rows and commits the ledger in the same transaction.
     charged = await settle()
       .then((res) => res.credits)
       .catch((e) => {
