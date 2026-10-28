@@ -69,7 +69,7 @@ function Count({ label, value }: { label: string; value: number }) {
   )
 }
 
-export function Finding({ check, acked, canAcknowledge, onAcknowledge }: { check: ValidationCheck; acked: { at: string; note: string | null } | undefined; canAcknowledge: boolean; onAcknowledge: (note: string) => Promise<boolean> }) {
+export function Finding({ check, acked, canAcknowledge, onAcknowledge,severityText,categoryText,scopeLabel,footer }: { check: ValidationCheck; acked: { at: string; note: string | null } | undefined; canAcknowledge: boolean; onAcknowledge: (note: string) => Promise<boolean>;severityText?:string;categoryText?:string;scopeLabel?:string;footer?:React.ReactNode }) {
   const [open, setOpen] = useState(false)
   const [note, setNote] = useState("")
   const [saving, setSaving] = useState(false)
@@ -78,12 +78,12 @@ export function Finding({ check, acked, canAcknowledge, onAcknowledge }: { check
     <li className="flex flex-col gap-1.5 rounded-md border p-3">
       <div className="flex flex-wrap items-center gap-1.5">
         <Badge variant={STATUS_VARIANT[check.status]}>{STATUS_LABEL[check.status]}</Badge>
-        <Badge variant="outline">{SEVERITY_LABEL[check.severity]}</Badge>
-        <span className="text-xs text-muted-foreground">{CATEGORY_LABEL[check.category]}</span>
+        <Badge variant="outline">{severityText??SEVERITY_LABEL[check.severity]}</Badge>
+        <span className="text-xs text-muted-foreground">{categoryText??CATEGORY_LABEL[check.category]}</span>
       </div>
       <p className="text-sm font-medium text-foreground">{check.title}</p>
       <p className="text-xs text-muted-foreground">
-        {[loc, check.occurrenceId != null ? `Image #${check.occurrenceId}` : null, check.expectedVersionId != null ? `Approved version #${check.expectedVersionId}` : null].filter(Boolean).join(" · ") || "Whole document"}
+        {[scopeLabel,loc, check.occurrenceId != null ? `Image #${check.occurrenceId}` : null, check.expectedVersionId != null ? `Approved version #${check.expectedVersionId}` : null].filter(Boolean).join(" · ") || "Whole document"}
       </p>
       <p className="text-sm text-foreground text-pretty">{check.actual}</p>
       {check.recommendation ? <p className="text-xs text-muted-foreground text-pretty">{check.recommendation}</p> : null}
@@ -126,6 +126,7 @@ export function Finding({ check, acked, canAcknowledge, onAcknowledge }: { check
           )
         ) : null
       ) : null}
+      {footer}
     </li>
   )
 }
