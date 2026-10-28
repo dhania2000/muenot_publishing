@@ -13,6 +13,13 @@
  * - Each occurrence owns its own alt text asset, so identical binaries are described per location.
  */
 import "server-only"
+import type { HistoryActor } from "./history"
+import { getDocumentForExtraction, ownerScopeFor } from "./document-service"
+import { getDocumentImage } from "./document-store"
+import { documentContextSource, contextSourceMatches, contextOcrMatches } from "./document-context-source"
+import { buildDocumentContextPacket } from "./document-context-packet"
+import { getSettingsRecord } from "./store"
+import { normalizeAccessibilityPreferences } from "./accessibility-settings"
 import type { RowDataPacket } from "mysql2"
 import { query } from "@/lib/db"
 import { currentTenantId } from "@/lib/tenant-scope"
@@ -64,28 +71,36 @@ function parseJson(v: unknown): unknown {
  * Occurrence-specific prompt context for one alt text asset, read at processing time (tenant-scoped).
  * Standalone (non-document) assets resolve to `standalone` and keep the Phase 1/2 behaviour unchanged.
  */
-export async function resolveDocumentPromptContext(assetId: number): Promise<DocumentContextResolution> {
+export async function resolveDocumentPromptContext(assetId: number, actor: HistoryActor, occurrenceId: number | null = null): Promise<DocumentContextResolution> {
   await ensureAltTextSchema()
   const rows = await query<OccurrenceRow[]>(
     `SELECT i.id, i.document_id, i.alt_text_asset_id, i.page_number, i.slide_number, i.occurrence_index, i.is_decorative,
-            i.extraction_status, i.context_json, i.context_version, d.document_type, d.security_scan_status
+            i.extraction_status, i.context_json, i.context_version, i.context_status, d.document_type, d.security_scan_status
        FROM alt_text_document_images i
        JOIN alt_text_documents d ON d.tenant_id = i.tenant_id AND d.id = i.document_id
-      WHERE i.tenant_id = ? AND i.alt_text_asset_id = ?
+      WHERE i.tenant_id = ? AND i.alt_text_asset_id = ? AND (? IS NULL OR i.id = ?)
       ORDER BY i.id LIMIT 2`,
-    [currentTenantId(), assetId],
+    [currentTenantId(), assetId, occurrenceId, occurrenceId],
   )
   const r = rows[0]
-  if (!r) return { kind: "standalone" }
+  if (!r) return occurrenceId == null ? { kind: "standalone" } : { kind: "ineligible", code: "NOT_FOUND", error: "Image occurrence not found." }
   if (rows.length > 1) return { kind: "ineligible", code: "AMBIGUOUS_OCCURRENCE", error: "This asset is linked to multiple document occurrences. Select an unambiguous occurrence before generating." }
-  if (r.security_scan_status !== "clean") return { kind: "ineligible", code: "DOCUMENT_NOT_CLEAN", error: "The source document has not passed the security scan." }
+  const doc = await getDocumentForExtraction(Number(r.document_id),ownerScopeFor(actor))
+  if (!doc) return {kind:"ineligible",code:"NOT_FOUND",error:"Source document not found."}
+  if (doc.securityStatus !== "clean") return { kind: "ineligible", code: "DOCUMENT_NOT_CLEAN", error: "The source document has not passed the security scan." }
   if (r.extraction_status !== "extracted") return { kind: "ineligible", code: "OCCURRENCE_NOT_ELIGIBLE", error: "The image occurrence is no longer eligible for generation." }
   if (!DOC_TYPES.has(r.document_type)) return { kind: "ineligible", code: "UNSUPPORTED_TYPE", error: "The source document type is not supported." }
 
   const versionMatches = r.context_version != null && Number(r.context_version) === DOCUMENT_CONTEXT_VERSION
   const parsed = versionMatches ? parseStoredContext(parseJson(r.context_json)) : null
   // Context must belong to this exact occurrence; anything else is treated as unavailable.
-  const context = parsed && parsed.imageOccurrenceId === Number(r.id) && parsed.documentId === Number(r.document_id) ? parsed : null
+  const [occurrence,source,settings] = await Promise.all([getDocumentImage(Number(r.document_id),Number(r.id)),documentContextSource(doc),getSettingsRecord()])
+  if (!occurrence || occurrence.altTextAssetId !== assetId || !source) return {kind:"ineligible",code:"DOCUMENT_SOURCE_CHANGED",error:"The document image source is no longer current."}
+  const eligible = parsed && (r as any).context_status === "analyzed" && parsed.imageOccurrenceId === Number(r.id) && parsed.documentId === Number(r.document_id) && parsed.documentType === r.document_type && contextSourceMatches(parsed,source,occurrence) && await contextOcrMatches(parsed)
+  const context = eligible ? parsed : null
+  const preferences = normalizeAccessibilityPreferences(settings.accessibility).preferences.descriptions
+  const policy = {enabled:preferences.useDocumentContext,speakerNotes:preferences.includeSpeakerNotes,sourceAlt:preferences.preserveExistingAlt}
+  const packet = context ? buildDocumentContextPacket(context,policy) : null
   return {
     kind: "document",
     document: {
@@ -93,9 +108,10 @@ export async function resolveDocumentPromptContext(assetId: number): Promise<Doc
       imageOccurrenceId: Number(r.id),
       documentId: Number(r.document_id),
       documentType: r.document_type as DocumentPromptContext["documentType"],
-      context,
+      context: policy.enabled ? context : null,
+      packet,
       contextVersion: r.context_version == null ? null : Number(r.context_version),
-      stale: r.context_version != null && !versionMatches,
+      stale: r.context_version != null && (!versionMatches || !eligible),
       sourceDecorative: Number(r.is_decorative) === 1,
       locationLabel: locationLabel(r),
     },

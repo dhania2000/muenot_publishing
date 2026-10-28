@@ -1,18 +1,28 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-const s = vi.hoisted(() => ({ approved: true, claimed: true, calls: [] as { sql: string; params: any[] }[], version: 3 }))
+const s = vi.hoisted(() => ({ approved: true, claimed: true, calls: [] as { sql: string; params: any[] }[], version: 3, publicRow:null as any }))
 vi.mock("@/lib/tenant-scope", () => ({ currentTenantId: () => 9 }))
-vi.mock("@/lib/db", () => ({ query: vi.fn(async () => []), withTransaction: async (fn: any) => fn({ query: async (sql: string, params: any[]) => {
+vi.mock("@/lib/db", () => ({ query: vi.fn(async (sql:string) => (sql.startsWith("SELECT version,action")||sql.startsWith("SELECT v.*"))&&s.publicRow?[s.publicRow]:[]), withTransaction: async (fn: any) => fn({ query: async (sql: string, params: any[]) => {
   s.calls.push({ sql, params })
   if (sql.startsWith("SELECT current_version, approved_at")) return [s.claimed ? [{ current_version: 3, approved_at: s.approved ? new Date() : null }] : []]
   if (sql.startsWith("SELECT COALESCE(MAX(version)")) return [[{ next_version: 7 }]]
   if (sql.startsWith("SELECT current_version")) return [[{ current_version: 7 }]]
   return [{ affectedRows: 1 }]
 } }) }))
-import { saveGeneration } from "@/lib/alt-text/store"
+import { saveGeneration,getSavedGeneration,listVersions } from "@/lib/alt-text/store"
 import type { AltTextResult } from "@/lib/alt-text/core"
 const output: AltTextResult = { classification: "chart", shortAlt: "नया विवरण", longDescription: "Reviewed printed labels", extractedText: "१२", warnings: ["Review required"], treatment: "Adjacent description", generationEvidence: { schemaVersion: 1, requestId: "alttext:a1_test", strategy: "chart", sourceSha256: "a".repeat(64), occurrenceId: 2, regionAnalysisId: "rga_12345678", evidence: [{ id: "evidence:20",version: 2,kind: "chart_data",state: "candidate" }], outputLanguage: "hi", provider: "openai", generatedAt: "2026-10-28T00:00:00Z", guidelineVersion: null, reviewStatus: "needs_review", warnings: ["Review required"], treatment: "Adjacent description" } }
-beforeEach(() => { s.approved = true; s.claimed = true; s.calls = [] })
+beforeEach(() => { s.approved = true; s.claimed = true; s.calls = [];s.publicRow=null;delete output.documentContextSnapshot })
 describe("approved content preservation in existing version history", () => {
+ it("stores private context evidence but redacts it from asset-only replay and history",async()=>{
+   output.documentContextSnapshot={snippets:[{text:"DO_NOT_EXPOSE_DOCUMENT_TEXT"}]} as any
+   await saveGeneration(1,output,"model",4,2,true,5)
+   const insert=s.calls.find(c=>c.sql.startsWith("INSERT"))!,audit=insert.params.at(-1)
+   expect(audit).toContain("DO_NOT_EXPOSE_DOCUMENT_TEXT")
+   s.publicRow={version:7,action:"generated_candidate",generation_evidence_json:audit,created_at:new Date(),classification:"chart",short_alt:"Candidate"}
+   expect(JSON.stringify(await getSavedGeneration(1,"alttext:a1_test"))).not.toContain("DO_NOT_EXPOSE_DOCUMENT_TEXT")
+   expect(JSON.stringify(await listVersions(1))).not.toContain("DO_NOT_EXPOSE_DOCUMENT_TEXT")
+   expect((await getSavedGeneration(1,"alttext:a1_test"))?.result.generationEvidence?.evidence[0].id).toBe("evidence:20")
+ })
  it("saves a separate candidate without modifying approved content or active version", async () => {
    expect(await saveGeneration(1,output,"model",4,2,true,5)).toBe(true)
    const insert = s.calls.find(c => c.sql.includes("'generated_candidate'"))!

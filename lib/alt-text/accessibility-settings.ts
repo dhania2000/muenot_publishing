@@ -393,6 +393,8 @@ export const ACCESSIBILITY_SCHEMA = {
     description: "Short Alt Text and Detailed Description preferences. Output language and audience reuse the existing tenant defaults.",
     capabilities: ["standard_description", "advanced_description"],
     fields: [
+      flag("useDocumentContext", "Use associated source document context", true, { group: "Document evidence", help: "Only bounded context from the authorized image occurrence is used. Unrelated page text is excluded." }),
+      flag("includeSpeakerNotes", "Include presenter-only speaker notes", false, { group: "Document evidence", help: "Notes are untrusted context, not visible slide content. Enable only when needed for this workspace." }),
       flag("avoidRedundantPhrases", 'Avoid redundant phrases ("image of", "picture of")', true, { group: "Short Alt Text" }),
       flag("preserveExistingAlt", "Use existing alt text found in documents as a starting point", true, { group: "Short Alt Text" }),
       {

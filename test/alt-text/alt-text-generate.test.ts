@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import {createHash} from "node:crypto"
 import { AiError } from "@/lib/ai/governance-core"
 
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 1, 2, 3, 4])
@@ -31,6 +32,7 @@ const s = vi.hoisted(() => ({
   policy: null as any,
   evidence: null as any,
   savedGeneration: null as any,
+  documentResolution: {kind:"standalone"} as any,
   saveResult: true as boolean | Error,
   image: null as any,
   calls: { claim: 0, save: [] as any[], failed: [] as any[], open: [] as any[] },
@@ -67,6 +69,7 @@ vi.mock("@/lib/alt-text/store", () => ({
   }),
   markFailed: vi.fn(async (...args: any[]) => void s.calls.failed.push(args)),
 }))
+vi.mock("@/lib/alt-text/document-generation", () => ({ resolveDocumentPromptContext: vi.fn(async () => s.documentResolution) }))
 vi.mock("@/lib/alt-text/description-evidence-source", () => ({ loadDescriptionEvidence: vi.fn(async () => { if (s.evidence instanceof Error) throw s.evidence; return s.evidence }) }))
 vi.mock("@/lib/alt-text/credit-service", () => ({
   altTextRequestId: (op?: string | null) => `alttext:${op ?? "random-uuid"}`,
@@ -91,6 +94,7 @@ beforeEach(() => {
   s.policy = null
   s.evidence = null
   s.savedGeneration = null
+  s.documentResolution = {kind:"standalone"}
   s.saveResult = true
   s.image = { ok: true, body: PNG, contentType: "image/png", size: PNG.length, filename: "x.png" }
   s.calls = { claim: 0, save: [], failed: [], open: [] }
@@ -109,6 +113,27 @@ describe("parseGenerateRequest", () => {
 })
 
 describe("generateAltTextForAsset", () => {
+  it("rechecks source-document denial before a claim or provider call",async()=>{
+    s.documentResolution={kind:"ineligible",code:"NOT_FOUND",error:"Source document not found"}
+    expect(await generateAltTextForAsset(req,actor,{run})).toMatchObject({ok:false,status:404})
+    expect(run).not.toHaveBeenCalled();expect(s.calls.claim).toBe(0)
+  })
+  it("refuses context whose occurrence image hash differs from the actual private image bytes",async()=>{
+    s.documentResolution={kind:"document",document:{packet:{source:{imageSha256:"wrong"}}}}
+    expect(await generateAltTextForAsset(req,actor,{run})).toMatchObject({ok:false,code:"DOCUMENT_SOURCE_CHANGED"})
+    expect(run).not.toHaveBeenCalled();expect(s.calls.claim).toBe(0)
+  })
+  it("links a private document snapshot but returns only safe source references",async()=>{
+    const packet={schemaVersion:1,documentId:30,occurrenceId:2,documentType:"pdf",source:{sourceSha256:"a".repeat(64),sourceRevision:"b".repeat(64),sourceLocator:"pdf:p1:o1",imageSha256:createHash("sha256").update(PNG).digest("hex")},contextVersion:1,location:{page:1,slide:null,paragraph:null,part:null,label:null},scripts:["Latin"],policy:{enabled:true,speakerNotes:false,sourceAlt:true},snippets:[{id:"doc:30:occ:2:caption:0",sourceKind:"pdf_struct",sourceRef:"ref:1",duplicateReferences:[],text:"PRIVATE_DOCUMENT_EXCERPT"}],warnings:[],untrustedSource:true}
+    s.documentResolution={kind:"document",document:{imageAssetId:3,imageOccurrenceId:2,documentId:30,documentType:"pdf",context:null,contextVersion:1,stale:false,sourceDecorative:false,locationLabel:"Page 1",packet}}
+    const r=await generateAltTextForAsset({...req,occurrenceId:2},actor,{run})
+    expect(r.ok).toBe(true)
+    expect(run.mock.calls[0][0].vision.document.packet).toBe(packet)
+    expect(s.calls.save[0][1].documentContextSnapshot).toBe(packet)
+    expect(JSON.stringify(r)).not.toContain("PRIVATE_DOCUMENT_EXCERPT")
+    expect(JSON.stringify(r)).toContain("doc:30:occ:2:caption:0")
+    expect(run.mock.calls[0][0].operationId).toMatch(/^d[a-f0-9]{60}$/)
+  })
   it("uses the saved-evidence path only when the tenant opts in and preserves metering ownership", async () => {
     s.policy = { accessibility: { general: { processingPreference: "advanced_when_available",analysisTypes: ["math"] } } }
     s.evidence = { schemaVersion: 1,assetId: 3,occurrenceId: null,sourceSha256: "a".repeat(64),regionAnalysisId: "rga_12345678",classification: "math_equation",strategy: "math",items: [{ id: "math:1",version: 2,kind: "math",regionId: "rgn_12345678",state: "candidate",payload: { latex: "x=1" } }],warnings: [],requiresReview: true,guidelineVersion: null }

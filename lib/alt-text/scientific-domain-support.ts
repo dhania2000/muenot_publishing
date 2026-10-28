@@ -1,14 +1,16 @@
 import "server-only"
 import {query} from "@/lib/db"
 import {currentTenantId} from "@/lib/tenant-scope"
-import {getAsset,getOccurrenceClassification} from "./store"
+import {getAsset,getOccurrenceClassification,getSettingsRecord} from "./store"
+import {normalizeAccessibilityPreferences} from "./accessibility-settings"
 import {listMathEvidence} from "./math-store"
 import {readEquationValidations} from "./math-validation-store"
-import {getDocument,getDocumentImageContext} from "./document-store"
-import {ownerScopeFor} from "./document-service"
+import {getDocumentImageContext} from "./document-store"
+import {getDocumentForExtraction,ownerScopeFor} from "./document-service"
 import {DOCUMENT_CONTEXT_VERSION,parseStoredContext} from "./document-context"
 import type {HistoryActor} from "./history"
 import type {DomainParent,DomainSupport} from "./scientific-domain-contract"
+import {documentContextSource,contextSourceMatches,contextOcrMatches} from "./document-context-source"
 const parsed=(v:any)=>typeof v==="string"?JSON.parse(v):v
 /** Called only after the exact asset, occurrence and structure evidence have been authorized. */
 export async function loadDomainSupport(parent:DomainParent,actor:HistoryActor):Promise<DomainSupport>{
@@ -34,10 +36,12 @@ export async function loadDomainDocumentContext(parent:DomainParent,actor:Histor
  const p=parent.result
  let context:DomainSupport["context"]=null
  if(p.occurrenceId){
-  const rows=await query<any[]>("SELECT document_id FROM alt_text_document_images WHERE tenant_id=? AND id=? AND alt_text_asset_id=? AND extraction_status='extracted' LIMIT 1",[currentTenantId(),p.occurrenceId,p.assetId]),documentId=Number(rows[0]?.document_id)
-  if(documentId){const doc=await getDocument(documentId,ownerScopeFor(actor));if(doc?.securityStatus==="clean"){
+  const rows=await query<any[]>("SELECT document_id,source_locator,media_sha256 FROM alt_text_document_images WHERE tenant_id=? AND id=? AND alt_text_asset_id=? AND extraction_status='extracted' LIMIT 1",[currentTenantId(),p.occurrenceId,p.assetId]),documentId=Number(rows[0]?.document_id)
+  if(documentId){const doc=await getDocumentForExtraction(documentId,ownerScopeFor(actor));if(doc?.securityStatus==="clean"){
+   const settings=await getSettingsRecord()
+   if(!normalizeAccessibilityPreferences(settings.accessibility).preferences.descriptions.useDocumentContext)return null
    const saved=await getDocumentImageContext(documentId,p.occurrenceId),value=saved?.status==="analyzed"&&saved.version===DOCUMENT_CONTEXT_VERSION?parseStoredContext(saved.context):null
-   if(value?.documentId===documentId&&value.imageOccurrenceId===p.occurrenceId){const items=[value.caption,value.pageTitle,...value.headings,...value.labels].filter((v)=>v&&v.text.length<=512).slice(0,12).map((v)=>({text:v!.text,provenance:v!.provenance,sourceKind:v!.source.kind,sourceRef:v!.source.ref}));context={documentId,occurrenceId:p.occurrenceId,items}}
+   if(value?.documentId===documentId&&value.imageOccurrenceId===p.occurrenceId&&contextSourceMatches(value,await documentContextSource(doc),{sourceLocator:rows[0].source_locator,mediaSha256:rows[0].media_sha256})&&await contextOcrMatches(value)){const items=[value.caption,value.pageTitle,...value.headings,...value.labels].filter((v)=>v&&v.text.length<=512).slice(0,12).map((v)=>({text:v!.text,provenance:v!.provenance,sourceKind:v!.source.kind,sourceRef:v!.source.ref}));context={documentId,occurrenceId:p.occurrenceId,items}}
   }}
  }
  return context
