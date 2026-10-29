@@ -51,6 +51,7 @@ const MAX_QUEUED = 4
 const MAX_WORKERS = 2
 const IDLE_MS = 5 * 60_000
 const FAILED_PROBE_TTL_MS = 60_000
+const PROBE_MODE_TIMEOUT_MS = 45_000
 
 export const ocrPackPath = (code: OcrPackCode) => {
   const p = OCR_LANGUAGE_PACKS[code]
@@ -221,11 +222,47 @@ export async function probeOcrEngine(): Promise<OcrEngineHealth> {
     return { ...base, status: "unavailable", reason: disabled.reason, languages: [], modes: { eng: disabled, hin: disabled, eng_hin: disabled } }
   }
   if (probeCache && (probeCache.health.status === "available" || Date.now() - probeCache.at < FAILED_PROBE_TTL_MS)) return probeCache.health
+  // Concurrent callers share one probe so a slow cold start never queues several worker boots.
+  probeInFlight ??= runProbe(base).finally(() => {
+    probeInFlight = null
+  })
+  return probeInFlight
+}
+
+/** Latest finished probe result without starting one, or null if none is cached yet. */
+export function cachedOcrEngineHealth(): OcrEngineHealth | null {
+  return probeCache?.health ?? null
+}
+
+let probeInFlight: Promise<OcrEngineHealth> | null = null
+
+async function initWorkerWithTimeout(mode: OcrLanguageMode) {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new OcrEngineError("language_init_failed", `The ${OCR_LANGUAGE_MODES[mode].label} OCR worker took too long to start.`)), PROBE_MODE_TIMEOUT_MS)
+    timer.unref?.()
+  })
+  try {
+    await Promise.race([getWorker(mode), timeout])
+  } catch (e) {
+    // A worker that never finished booting must not be reused by later jobs.
+    const pending = workers.get(mode)
+    workers.delete(mode)
+    // Boot may finish after the deadline; release that detached worker without
+    // waiting indefinitely or leaving it alive outside the bounded pool.
+    if (pending) void pending.then((worker) => worker.terminate()).catch(() => undefined)
+    throw e
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
+}
+
+async function runProbe(base: { engineVersion: string; languageModel: string }): Promise<OcrEngineHealth> {
   const health = await enqueue(async () => {
     const modes = {} as Record<OcrLanguageMode, OcrModeHealth>
     for (const mode of [...MODE_IDS.filter((m) => m !== "eng"), "eng" as const]) {
       try {
-        await getWorker(mode)
+        await initWorkerWithTimeout(mode)
         modes[mode] = { status: "available", reason: null }
       } catch (e) {
         modes[mode] = healthFromError(e)
