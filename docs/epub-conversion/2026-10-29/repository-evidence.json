@@ -1,0 +1,238 @@
+{
+  "version": 1,
+  "inspectedAt": "2026-10-29",
+  "baselineCommit": "0cf661d69040185aeb5ffd73d23700a80d9f4f76",
+  "applicationChanged": false,
+  "inspectedFiles": [
+    {
+      "path": "app/(workspace)/admin/users/actions.ts",
+      "sha256": "349fc34dd88293606b8a8f30be31a0b529911224ec65534d97d7fbf588127304"
+    },
+    {
+      "path": "app/(workspace)/layout.tsx",
+      "sha256": "f611c5d7e4a69bb26e9ee41f9d71102b9d8422760d95783cacee5212a1abc420"
+    },
+    {
+      "path": "app/(workspace)/modules/publishing/conversion-name/[submodule]/[page]/page.tsx",
+      "sha256": "34f019fbc9fa7be0c0b54420ac25dc7479f2e70c97282c0e190692b3042301c9"
+    },
+    {
+      "path": "app/(workspace)/modules/publishing/conversion-name/[submodule]/page.tsx",
+      "sha256": "45e28c8eb19eba0db3d7910a145262628f6f7c009f4e32d2ac25856bd5ce2dde"
+    },
+    {
+      "path": "app/api/jobs/run/route.ts",
+      "sha256": "a00a5cbde4d5bc932e43b4d11669fc8818cc1ebb166e10d48e3c1c0c8d439882"
+    },
+    {
+      "path": "components/publishing/alt-text/batch-progress-dashboard.tsx",
+      "sha256": "6641c2060608e9a28f4eb11175ea7e7b3b976b8b63c169f1e50eb652556d1f58"
+    },
+    {
+      "path": "components/publishing/alt-text/document-review-sheet.tsx",
+      "sha256": "ba2723cd33f4afdefdce09d969ec787f73c9cda6ac7d23d6f408d7736ddf5b06"
+    },
+    {
+      "path": "components/publishing/conversion/conversion-nav.tsx",
+      "sha256": "21ad6aea23f8b16b1a6df3b44222b6b31066d9c6de5cb4a24c1b65905f3d11e9"
+    },
+    {
+      "path": "components/publishing/conversion/pdf/pdf-content.tsx",
+      "sha256": "7719ea22c773e2cfb61bf35ad0693feb1b1c241653c9d76ac9971356249f4c73"
+    },
+    {
+      "path": "components/publishing/conversion/pdf/pdf-file-components.tsx",
+      "sha256": "f3482510640732fcb0ff5ba0ea78a441d0eb42571bc6dc93130e172c22864409"
+    },
+    {
+      "path": "components/publishing/conversion/pdf/pdf-guidelines-model.ts",
+      "sha256": "fc04b4cb6c86f003ea86e96a8b83f1d536c00a554c895b381a4d69e6b410a3ad"
+    },
+    {
+      "path": "components/publishing/conversion/pdf/pdf-module-layout.tsx",
+      "sha256": "25d6fe66e75874bec26d3f851ca908c38160d7b502d9ee6a14a84dc464776db2"
+    },
+    {
+      "path": "components/publishing/conversion/pdf/pdf-overview-panels.tsx",
+      "sha256": "456941ed5b33ad29fab09b96238120ecba753431a21b5c4ba76a8a8a7a1d0b95"
+    },
+    {
+      "path": "components/publishing/conversion/pdf/pdf-preview-components.tsx",
+      "sha256": "989c4b9e31d56083d2cb953087a57a52e016d771f328b7c20875447ba3c52d86"
+    },
+    {
+      "path": "components/publishing/conversion/pdf/pdf-processing-components.tsx",
+      "sha256": "6830aa89ba2f00ada8359fe1fdcd017ef94cb0a50358bcac76c01acd18a7b78e"
+    },
+    {
+      "path": "components/publishing/conversion/pdf/pdf-settings-components.tsx",
+      "sha256": "12cf3b0a3be3e3cdbfdb007a64519a04c7d504773928d23d5e5f36a46653478c"
+    },
+    {
+      "path": "components/publishing/conversion/pdf/pdf-workspace.tsx",
+      "sha256": "420fa0aa707eddec1367f1b6f4f25000e3e376e8b6e79ab7d63637489a68ef47"
+    },
+    {
+      "path": "lib/alt-text/client-guideline-profile-store.ts",
+      "sha256": "1d7394c52c067f64e7938c2ee21954fe305eb73daa1a6192f8e395957a42cbb9"
+    },
+    {
+      "path": "lib/alt-text/client-guideline-profiles.ts",
+      "sha256": "945e91656584fef774d958041e457c09177df5d6d38b0252004c368a51cc8f77"
+    },
+    {
+      "path": "lib/alt-text/document-context-packet.ts",
+      "sha256": "3463c19a3ef7841ddbac4dd444d973d31b8be10dac8b0cf764b072ad27ab2208"
+    },
+    {
+      "path": "lib/alt-text/document-extraction.ts",
+      "sha256": "25813faa00f3b0341a59954c2e295523f6ed66e695f4babb2c182f93c2af19a9"
+    },
+    {
+      "path": "lib/alt-text/document-upload-contract.ts",
+      "sha256": "95356994ddafbba6f158150311f58f4439e9564082a36e95bb438be22d7156db"
+    },
+    {
+      "path": "lib/alt-text/document-upload.ts",
+      "sha256": "a6aa6ddbe32f11aea52236a023e8d329641c58afc94c55bd59e5eb34e1454462"
+    },
+    {
+      "path": "lib/alt-text/document-validation.ts",
+      "sha256": "166cbfd35d774f349518af69f49ef2388c8c02130673bb65be6feabc912dc29e"
+    },
+    {
+      "path": "lib/alt-text/docx-context.ts",
+      "sha256": "c623184b84a1181e9912dd9aa756dafe15b118dd3996f101b1830a2cc4d2ee04"
+    },
+    {
+      "path": "lib/alt-text/generate.ts",
+      "sha256": "1532680f514f8ab588ccaec345944f05103783c596e027e9ef1f01bd6804b588"
+    },
+    {
+      "path": "lib/alt-text/math-engine.ts",
+      "sha256": "21fc7e2a7745723ab8cc4d7fe36e062cc8c3abfe8f9009164154e40d3ac4106d"
+    },
+    {
+      "path": "lib/alt-text/math-validation.ts",
+      "sha256": "5590d8f7709488d255cd11120fd5a63087b6551491a22160e13b16a15c4fadc6"
+    },
+    {
+      "path": "lib/alt-text/ocr-engine.ts",
+      "sha256": "cf39be32d93bee1e3b76ce09aaa4f186f14f7786be0cbe104034ca78ac4d5722"
+    },
+    {
+      "path": "lib/alt-text/ocr-service.ts",
+      "sha256": "3368e4a717c3272bfe020131d700a551a9d37e7928f08338be0274a73f86ee1e"
+    },
+    {
+      "path": "lib/alt-text/pdf-extractor.ts",
+      "sha256": "7fd55821a1e50e1f5b4fe6f2c48c946cfcdb157aab81376108603591bac2d5d0"
+    },
+    {
+      "path": "lib/alt-text/route-gate.ts",
+      "sha256": "2f2e6cdccd11d7fa4e7ef984d05068c420f6972cd581bbbc342da2059ce01c13"
+    },
+    {
+      "path": "lib/alt-text/scientific-notation.ts",
+      "sha256": "3ae8e0f6e425a7bfd02153fbf1b0ac8116963c10b23f4ce65d9d7dddccf9e479"
+    },
+    {
+      "path": "lib/alt-text/store.ts",
+      "sha256": "bd91c9ca405cd766ed33d54ec7150fc54a69cca2409d727b0b0bdac6bead70a8"
+    },
+    {
+      "path": "lib/api-auth.ts",
+      "sha256": "029146582d17767f05581691e40eea246501b45254b650b97353c82982b3952a"
+    },
+    {
+      "path": "lib/auth.ts",
+      "sha256": "eeefb3f258c900c570d10e199117e2a8827f5036894ba1078c105eda84c3d147"
+    },
+    {
+      "path": "lib/background-jobs.ts",
+      "sha256": "c85c9dfaa2123a18a7086597983bd7ebfd6df7fc651ba50a35ca8903f8beef83"
+    },
+    {
+      "path": "lib/conversion-modules.ts",
+      "sha256": "84d3b3c3ce1524cf31fba78a66e3a887451534467bdec2698ed0fad549da733f"
+    },
+    {
+      "path": "lib/db.ts",
+      "sha256": "cb61791a1aaf5fd4817e1e720d8374b814abde4c5b18f74a15658f74531d8a4e"
+    },
+    {
+      "path": "lib/guidelines/contract.ts",
+      "sha256": "22bc1d35a0a77b6c24f3a6e9a22524ff0b97e91b178304e2bf8e397adc9f3f22"
+    },
+    {
+      "path": "lib/guidelines/guideline-contracts.ts",
+      "sha256": "8c3b669f1c25eaa8368c6ebdccb71ffb1d83504061acc9603cb2284f90202692"
+    },
+    {
+      "path": "lib/job-retry-policy.ts",
+      "sha256": "8f8a782f32fdf3e164c749c18298f95158d5f8bb2cecca37b9617084d3db1b5b"
+    },
+    {
+      "path": "lib/permission-model.ts",
+      "sha256": "8c5acf07b5cb9f4f54fcc3e14f93ce4a9d246dc30f68f2988030197b07f37b9d"
+    },
+    {
+      "path": "lib/permission-store.ts",
+      "sha256": "d0d2ef4c4d9ad624e66f72870db56ea5ee266d66318599d427f30b1ff1ec2de2"
+    },
+    {
+      "path": "lib/platform-schema.ts",
+      "sha256": "1e4f1a6344f00c4086ee1beab5fc6ed97885643f64d3635e5e78b0080e82a87a"
+    },
+    {
+      "path": "lib/settings/uploads.ts",
+      "sha256": "00664704fc895a8f3d09dc4fc521ca2d760182aae9c4df2521975028d73d5657"
+    },
+    {
+      "path": "lib/storage/file-metadata.ts",
+      "sha256": "3a18b6c8dd5f9e7d69933ff949e6e9ebf57e2bce966a036113614e4b2de702b5"
+    },
+    {
+      "path": "lib/storage/index.ts",
+      "sha256": "24540c98225e44c79c79478e94250ce47fcdc68a3315dc53692f4ecf4ccf070b"
+    },
+    {
+      "path": "lib/tenant-context.ts",
+      "sha256": "fca7a5eccc08294ba661f133391a7f1a21c9dd6e05b2c68e54acdf221f850c50"
+    },
+    {
+      "path": "lib/tenant-scope.ts",
+      "sha256": "fbe319c2da8da49654b9d1d5a418430507a702f84616564a6f6f510474d0c655"
+    },
+    {
+      "path": "models/math/model-lock.json",
+      "sha256": "f1e5ffa0ca08e10c96bbdb1006ce44cbfe781b3ec45dfe2aef66ec73f524e3fb"
+    },
+    {
+      "path": "next.config.mjs",
+      "sha256": "e9b43b76a877528e10a55e285546c1b4964c32c90c2bb70851a26d3759268561"
+    },
+    {
+      "path": "package.json",
+      "sha256": "509b6a86d7dcf3d1b75077b70cf080b15b619f97e3776077e708288285bdccd2"
+    },
+    {
+      "path": "scripts/prepare-standalone.mjs",
+      "sha256": "f1d907f2ad50c6e906611ee696fac9692d30787351b0b67d9003842f750021cd"
+    },
+    {
+      "path": "test/publishing/session-tenant-scope.test.ts",
+      "sha256": "f47769f4ca23a232b8961f2b954497daf5ef3e3fc25e3dc173fcb9985291137d"
+    }
+  ],
+  "routeInventory": {
+    "apiRouteCount": 67,
+    "epubApiRoutes": []
+  },
+  "limitations": [
+    "No production site login",
+    "No live MySQL query",
+    "No environment values or credentials read",
+    "No EPUB engine or validator executed"
+  ]
+}
