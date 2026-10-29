@@ -1,4 +1,7 @@
 import { describe, expect, it } from "vitest"
+import {createHash} from "node:crypto"
+import {createCanvas} from "@napi-rs/canvas"
+import {validateExportOutput} from "@/lib/alt-text/output-validation"
 import { formatDocxLocator, parseDocxLocator } from "@/lib/alt-text/docx-locator"
 import { insertDocxAltText, normalizeAltText, type DocxInsertInstruction } from "@/lib/alt-text/docx-alt-text-inserter"
 import { readZipDirectory, readZipEntryBytes } from "@/lib/alt-text/document-validation"
@@ -32,7 +35,7 @@ const doc = (body: string) => `<?xml version="1.0" encoding="UTF-8" standalone="
 const relsXml = (items: [string, string, string][]) =>
   `<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${items.map(([id, type, target]) => `<Relationship Id="${id}" Type="${R}/${type}" Target="${target}"/>`).join("")}</Relationships>`
 
-const PNG = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(64, 7)])
+const PNG = createCanvas(2,2).encodeSync("png")
 
 function docx(body: string, opts: { rels?: [string, string, string][]; extra?: ZipFixtureEntry[]; header?: string } = {}) {
   const rels = opts.rels ?? [["rId5", "image", "media/image1.png"], ["rId6", "image", "media/image2.png"]]
@@ -76,6 +79,16 @@ describe("docx locator contract", () => {
 })
 
 describe("insertDocxAltText", () => {
+  it("runs actual Output Validation against the approved drawing and rejects a different saved description",async()=>{
+    const source=docx(para(picture({id:1,rid:"rId5"}))),sourceLocator=loc(1,1,"rId5"),text="H₂O और ऊर्जा",result=run(source,[ins(10,sourceLocator,text)])
+    if(!result.ok||!result.output)throw new Error("Expected derived DOCX")
+    const checksum=(b:Buffer)=>createHash("sha256").update(b).digest("hex"),occurrence={occurrenceId:10,sourceLocator,sourceLocatorSnapshotVerified:true,exportStatus:"updated" as const,exportCode:"UPDATED",exportMessage:"Inserted",decorative:false,approvedVersionId:901,approvedVersion:3,approvedText:text,versionFound:true,currentApprovedVersionId:901,location:{}}
+    const input={format:"docx" as const,original:source,output:result.output,record:{sourceChecksum:checksum(source),outputChecksum:checksum(result.output),sizeBytes:result.output.length,policy:"approved_only"},occurrences:[occurrence],shortMaxChars:125}
+    const checks=await validateExportOutput(input)
+    for(const id of ["FI-001","FI-002","FI-003","FI-004","AT-001","AT-002","AT-003","DS-003","DS-006","DS-007"])expect(checks.find(c=>c.ruleId===id)?.status,id).toBe("passed")
+    const bad=await validateExportOutput({...input,occurrences:[{...occurrence,approvedText:"Another image's description"}]})
+    expect(bad.find(c=>c.ruleId==="AT-003")?.status).toBe("failed")
+  })
   it("updates one inline picture and leaves every other part byte-identical", () => {
     const src = docx(para(picture({ id: 1, rid: "rId5" })) + para("<w:r><w:t>Text &amp; more</w:t></w:r>"))
     const r = run(src, [ins(10, loc(1, 1, "rId5"), 'Bar chart of "Q1" sales & <growth>')])

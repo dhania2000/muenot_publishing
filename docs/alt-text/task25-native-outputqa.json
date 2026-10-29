@@ -1,0 +1,18 @@
+{
+  "synthetic": true,
+  "scope": "Actual Output Validation over small native writer fixtures; excludes writing, storage, Office rendering and providers.",
+  "measurements": [
+    {
+      "format": "pdf",
+      "occurrences": 2,
+      "validationMs": 3.935,
+      "checks": 26
+    },
+    {
+      "format": "pptx",
+      "occurrences": 2,
+      "validationMs": 2.74,
+      "checks": 25
+    }
+  ]
+}

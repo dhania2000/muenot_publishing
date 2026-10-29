@@ -1,0 +1,119 @@
+{
+  "synthetic": true,
+  "scope": "Local orchestration with mocked provider/source/storage/checkpoints and actual QA, plus real offline OCR. Not database, paid-provider, API or production throughput.",
+  "node": "v24.22.1",
+  "platform": "win32",
+  "workloads": [
+    {
+      "images": 5,
+      "elapsedMs": 5.249,
+      "qaTotalMs": 1.983,
+      "qaMeanMs": 0.397,
+      "orchestrationImagesPerSecond": 952.635,
+      "mockedGenerationCalls": 5,
+      "mockedCheckpoints": 35,
+      "sampledNodeRssBytes": 88043520
+    },
+    {
+      "images": 100,
+      "elapsedMs": 11.202,
+      "qaTotalMs": 2.317,
+      "qaMeanMs": 0.023,
+      "orchestrationImagesPerSecond": 8926.579,
+      "mockedGenerationCalls": 100,
+      "mockedCheckpoints": 700,
+      "sampledNodeRssBytes": 91082752
+    },
+    {
+      "images": 500,
+      "elapsedMs": 45.586,
+      "qaTotalMs": 7.022,
+      "qaMeanMs": 0.014,
+      "orchestrationImagesPerSecond": 10968.352,
+      "mockedGenerationCalls": 500,
+      "mockedCheckpoints": 3500,
+      "sampledNodeRssBytes": 114331648
+    },
+    {
+      "images": 1000,
+      "elapsedMs": 67.274,
+      "qaTotalMs": 8.231,
+      "qaMeanMs": 0.008,
+      "orchestrationImagesPerSecond": 14864.562,
+      "mockedGenerationCalls": 1000,
+      "mockedCheckpoints": 7000,
+      "sampledNodeRssBytes": 119529472
+    }
+  ],
+  "ocr": [
+    {
+      "sample": "eng-clean",
+      "mode": "eng",
+      "attempt": 1,
+      "wallMs": 92.119,
+      "engineDurationMs": 92,
+      "loadedLanguages": "eng",
+      "cer": 0,
+      "wer": 0,
+      "sampledNodeRssBytes": 244838400
+    },
+    {
+      "sample": "eng-clean",
+      "mode": "eng",
+      "attempt": 2,
+      "wallMs": 46.796,
+      "engineDurationMs": 47,
+      "loadedLanguages": "eng",
+      "cer": 0,
+      "wer": 0,
+      "sampledNodeRssBytes": 246018048
+    },
+    {
+      "sample": "hin-01",
+      "mode": "hin",
+      "attempt": 1,
+      "wallMs": 93.727,
+      "engineDurationMs": 93,
+      "loadedLanguages": "hin",
+      "cer": 0.231,
+      "wer": 0.5,
+      "sampledNodeRssBytes": 208584704
+    },
+    {
+      "sample": "hin-01",
+      "mode": "hin",
+      "attempt": 2,
+      "wallMs": 17.925,
+      "engineDurationMs": 17,
+      "loadedLanguages": "hin",
+      "cer": 0.231,
+      "wer": 0.5,
+      "sampledNodeRssBytes": 210079744
+    },
+    {
+      "sample": "bi-01",
+      "mode": "eng_hin",
+      "attempt": 1,
+      "wallMs": 183.553,
+      "engineDurationMs": 183,
+      "loadedLanguages": "hin+eng",
+      "cer": 0.125,
+      "wer": 0.667,
+      "sampledNodeRssBytes": 228958208
+    },
+    {
+      "sample": "bi-01",
+      "mode": "eng_hin",
+      "attempt": 2,
+      "wallMs": 35.557,
+      "engineDurationMs": 35,
+      "loadedLanguages": "hin+eng",
+      "cer": 0.125,
+      "wer": 0.667,
+      "sampledNodeRssBytes": 229072896
+    }
+  ],
+  "ocrInitializationMs": 378.084,
+  "generatedAt": "2026-10-29T06:24:21.772Z",
+  "sampledFinalNodeRssBytes": 218906624
+}

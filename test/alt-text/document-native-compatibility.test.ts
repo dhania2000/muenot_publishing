@@ -1,5 +1,10 @@
-import {expect,it} from "vitest"
+import {afterAll,expect,it} from "vitest"
+import {createHash} from "node:crypto"
+import {writeFile} from "node:fs/promises"
+import {performance} from "node:perf_hooks"
+import {validateExportOutput,type ExpectedOccurrence} from "@/lib/alt-text/output-validation"
 import {PDFDocument,PDFName,PDFHexString,PDFDict} from "pdf-lib"
+import {createCanvas} from "@napi-rs/canvas"
 import {buildZip,ooxmlEntries} from "./fixtures/documents"
 import {readPptxPackage} from "@/lib/alt-text/pptx-package"
 import {insertPptxAltText} from "@/lib/alt-text/pptx-alt-text-inserter"
@@ -8,6 +13,8 @@ import {readPdfPackage} from "@/lib/alt-text/pdf-package"
 import {remediatePdfAltText} from "@/lib/alt-text/pdf-alt-text-remediator"
 const R="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
 const P="http://schemas.openxmlformats.org/presentationml/2006/main", A="http://schemas.openxmlformats.org/drawingml/2006/main"
+const qaMeasurements:{format:string;occurrences:number;validationMs:number;checks:number}[]=[]
+afterAll(async()=>{if(process.env.ALT_TEXT_OUTPUT_QA_AUDIT_OUTPUT)await writeFile(process.env.ALT_TEXT_OUTPUT_QA_AUDIT_OUTPUT,JSON.stringify({synthetic:true,scope:"Actual Output Validation over small native writer fixtures; excludes writing, storage, Office rendering and providers.",measurements:qaMeasurements},null,2)+"\n")})
 const relationships=(entries:string)=>`<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${entries}</Relationships>`
 function pptx(){
  const picture=(n:number)=>`<p:pic><p:nvPicPr><p:cNvPr id="${n}" name="Image ${n}" descr="Original ${n}"/><p:cNvPicPr/><p:nvPr/></p:nvPicPr><p:blipFill><a:blip r:embed="rIdImage"/></p:blipFill><p:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="1000" cy="1000"/></a:xfrm></p:spPr></p:pic>`
@@ -15,7 +22,7 @@ function pptx(){
   {name:"ppt/presentation.xml",data:`<p:presentation xmlns:p="${P}" xmlns:r="${R}"><p:sldIdLst><p:sldId id="256" r:id="rId1"/></p:sldIdLst></p:presentation>`},
   {name:"ppt/slides/slide1.xml",data:`<p:sld xmlns:p="${P}" xmlns:a="${A}" xmlns:r="${R}"><p:cSld><p:spTree>${picture(2)}<p:grpSp><p:nvGrpSpPr><p:cNvPr id="9" name="Group"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr/>${picture(3)}</p:grpSp></p:spTree></p:cSld><p:transition spd="slow"/><p:timing><p:tnLst/></p:timing></p:sld>`,deflate:true},
   {name:"ppt/slides/_rels/slide1.xml.rels",data:relationships(`<Relationship Id="rIdImage" Type="${R}/image" Target="../media/image1.png"/>`)},
-  {name:"ppt/media/image1.png",data:Buffer.from([137,80,78,71,13,10,26,10,1,2,3,4])},
+  {name:"ppt/media/image1.png",data:createCanvas(2,2).encodeSync("png")},
   {name:"ppt/notesSlides/notesSlide1.xml",data:"<notes>Speaker notes unchanged</notes>"},
   {name:"ppt/theme/theme1.xml",data:"<theme>Original theme</theme>"},
  ]}))
@@ -70,4 +77,24 @@ it("PDF: untagged content is reported for manual remediation without fabricating
  const source=await pdf(false),pkg=await readPdfPackage(source)
  const result=await remediatePdfAltText(source,[{occurrenceId:1,sourceLocator:pkg.occurrences[0].sourceLocator,text:"A diagram",decorative:false}],{maxOutputBytes:1<<20})
  expect(result.ok).toBe(false);if(!result.ok)expect(result.code).toBe("UNTAGGED_PDF")
+})
+it.each(["pdf","pptx"] as const)("%s: actual output QA verifies the approved native text, mapping, checksums and separate conformance limits",async format=>{
+ const source=format==="pdf"?await pdf():pptx(),pkg=format==="pdf"?await readPdfPackage(source):readPptxPackage(source),sourceLocator=pkg.occurrences[0].sourceLocator,text="H₂O और ऊर्जा"
+ const instruction=[{occurrenceId:101,sourceLocator,text,decorative:false}],result=format==="pdf"?await remediatePdfAltText(source,instruction,{maxOutputBytes:1<<20}):insertPptxAltText(source,instruction,{maxOutputBytes:1<<20})
+ if(!result.ok||!result.output)throw new Error(JSON.stringify(result))
+ const output=result.output,checksum=(b:Buffer)=>createHash("sha256").update(b).digest("hex")
+ const occurrence:ExpectedOccurrence={occurrenceId:101,assetId:11,sourceLocator,currentSourceLocator:sourceLocator,sourceLocatorSnapshotVerified:true,exportStatus:"updated",exportCode:"UPDATED",exportMessage:"Inserted",decorative:false,approvedVersionId:901,approvedVersion:3,approvedText:text,versionFound:true,currentApprovedVersionId:901,location:{}}
+ const input={format,original:source,output,record:{sourceChecksum:checksum(source),outputChecksum:checksum(output),sizeBytes:output.length,policy:"approved_only"},occurrences:[occurrence],shortMaxChars:125}
+ const started=performance.now(),checks=await validateExportOutput(input)
+ qaMeasurements.push({format,occurrences:pkg.occurrences.length,validationMs:Math.round((performance.now()-started)*1000)/1000,checks:checks.length})
+ for(const id of ["FI-001","FI-002","FI-003","FI-004","AT-001","AT-002","AT-003"])expect(checks.find(c=>c.ruleId===id)?.status,id).toBe("passed")
+ if(format==="pdf")expect(checks.find(c=>c.ruleId==="PU-001")?.status).toBe("not_verified")
+ const wrong=await validateExportOutput({...input,occurrences:[{...occurrence,approvedText:text+" different approved version"}]})
+ expect(wrong.find(c=>c.ruleId==="AT-003")?.status).toBe("failed")
+ const missing=await validateExportOutput({...input,occurrences:[{...occurrence,versionFound:false,approvedText:null}]})
+ expect(missing.find(c=>c.ruleId==="AT-001")?.status).toBe("failed")
+ const drift=await validateExportOutput({...input,occurrences:[{...occurrence,sourceLocator:pkg.occurrences[1].sourceLocator}]})
+ expect(drift.find(c=>c.ruleId==="AT-003")?.status).toBe("failed")
+ const corrupt=await validateExportOutput({...input,record:{...input.record,outputChecksum:"0".repeat(64)}})
+ expect(corrupt.find(c=>c.ruleId==="FI-002")?.status).toBe("failed")
 })
