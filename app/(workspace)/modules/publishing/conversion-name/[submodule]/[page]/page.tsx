@@ -1,5 +1,8 @@
 import type { Metadata } from "next"
-import { notFound } from "next/navigation"
+import { notFound, redirect } from "next/navigation"
+import { getSession } from "@/lib/auth"
+import { EpubPlanner } from "@/components/publishing/conversion/epub/epub-planner"
+import { EpubRequirements } from "@/components/publishing/conversion/epub/epub-requirements"
 import { guardBusinessLine } from "@/components/business-line/business-line-landing"
 import { PageHeader } from "@/components/enterprise/page-header"
 import {
@@ -41,6 +44,8 @@ export default async function ConversionInternalPage({ params }: { params: Promi
   const { conversionModule, conversionPage } = resolved
 
   const { Icon } = await guardBusinessLine("publishing")
+  const epubSession = conversionModule.slug === "epub" && conversionPage.slug === "workspace" ? await getSession() : null
+  if (conversionModule.slug === "epub" && conversionPage.slug === "workspace" && !epubSession) redirect("/login")
 
   if (conversionModule.slug === "pdf") {
     if (conversionPage.slug === "workspace") {
@@ -70,11 +75,11 @@ export default async function ConversionInternalPage({ params }: { params: Promi
         ]}
       />
       <ConversionModuleTabs module={conversionModule} activePage={conversionPage.slug} />
-      <PlannedPage
+      {conversionModule.slug === "epub" && conversionPage.slug === "workspace" ? <EpubPlanner key={`${epubSession!.tenantId}:${epubSession!.userId}`} draftScope={`${epubSession!.tenantId}:${epubSession!.userId}`} /> : conversionModule.slug === "epub" && ["layout-settings","accessibility-checks","media-manager","epub-validation"].includes(conversionPage.slug) ? <EpubRequirements page={conversionPage.slug} /> : <PlannedPage
         icon={conversionModule.icon}
         title="Coming soon"
         description={`${conversionModule.label} ${conversionPage.label} is planned. Its tools will appear here once they are built.`}
-      />
+      />}
     </div>
   )
 }

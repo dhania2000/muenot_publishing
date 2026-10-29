@@ -6,15 +6,15 @@ The current evidence baseline is commit `0cf661d69040185aeb5ffd73d23700a80d9f4f7
 
 ## Delivery batches
 
-Each batch contains ten consecutive global task numbers, even across a phase boundary. Batch 1 is P1-T01–P1-T10; batch 2 is P1-T11–P2-T05. Record evidence and commit/push after each completed batch. Never mark a task complete because a route exists or because a later task is planned.
+Each batch contains ten consecutive global task numbers, even across a phase boundary. Batch 1 is P1-T01–P1-T10; batch 2 is P1-T11–P2-T05. Record evidence and commit/push each batch checkpoint; if a prerequisite prevents acceptance, record that task as partial rather than reporting a completed batch. Never mark a task complete because a route exists or because a later task is planned.
 
 | Batch | Global numbers | Task range | Evidence |
 | --- | --- | --- | --- |
 | 1 | 1–10 | P1-T01–P1-T10 | [Batch 1 report](2026-10-29/batch-01-report.md) |
-| 2 | 11–20 | P1-T11–P2-T05 | Pending |
+| 2 | 11–20 | P1-T11–P2-T05 | [Progress report](2026-10-29/batch-02-report.md): 9 complete, P2-T05 frontend partial |
 | 3–30 | 21–300 | Exact task order in roadmap.json | Pending |
 
-Phase 1 is documentation only, as the supplied prompts require. No runtime, database, dependency or production setting is changed by that phase. Frontend improvements begin in Phase 2. Current EPUB screens remain placeholders until their corresponding implementation tasks are completed.
+Phase 1 is documentation only, as the supplied prompts require. No runtime, database, dependency or production setting is changed by that phase. Phase 2 now provides the EPUB overview, requirements pages, selectors and saved planning wizard. Actual source upload, project submission and conversion are not connected. Overall: 19 complete, 1 frontend partial, 280 not started.
 
 ## Shared rules
 

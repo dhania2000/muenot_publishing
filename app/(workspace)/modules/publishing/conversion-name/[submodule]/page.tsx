@@ -13,6 +13,7 @@ import {
 } from "@/components/publishing/conversion/conversion-nav"
 import { getPdfHeader } from "@/components/publishing/conversion/pdf/pdf-header-config"
 import { PdfOverview } from "@/components/publishing/conversion/pdf/pdf-overview"
+import { EpubOverview } from "@/components/publishing/conversion/epub/epub-overview"
 import { PdfSectionPage } from "@/components/publishing/conversion/pdf/pdf-section-page"
 import { CONVERSION_MODULES, CONVERSION_SHARED_PAGES, getConversionModule, getSharedPage } from "@/lib/conversion-modules"
 
@@ -88,11 +89,11 @@ export default async function ConversionSubmodulePage({ params }: { params: Prom
         breadcrumbs={[...PUBLISHING_CRUMBS, CONVERSION_CRUMB, { label: service.label }]}
       />
       <ConversionModuleTabs module={service} activePage="" />
-      <PlannedPage
+      {service.slug === "epub" ? <EpubOverview /> : <PlannedPage
         icon={service.icon}
         title="Coming soon"
         description={`${service.label} is set up. Its tools will appear here once they are built.`}
-      />
+      />}
     </div>
   )
 }

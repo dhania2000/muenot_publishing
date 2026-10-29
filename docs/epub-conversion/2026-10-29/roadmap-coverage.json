@@ -1,0 +1,3607 @@
+{
+  "version": 1,
+  "taskCount": 285,
+  "purpose": "Planning coverage; not implementation or acceptance evidence",
+  "tasks": [
+    {
+      "task": "P2-T01",
+      "title": "Existing design-system audit and component reuse",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T02-improvement-mapping.md",
+        "P1-T03-service-scope.md",
+        "P1-T04-role-permissions.md",
+        "P1-T11-workflow.md",
+        "P1-T13-nonfunctional.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P2-T02",
+      "title": "EPUB Conversion landing-page redesign",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T02-improvement-mapping.md",
+        "P1-T03-service-scope.md",
+        "P1-T04-role-permissions.md",
+        "P1-T11-workflow.md",
+        "P1-T13-nonfunctional.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P2-T03",
+      "title": "EPUB types and capabilities section",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T02-improvement-mapping.md",
+        "P1-T03-service-scope.md",
+        "P1-T04-role-permissions.md",
+        "P1-T11-workflow.md",
+        "P1-T13-nonfunctional.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P2-T04",
+      "title": "Source and output format selector",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T02-improvement-mapping.md",
+        "P1-T03-service-scope.md",
+        "P1-T04-role-permissions.md",
+        "P1-T11-workflow.md",
+        "P1-T13-nonfunctional.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P2-T05",
+      "title": "Guided conversion project wizard",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T02-improvement-mapping.md",
+        "P1-T03-service-scope.md",
+        "P1-T04-role-permissions.md",
+        "P1-T11-workflow.md",
+        "P1-T13-nonfunctional.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P2-T06",
+      "title": "Advanced EPUB configuration panels",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T02-improvement-mapping.md",
+        "P1-T03-service-scope.md",
+        "P1-T04-role-permissions.md",
+        "P1-T11-workflow.md",
+        "P1-T13-nonfunctional.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P2-T07",
+      "title": "Client project dashboard",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T02-improvement-mapping.md",
+        "P1-T03-service-scope.md",
+        "P1-T04-role-permissions.md",
+        "P1-T11-workflow.md",
+        "P1-T13-nonfunctional.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P2-T08",
+      "title": "Conversion jobs listing",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T02-improvement-mapping.md",
+        "P1-T03-service-scope.md",
+        "P1-T04-role-permissions.md",
+        "P1-T11-workflow.md",
+        "P1-T13-nonfunctional.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P2-T09",
+      "title": "Job detail workspace",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T02-improvement-mapping.md",
+        "P1-T03-service-scope.md",
+        "P1-T04-role-permissions.md",
+        "P1-T11-workflow.md",
+        "P1-T13-nonfunctional.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P2-T10",
+      "title": "Processing timeline and status interface",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T02-improvement-mapping.md",
+        "P1-T03-service-scope.md",
+        "P1-T04-role-permissions.md",
+        "P1-T11-workflow.md",
+        "P1-T13-nonfunctional.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P2-T11",
+      "title": "Source vs output preview",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T02-improvement-mapping.md",
+        "P1-T03-service-scope.md",
+        "P1-T04-role-permissions.md",
+        "P1-T11-workflow.md",
+        "P1-T13-nonfunctional.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P2-T12",
+      "title": "Quality report and issue viewer",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T02-improvement-mapping.md",
+        "P1-T03-service-scope.md",
+        "P1-T04-role-permissions.md",
+        "P1-T11-workflow.md",
+        "P1-T13-nonfunctional.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P2-T13",
+      "title": "Client comments and approvals UI",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T02-improvement-mapping.md",
+        "P1-T03-service-scope.md",
+        "P1-T04-role-permissions.md",
+        "P1-T11-workflow.md",
+        "P1-T13-nonfunctional.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P2-T14",
+      "title": "Operator and administrator production interface",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T02-improvement-mapping.md",
+        "P1-T03-service-scope.md",
+        "P1-T04-role-permissions.md",
+        "P1-T11-workflow.md",
+        "P1-T13-nonfunctional.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P2-T15",
+      "title": "Responsive and accessible UI regression",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T02-improvement-mapping.md",
+        "P1-T03-service-scope.md",
+        "P1-T04-role-permissions.md",
+        "P1-T11-workflow.md",
+        "P1-T13-nonfunctional.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P3-T01",
+      "title": "Client project creation and job ID",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T04-role-permissions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T10-data-model.md",
+        "P1-T13-nonfunctional.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P3-T02",
+      "title": "Guest enquiry and authenticated submission",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T04-role-permissions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T10-data-model.md",
+        "P1-T13-nonfunctional.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P3-T03",
+      "title": "Single-file upload",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T04-role-permissions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T10-data-model.md",
+        "P1-T13-nonfunctional.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P3-T04",
+      "title": "Bulk multi-file upload",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T04-role-permissions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T10-data-model.md",
+        "P1-T13-nonfunctional.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P3-T05",
+      "title": "Folder and ZIP package upload",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T04-role-permissions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T10-data-model.md",
+        "P1-T13-nonfunctional.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P3-T06",
+      "title": "Chunked and resumable upload",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T04-role-permissions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T10-data-model.md",
+        "P1-T13-nonfunctional.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P3-T07",
+      "title": "Upload pause, resume and cancel controls",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T04-role-permissions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T10-data-model.md",
+        "P1-T13-nonfunctional.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P3-T08",
+      "title": "File signature, checksum and duplicates",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T04-role-permissions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T10-data-model.md",
+        "P1-T13-nonfunctional.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P3-T09",
+      "title": "Automatic input classification",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T04-role-permissions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T10-data-model.md",
+        "P1-T13-nonfunctional.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P3-T10",
+      "title": "Book, publisher and ISBN details",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T04-role-permissions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T10-data-model.md",
+        "P1-T13-nonfunctional.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P3-T11",
+      "title": "EPUB version and layout selection",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T04-role-permissions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T10-data-model.md",
+        "P1-T13-nonfunctional.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P3-T12",
+      "title": "Accessibility, language and reader requirements",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T04-role-permissions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T10-data-model.md",
+        "P1-T13-nonfunctional.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P3-T13",
+      "title": "Timeline, priority and service level capture",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T04-role-permissions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T10-data-model.md",
+        "P1-T13-nonfunctional.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P3-T14",
+      "title": "Submission review and preflight trigger",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T04-role-permissions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T10-data-model.md",
+        "P1-T13-nonfunctional.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P3-T15",
+      "title": "Secure intake receipt and notices",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T04-role-permissions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T10-data-model.md",
+        "P1-T13-nonfunctional.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P4-T01",
+      "title": "Optional client-guidelines upload",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T03-service-scope.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P4-T02",
+      "title": "Guidelines document format ingestion",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T03-service-scope.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P4-T03",
+      "title": "Guideline OCR and text extraction",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T03-service-scope.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P4-T04",
+      "title": "Client-specific publishing profile",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T03-service-scope.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P4-T05",
+      "title": "Requirement categories and severity",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T03-service-scope.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P4-T06",
+      "title": "EPUB structure, CSS, fonts and image rules",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T03-service-scope.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P4-T07",
+      "title": "Accessibility, metadata and platform rules",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T03-service-scope.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P4-T08",
+      "title": "Rules precedence and exceptions",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T03-service-scope.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P4-T09",
+      "title": "Conflicting guideline detection",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T03-service-scope.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P4-T10",
+      "title": "Unsupported instruction review",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T03-service-scope.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P4-T11",
+      "title": "Guidelines version control and approval",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T03-service-scope.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P4-T12",
+      "title": "Rule-to-workflow mapping",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T03-service-scope.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P4-T13",
+      "title": "Automatic compliance checklist",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T03-service-scope.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P4-T14",
+      "title": "Requirement validation and deviation report",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T03-service-scope.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P4-T15",
+      "title": "Default profile when no guidelines",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T03-service-scope.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P5-T01",
+      "title": "Office document formats",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T09-reusable-architecture.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P5-T02",
+      "title": "Born-digital PDF ingestion",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T09-reusable-architecture.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P5-T03",
+      "title": "Scanned and image-only PDF",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T09-reusable-architecture.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P5-T04",
+      "title": "Adobe InDesign IDML integration",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T09-reusable-architecture.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P5-T05",
+      "title": "QuarkXPress and proprietary DTP adapters",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T09-reusable-architecture.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P5-T06",
+      "title": "HTML XHTML CSS ingestion",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T09-reusable-architecture.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P5-T07",
+      "title": "XML JATS BITS NLM DocBook ingestion",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T09-reusable-architecture.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P5-T08",
+      "title": "TEI DITA and custom XML mapping",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T09-reusable-architecture.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P5-T09",
+      "title": "LaTeX Markdown plain text ingestion",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T09-reusable-architecture.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P5-T10",
+      "title": "PPTX source ingestion",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T09-reusable-architecture.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P5-T11",
+      "title": "XLSX CSV table data ingestion",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T09-reusable-architecture.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P5-T12",
+      "title": "Raster SVG scanned page ingestion",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T09-reusable-architecture.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P5-T13",
+      "title": "Existing EPUB 2 and 3 ingestion",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T09-reusable-architecture.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P5-T14",
+      "title": "Audio video synchronization asset ingestion",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T09-reusable-architecture.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P5-T15",
+      "title": "Unified input normalization and dependency report",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T09-reusable-architecture.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P6-T01",
+      "title": "Technical preflight readiness",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T13-nonfunctional.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P6-T02",
+      "title": "Corruption and missing dependencies",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T13-nonfunctional.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P6-T03",
+      "title": "Scanned versus text-based detection",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T13-nonfunctional.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P6-T04",
+      "title": "Multilingual OCR and handwriting exceptions",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T13-nonfunctional.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P6-T05",
+      "title": "Page segmentation and layout analysis",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T13-nonfunctional.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P6-T06",
+      "title": "Reading order and column detection",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T13-nonfunctional.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P6-T07",
+      "title": "Chapter heading and hierarchy extraction",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T13-nonfunctional.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P6-T08",
+      "title": "Tables lists and sidebars detection",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T13-nonfunctional.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P6-T09",
+      "title": "Images figures and captions association",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T13-nonfunctional.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P6-T10",
+      "title": "Footnotes citations and cross-references",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T13-nonfunctional.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P6-T11",
+      "title": "Math chemical and symbol detection",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T13-nonfunctional.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P6-T12",
+      "title": "Language direction and typography analysis",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T13-nonfunctional.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P6-T13",
+      "title": "AI-assisted extraction with confidence",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T13-nonfunctional.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P6-T14",
+      "title": "Human review queue for low-confidence material",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T13-nonfunctional.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P6-T15",
+      "title": "Preflight report and recommended conversion route",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T13-nonfunctional.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P7-T01",
+      "title": "Project lifecycle state machine",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T04-role-permissions.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T11-workflow.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P7-T02",
+      "title": "Automatic conversion pipeline creation",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T04-role-permissions.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T11-workflow.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P7-T03",
+      "title": "Multi-book bulk project management",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T04-role-permissions.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T11-workflow.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P7-T04",
+      "title": "Operator editor reviewer assignment",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T04-role-permissions.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T11-workflow.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P7-T05",
+      "title": "Task ownership and dependency handling",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T04-role-permissions.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T11-workflow.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P7-T06",
+      "title": "Queue and priority management",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T04-role-permissions.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T11-workflow.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P7-T07",
+      "title": "Milestones SLA and turnaround tracking",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T04-role-permissions.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T11-workflow.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P7-T08",
+      "title": "Effort complexity quotation workflow",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T04-role-permissions.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T11-workflow.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P7-T09",
+      "title": "Batch retry and failed task recovery",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T04-role-permissions.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T11-workflow.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P7-T10",
+      "title": "Client comments and clarification requests",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T04-role-permissions.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T11-workflow.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P7-T11",
+      "title": "Editorial and QA approval workflow",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T04-role-permissions.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T11-workflow.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P7-T12",
+      "title": "Revision requests and change impact",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T04-role-permissions.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T11-workflow.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P7-T13",
+      "title": "Project activity and audit history",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T04-role-permissions.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T11-workflow.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P7-T14",
+      "title": "Status notifications and escalations",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T04-role-permissions.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T11-workflow.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P7-T15",
+      "title": "Workload turnaround and performance reporting",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T04-role-permissions.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T11-workflow.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P8-T01",
+      "title": "Normalized semantic document model",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T09-reusable-architecture.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P8-T02",
+      "title": "Visual editor with source inspection",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T09-reusable-architecture.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P8-T03",
+      "title": "Chapter and section editor",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T09-reusable-architecture.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P8-T04",
+      "title": "Heading hierarchy editor",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T09-reusable-architecture.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P8-T05",
+      "title": "Paragraph list quote and blocks",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T09-reusable-architecture.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P8-T06",
+      "title": "Complex table editor",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T09-reusable-architecture.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P8-T07",
+      "title": "Image figure caption media editor",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T09-reusable-architecture.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P8-T08",
+      "title": "Footnotes endnotes pop-up notes backlinks",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T09-reusable-architecture.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P8-T09",
+      "title": "Internal external links and anchors",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T09-reusable-architecture.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P8-T10",
+      "title": "TOC page list and landmarks editor",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T09-reusable-architecture.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P8-T11",
+      "title": "Equation formula and special character editor",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T09-reusable-architecture.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P8-T12",
+      "title": "Stylesheets typography preview",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T09-reusable-architecture.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P8-T13",
+      "title": "Search replace with structural rules",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T09-reusable-architecture.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P8-T14",
+      "title": "Undo revisions diff and provenance",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T09-reusable-architecture.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P8-T15",
+      "title": "Review comments corrections and approval",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T09-reusable-architecture.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P9-T01",
+      "title": "EPUB 2.0.1 package profile",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P9-T02",
+      "title": "EPUB 3.0 to 3.3 package profiles",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P9-T03",
+      "title": "EPUB 3.4 candidate profile",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P9-T04",
+      "title": "OCF ZIP container generation",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P9-T05",
+      "title": "mimetype and container.xml generation",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P9-T06",
+      "title": "OPF package document generation",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P9-T07",
+      "title": "Manifest and resource declarations",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P9-T08",
+      "title": "Spine and reading order",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P9-T09",
+      "title": "EPUB 3 XHTML navigation document",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P9-T10",
+      "title": "EPUB 2 NCX and legacy guide",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P9-T11",
+      "title": "Landmarks page lists structural semantics",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P9-T12",
+      "title": "XHTML CSS SVG and media assembly",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P9-T13",
+      "title": "Resource fallbacks and dependencies",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P9-T14",
+      "title": "Identifiers filenames paths and references",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P9-T15",
+      "title": "Deterministic package build and conformance smoke test",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P10-T01",
+      "title": "Reflowable output templates",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P10-T02",
+      "title": "Semantic HTML chapter conversion",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P10-T03",
+      "title": "Responsive CSS generation",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P10-T04",
+      "title": "Dynamic text resizing",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P10-T05",
+      "title": "Paragraph spacing and alignment",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P10-T06",
+      "title": "Multi-level headings styles",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P10-T07",
+      "title": "Ordered unordered nested lists",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P10-T08",
+      "title": "Responsive image scaling and wrapping",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P10-T09",
+      "title": "Responsive table rendering",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P10-T10",
+      "title": "Footnotes endnotes and cross-reference rendering",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P10-T11",
+      "title": "Hyperlinks and bookmarks",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P10-T12",
+      "title": "Chapter splitting and reading flow",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P10-T13",
+      "title": "Image resolution and media optimization",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P10-T14",
+      "title": "Reading theme and user font compatibility",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P10-T15",
+      "title": "Reflowable end-to-end regression suite",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P11-T01",
+      "title": "Fixed Layout EPUB profile definitions",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T08-content-categories.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P11-T02",
+      "title": "Pre-paginated page generation",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T08-content-categories.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P11-T03",
+      "title": "Viewport dimensions and aspect ratio",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T08-content-categories.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P11-T04",
+      "title": "Portrait landscape and orientation preferences",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T08-content-categories.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P11-T05",
+      "title": "Single page and double-page spreads",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T08-content-categories.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P11-T06",
+      "title": "Full-bleed imagery and safe areas",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T08-content-categories.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P11-T07",
+      "title": "Print-page coordinate reconstruction",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T08-content-categories.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P11-T08",
+      "title": "Image-based versus positioned-text pages",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T08-content-categories.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P11-T09",
+      "title": "Children's picture book layouts",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T08-content-categories.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P11-T10",
+      "title": "Comics manga and graphic novels",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T08-content-categories.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P11-T11",
+      "title": "EPUB 3.4 roll layout profile",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T08-content-categories.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P11-T12",
+      "title": "Mixed fixed and reflowable spine",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T08-content-categories.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P11-T13",
+      "title": "Multiple renditions and fallback profiles",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T08-content-categories.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P11-T14",
+      "title": "Fixed layout compression and quality",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T08-content-categories.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P11-T15",
+      "title": "Fixed and mixed visual fidelity regression",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T08-content-categories.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P12-T01",
+      "title": "Embedded audio assets",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P12-T02",
+      "title": "Embedded video assets",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P12-T03",
+      "title": "Media codecs and fallback selection",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P12-T04",
+      "title": "SMIL Media Overlay generation",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P12-T05",
+      "title": "Sentence-level synchronized narration",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P12-T06",
+      "title": "Word-level synchronization where supported",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P12-T07",
+      "title": "Read-aloud highlighting behavior",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P12-T08",
+      "title": "Narration segmentation and asset management",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P12-T09",
+      "title": "TTS pronunciation and language markup",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P12-T10",
+      "title": "Captions transcripts and descriptions",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P12-T11",
+      "title": "EPUB JavaScript interactive components",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P12-T12",
+      "title": "Quizzes and interactive exercises",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P12-T13",
+      "title": "SVG animation and reduced-motion behavior",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P12-T14",
+      "title": "Offline resources and feature detection",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P12-T15",
+      "title": "Enhanced EPUB integration and QA",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P13-T01",
+      "title": "LaTeX equation extraction",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P13-T02",
+      "title": "Semantic MathML generation",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P13-T03",
+      "title": "Math rendering fallbacks",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P13-T04",
+      "title": "Equation numbering and cross-references",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P13-T05",
+      "title": "Accessible math and speech descriptions",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P13-T06",
+      "title": "Chemistry reactions and molecular notation",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P13-T07",
+      "title": "Physics symbols units and notation",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P13-T08",
+      "title": "Complex scientific tables",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P13-T09",
+      "title": "Scientific figures graphs and diagrams",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P13-T10",
+      "title": "Complex figure descriptions",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P13-T11",
+      "title": "Citations DOI and bibliography",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P13-T12",
+      "title": "Glossary index and abbreviation navigation",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P13-T13",
+      "title": "Computer code algorithms and specialized text",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P13-T14",
+      "title": "JATS BITS academic semantics",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P13-T15",
+      "title": "STEM expert QA and scientific accuracy",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P14-T01",
+      "title": "EPUB Accessibility 1.1 profile",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T03-service-scope.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P14-T02",
+      "title": "EPUB Accessibility 1.2 candidate readiness",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T03-service-scope.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P14-T03",
+      "title": "WCAG 2.2 AA assessment mapping",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T03-service-scope.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P14-T04",
+      "title": "Semantic XHTML and DPUB-ARIA",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T03-service-scope.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P14-T05",
+      "title": "Logical reading order and headings",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T03-service-scope.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P14-T06",
+      "title": "Navigation landmarks and page navigation",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T03-service-scope.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P14-T07",
+      "title": "Meaningful image alternative text",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T03-service-scope.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P14-T08",
+      "title": "Long descriptions for complex visuals",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T03-service-scope.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P14-T09",
+      "title": "Accessible tables and relationships",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T03-service-scope.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P14-T10",
+      "title": "Accessible equations and MathML",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T03-service-scope.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P14-T11",
+      "title": "Keyboard focus links and reader constraints",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T03-service-scope.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P14-T12",
+      "title": "Contrast resizing and noncolor cues",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T03-service-scope.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P14-T13",
+      "title": "Captions transcripts media accessibility",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T03-service-scope.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P14-T14",
+      "title": "Accessibility metadata and truthful claims",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T03-service-scope.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P14-T15",
+      "title": "Ace automated and human accessibility signoff",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T03-service-scope.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P15-T01",
+      "title": "Unicode normalization and text integrity",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P15-T02",
+      "title": "Publication and element language tagging",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P15-T03",
+      "title": "Left-to-right layout",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P15-T04",
+      "title": "RTL Arabic Urdu Hebrew Persian layout",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P15-T05",
+      "title": "Bidirectional text and punctuation",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P15-T06",
+      "title": "Devanagari Hindi Marathi Sanskrit support",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P15-T07",
+      "title": "Indian regional-script typography",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P15-T08",
+      "title": "CJK character support",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P15-T09",
+      "title": "Vertical writing and ruby annotations",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P15-T10",
+      "title": "Line-breaking hyphenation punctuation",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P15-T11",
+      "title": "Font embedding subsetting and fallback",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P15-T12",
+      "title": "Font licensing and glyph inspection",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P15-T13",
+      "title": "Multilingual and parallel-text books",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P15-T14",
+      "title": "Locale-aware numbers dates and direction",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P15-T15",
+      "title": "Language-specific reader and proofing QA",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P16-T01",
+      "title": "Dublin Core EPUB metadata support",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T03-service-scope.md",
+        "P1-T04-role-permissions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P16-T02",
+      "title": "ISBN DOI UUID identifiers",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T03-service-scope.md",
+        "P1-T04-role-permissions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P16-T03",
+      "title": "Title author editor contributors",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T03-service-scope.md",
+        "P1-T04-role-permissions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P16-T04",
+      "title": "Publisher imprint series edition publication date",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T03-service-scope.md",
+        "P1-T04-role-permissions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P16-T05",
+      "title": "Language subject descriptions and discoverability",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T03-service-scope.md",
+        "P1-T04-role-permissions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P16-T06",
+      "title": "ONIX metadata mapping",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T03-service-scope.md",
+        "P1-T04-role-permissions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P16-T07",
+      "title": "Cover asset and metadata generation",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T03-service-scope.md",
+        "P1-T04-role-permissions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P16-T08",
+      "title": "Accessibility discovery metadata",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T03-service-scope.md",
+        "P1-T04-role-permissions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P16-T09",
+      "title": "Copyright territories and usage permissions",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T03-service-scope.md",
+        "P1-T04-role-permissions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P16-T10",
+      "title": "Third-party font image audio rights",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T03-service-scope.md",
+        "P1-T04-role-permissions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P16-T11",
+      "title": "DRM and distributor licensed handoff",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T03-service-scope.md",
+        "P1-T04-role-permissions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P16-T12",
+      "title": "Authorized watermarking and tracking",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T03-service-scope.md",
+        "P1-T04-role-permissions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P16-T13",
+      "title": "Publisher-specific metadata export profiles",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T03-service-scope.md",
+        "P1-T04-role-permissions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P16-T14",
+      "title": "Apple Kindle Google Kobo delivery profiles",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T03-service-scope.md",
+        "P1-T04-role-permissions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P16-T15",
+      "title": "Distribution release checklist and approval",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T03-service-scope.md",
+        "P1-T04-role-permissions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T12-conformance.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P17-T01",
+      "title": "EPUB 2 to EPUB 3 migration",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P17-T02",
+      "title": "EPUB 3.0 to 3.3 modernization",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P17-T03",
+      "title": "EPUB 3.4 candidate migration readiness",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P17-T04",
+      "title": "EPUB 3 to EPUB 2 controlled downgrade",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P17-T05",
+      "title": "Invalid EPUB detection and diagnostics",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P17-T06",
+      "title": "Container manifest spine and OPF repair",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P17-T07",
+      "title": "NCX nav and broken-reference repair",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P17-T08",
+      "title": "CSS image font media repair",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P17-T09",
+      "title": "Recoverable ZIP/archive reconstruction",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P17-T10",
+      "title": "Metadata semantics reading-order remediation",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P17-T11",
+      "title": "EPUB to HTML XHTML XML",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P17-T12",
+      "title": "EPUB to PDF DOCX TXT",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P17-T13",
+      "title": "EPUB to accessible DAISY interchange",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P17-T14",
+      "title": "Kindle-ready EPUB and proprietary handoff",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P17-T15",
+      "title": "Migration regression and content-loss assessment",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P18-T01",
+      "title": "EPUBCheck integration and rules",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T13-nonfunctional.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P18-T02",
+      "title": "XML OPF OCF and navigation validation",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T13-nonfunctional.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P18-T03",
+      "title": "CSS fonts media and fallback QA",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T13-nonfunctional.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P18-T04",
+      "title": "Structural semantics and reading order QA",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T13-nonfunctional.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P18-T05",
+      "title": "Broken links images and cross-references",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T13-nonfunctional.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P18-T06",
+      "title": "Metadata identifier package consistency",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T13-nonfunctional.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P18-T07",
+      "title": "Ace automated accessibility analysis",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T13-nonfunctional.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P18-T08",
+      "title": "Manual assistive technology evaluation",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T13-nonfunctional.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P18-T09",
+      "title": "Source vs EPUB completeness reconciliation",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T13-nonfunctional.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P18-T10",
+      "title": "Math table image caption accuracy",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T13-nonfunctional.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P18-T11",
+      "title": "Reflowable and fixed visual regression",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T13-nonfunctional.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P18-T12",
+      "title": "Reader platform compatibility testing",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T13-nonfunctional.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P18-T13",
+      "title": "Desktop mobile tablet RTL and multilingual QA",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T13-nonfunctional.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P18-T14",
+      "title": "Performance file size and automated regression",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T13-nonfunctional.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P18-T15",
+      "title": "Defect triage correction and final QA release gate",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T08-content-categories.md",
+        "P1-T12-conformance.md",
+        "P1-T13-nonfunctional.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P19-T01",
+      "title": "Tenant/client data isolation",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T04-role-permissions.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T13-nonfunctional.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P19-T02",
+      "title": "RBAC authentication and permissions",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T04-role-permissions.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T13-nonfunctional.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P19-T03",
+      "title": "Upload malware and file signature protection",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T04-role-permissions.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T13-nonfunctional.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P19-T04",
+      "title": "ZIP path traversal XML and active content security",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T04-role-permissions.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T13-nonfunctional.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P19-T05",
+      "title": "Encryption in transit and at rest",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T04-role-permissions.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T13-nonfunctional.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P19-T06",
+      "title": "Manuscript retention and deletion",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T04-role-permissions.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T13-nonfunctional.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P19-T07",
+      "title": "Sandboxed conversion execution",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T04-role-permissions.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T13-nonfunctional.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P19-T08",
+      "title": "Scalable job queue infrastructure",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T04-role-permissions.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T13-nonfunctional.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P19-T09",
+      "title": "Parallelism quotas backpressure limits",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T04-role-permissions.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T13-nonfunctional.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P19-T10",
+      "title": "Retry timeout idempotency and recovery",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T04-role-permissions.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T13-nonfunctional.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P19-T11",
+      "title": "Logs traces metrics and alerts",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T04-role-permissions.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T13-nonfunctional.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P19-T12",
+      "title": "APIs webhooks and publishing integrations",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T04-role-permissions.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T13-nonfunctional.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P19-T13",
+      "title": "Authorized cloud storage connectors",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T04-role-permissions.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T13-nonfunctional.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P19-T14",
+      "title": "Usage metering reporting and AI processing policy",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T04-role-permissions.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T13-nonfunctional.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P19-T15",
+      "title": "Backup recovery penetration and resilience validation",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T04-role-permissions.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T13-nonfunctional.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P20-T01",
+      "title": "Final delivery package and manifest",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T02-improvement-mapping.md",
+        "P1-T03-service-scope.md",
+        "P1-T04-role-permissions.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T11-workflow.md",
+        "P1-T12-conformance.md",
+        "P1-T13-nonfunctional.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P20-T02",
+      "title": "Secure download links and delivery",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T02-improvement-mapping.md",
+        "P1-T03-service-scope.md",
+        "P1-T04-role-permissions.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T11-workflow.md",
+        "P1-T12-conformance.md",
+        "P1-T13-nonfunctional.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P20-T03",
+      "title": "Multiple approved output profiles and companions",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T02-improvement-mapping.md",
+        "P1-T03-service-scope.md",
+        "P1-T04-role-permissions.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T11-workflow.md",
+        "P1-T12-conformance.md",
+        "P1-T13-nonfunctional.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P20-T04",
+      "title": "EPUB validation and accessibility reports",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T02-improvement-mapping.md",
+        "P1-T03-service-scope.md",
+        "P1-T04-role-permissions.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T11-workflow.md",
+        "P1-T12-conformance.md",
+        "P1-T13-nonfunctional.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P20-T05",
+      "title": "Client proof review and approval",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T02-improvement-mapping.md",
+        "P1-T03-service-scope.md",
+        "P1-T04-role-permissions.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T11-workflow.md",
+        "P1-T12-conformance.md",
+        "P1-T13-nonfunctional.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P20-T06",
+      "title": "Change requests and revision management",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T02-improvement-mapping.md",
+        "P1-T03-service-scope.md",
+        "P1-T04-role-permissions.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T11-workflow.md",
+        "P1-T12-conformance.md",
+        "P1-T13-nonfunctional.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P20-T07",
+      "title": "Checksums version history and traceability",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T02-improvement-mapping.md",
+        "P1-T03-service-scope.md",
+        "P1-T04-role-permissions.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T11-workflow.md",
+        "P1-T12-conformance.md",
+        "P1-T13-nonfunctional.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P20-T08",
+      "title": "Client completion notices and records",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T02-improvement-mapping.md",
+        "P1-T03-service-scope.md",
+        "P1-T04-role-permissions.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T11-workflow.md",
+        "P1-T12-conformance.md",
+        "P1-T13-nonfunctional.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P20-T09",
+      "title": "Billing quotation and effort handoff",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T02-improvement-mapping.md",
+        "P1-T03-service-scope.md",
+        "P1-T04-role-permissions.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T11-workflow.md",
+        "P1-T12-conformance.md",
+        "P1-T13-nonfunctional.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P20-T10",
+      "title": "Production SOPs and troubleshooting docs",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T02-improvement-mapping.md",
+        "P1-T03-service-scope.md",
+        "P1-T04-role-permissions.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T11-workflow.md",
+        "P1-T12-conformance.md",
+        "P1-T13-nonfunctional.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P20-T11",
+      "title": "Administrator editor QA support training",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T02-improvement-mapping.md",
+        "P1-T03-service-scope.md",
+        "P1-T04-role-permissions.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T11-workflow.md",
+        "P1-T12-conformance.md",
+        "P1-T13-nonfunctional.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P20-T12",
+      "title": "Pilot publishers and UAT",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T02-improvement-mapping.md",
+        "P1-T03-service-scope.md",
+        "P1-T04-role-permissions.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T11-workflow.md",
+        "P1-T12-conformance.md",
+        "P1-T13-nonfunctional.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P20-T13",
+      "title": "Staging load security and production rollout",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T02-improvement-mapping.md",
+        "P1-T03-service-scope.md",
+        "P1-T04-role-permissions.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T11-workflow.md",
+        "P1-T12-conformance.md",
+        "P1-T13-nonfunctional.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P20-T14",
+      "title": "Release monitoring incident and support",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T02-improvement-mapping.md",
+        "P1-T03-service-scope.md",
+        "P1-T04-role-permissions.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T11-workflow.md",
+        "P1-T12-conformance.md",
+        "P1-T13-nonfunctional.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    },
+    {
+      "task": "P20-T15",
+      "title": "Standards reader compatibility and security maintenance",
+      "foundation": [
+        "P1-T01-existing-system-audit.md",
+        "P1-T02-improvement-mapping.md",
+        "P1-T03-service-scope.md",
+        "P1-T04-role-permissions.md",
+        "P1-T05-version-compatibility.md",
+        "P1-T06-layout-renditions.md",
+        "P1-T07-source-output-matrix.md",
+        "P1-T08-content-categories.md",
+        "P1-T09-reusable-architecture.md",
+        "P1-T10-data-model.md",
+        "P1-T11-workflow.md",
+        "P1-T12-conformance.md",
+        "P1-T13-nonfunctional.md",
+        "P1-T14-risk-register.md"
+      ],
+      "status": "planned_dependency_mapping"
+    }
+  ]
+}

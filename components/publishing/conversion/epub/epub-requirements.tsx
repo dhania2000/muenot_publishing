@@ -1,0 +1,6 @@
+import Link from "next/link"
+import {Button} from "@/components/ui/button"
+import {Badge} from "@/components/ui/badge"
+import {EPUB_PROFILES} from "@/lib/epub/intake-plan"
+import {conversionHref} from "@/lib/conversion-modules"
+export function EpubRequirements({page}:{page:string}){return <section className="space-y-4 rounded-lg border bg-card p-5"><h2 className="text-lg font-semibold">Profile requirements</h2><p className="text-sm text-muted-foreground">Review suitability before planning a publication. These capabilities are not available for processing yet. Validation results and reader approvals will appear only after real checks run.</p><div className="grid gap-4 md:grid-cols-2">{EPUB_PROFILES.filter(p=>p.page===page).map(p=><article key={p.id} className="rounded border p-4 space-y-2"><Badge variant="outline">{p.status}</Badge><h3 className="font-semibold">{p.name}</h3><p className="text-sm">{p.detail}</p><p className="text-sm">Sources: {p.sources}</p><p className="text-sm text-muted-foreground">{p.limit}</p></article>)}</div><p className="text-sm">No client guidelines? Use the Standard Profile. Supplied guidelines need review and verification; they cannot make an unsupported converter available.</p><Button asChild variant="outline"><Link href={conversionHref("epub","workspace")}>Open publication planner</Link></Button></section>}
