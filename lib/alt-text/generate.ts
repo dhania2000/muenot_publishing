@@ -12,7 +12,8 @@
  * - Provider usage that cannot be saved stays billed and is logged for reconciliation, never refunded blindly.
  */
 import "server-only"
-import {activeClientGuideline,clientGuidelineWarnings} from "./client-guideline"
+import {guidelineWarningsForPolicy} from "./client-guideline"
+import {ClientProfileError,resolveSelectedClientGuideline} from "./client-guideline-profile-store"
 import { createHash } from "node:crypto"
 import { getTenantAiSettings } from "@/lib/ai/assistant-store"
 import { AiError } from "@/lib/ai/governance-core"
@@ -138,10 +139,12 @@ function usageView(credits: AltTextCreditUsage, clientRequestId: string | null) 
   }
 }
 
-async function successFromAsset(assetId: number, credits: AltTextCreditUsage, clientRequestId: string | null, replayed: boolean): Promise<GenerateSuccess | GenerateFailure> {
+async function successFromAsset(assetId: number, credits: AltTextCreditUsage, clientRequestId: string | null, replayed: boolean,selection:GenerationSettings): Promise<GenerateSuccess | GenerateFailure> {
   const asset = await getAsset(assetId)
   if (!asset) return fail(404, "NOT_FOUND", "Image not found.")
   const saved = await getSavedGeneration(assetId, credits.requestId)
+  const priorClient=saved?.result.generationEvidence?.clientGuideline
+  if(replayed&&((priorClient?.id??null)!==(selection.clientGuidelineId??null)||(priorClient?Number(priorClient.version):null)!==(selection.clientGuidelineVersion??null)))return fail(409,"CLIENT_GUIDELINE_REPLAY_CONFLICT","This request already belongs to a different client guideline selection. Start a new generation request.")
   return {
     ok: true,
     body: {
@@ -212,12 +215,14 @@ export async function generateAltTextForAsset(
   const requestId = altTextRequestId(operationId)
   if (operationId) {
     const prior = await getAltTextCreditUsage(actor.tenantId, actor.userId, requestId)
-    if (prior?.creditsCharged != null) return successFromAsset(req.assetId, prior, req.requestId, true)
+    if (prior?.creditsCharged != null) return successFromAsset(req.assetId, prior, req.requestId, true,req.settings)
     if (prior?.status === "reserved") return fail(409, "GENERATION_IN_PROGRESS", "This generation request is already being processed.")
   }
 
   let policy:Awaited<ReturnType<typeof generationPolicy>>
   try{policy=await generationPolicy()}catch{return fail(503,"SETTINGS_UNAVAILABLE","Tenant accessibility settings could not be read. No generation was charged; try again.")}
+  let selectedClient:Awaited<ReturnType<typeof resolveSelectedClientGuideline>>
+  try{selectedClient=await resolveSelectedClientGuideline(req.settings)}catch(error){return error instanceof ClientProfileError?fail(error.status,error.code,error.message):fail(503,"CLIENT_GUIDELINE_UNAVAILABLE","Client guidelines could not be read. No generation was charged; try again.")}
   const classify = policy.classify
   const classificationHint = manualTypeHint(target.classificationRecord ?? null)
   let advancedEvidence: import("./description-evidence").DescriptionEvidence | null = null
@@ -239,7 +244,7 @@ export async function generateAltTextForAsset(
       tenantId: actor.tenantId,
       userId: actor.userId,
       operationId: requestId.slice("alttext:".length),
-      vision: { image: { bytes, mediaType: image.contentType }, generation: req.settings, altTextSettings, model, document, classify, classificationHint,clientGuideline:activeClientGuideline(policy.clientGuideline), ...(advancedEvidence ? { advancedEvidence } : {}), ...(req.signal ? {abortSignal:req.signal} : {}) },
+      vision: { image: { bytes, mediaType: image.contentType }, generation: req.settings, altTextSettings, model, document, classify, classificationHint,clientGuideline:selectedClient, ...(advancedEvidence ? { advancedEvidence } : {}), ...(req.signal ? {abortSignal:req.signal} : {}) },
     })
   } catch (e) {
     const failure = e instanceof AiError ? aiErrorToFailure(e) : fail(500, "GENERATION_FAILED", "Alt text generation failed. Please try again.")
@@ -250,18 +255,18 @@ export async function generateAltTextForAsset(
 
   if (outcome.status === "replayed") {
     await markFailed(req.assetId, "Duplicate request; the earlier result was kept.", attempt).catch(() => {})
-    return successFromAsset(req.assetId, outcome.credits, req.requestId, true)
+    return successFromAsset(req.assetId, outcome.credits, req.requestId, true,req.settings)
   }
 
   const { output, vision, credits } = outcome
-  output.warnings=[...new Set([...output.warnings,...clientGuidelineWarnings(policy.clientGuideline,output.shortAlt,output.longDescription,output.classification==="decorative")])]
+  output.warnings=[...new Set([...output.warnings,...guidelineWarningsForPolicy(selectedClient,output.shortAlt,output.longDescription,output.classification==="decorative")])]
   output.documentContextSnapshot = document?.packet ?? undefined
   output.generationEvidence = {
     schemaVersion: 1, requestId, strategy: advancedEvidence?.strategy ?? "standard", sourceSha256: advancedEvidence?.sourceSha256 ?? createHash("sha256").update(bytes).digest("hex"),
     occurrenceId: advancedEvidence?.occurrenceId ?? document?.imageOccurrenceId ?? null, regionAnalysisId: advancedEvidence?.regionAnalysisId ?? null,
     evidence: advancedEvidence?.items.map(({ id, version, kind, state }) => ({ id, version, kind, state })) ?? [],
     outputLanguage: req.settings.outputLanguage, provider: vision.provider, generatedAt: new Date().toISOString(),
-    guidelineVersion: activeClientGuideline(policy.clientGuideline)?.version??null,clientGuideline:activeClientGuideline(policy.clientGuideline), reviewStatus: "needs_review", warnings: output.warnings, treatment: output.treatment,
+    guidelineVersion: selectedClient?.version??null,clientGuideline:selectedClient, reviewStatus: "needs_review", warnings: output.warnings, treatment: output.treatment,
     ...(output.terminologyReview?{terminology:output.terminologyReview}:{}),
     ...(document?.packet ? {documentContext:{documentId:document.documentId,occurrenceId:document.imageOccurrenceId,contextVersion:document.contextVersion,source:document.packet.source,fingerprint:createHash("sha256").update(JSON.stringify(document.packet)).digest("hex"),references:document.packet.snippets.map(s=>({id:s.id,sourceKind:s.sourceKind,sourceRef:s.sourceRef,duplicates:s.duplicateReferences})),policy:document.packet.policy}} : {}),
   }
@@ -286,16 +291,16 @@ export async function generateAltTextForAsset(
     return fail(409, "GENERATION_SUPERSEDED", "A newer generation or edit replaced this request. The newer content was kept.", { usage: usageView(credits, req.requestId) })
   }
 
-  const success = await successFromAsset(req.assetId, credits, req.requestId, false)
+  const success = await successFromAsset(req.assetId, credits, req.requestId, false,req.settings)
   if (success.ok) success.body.result = { ...success.body.result, ...pickResult(output) }
   return success
 }
 
 /** Missing historical preferences use defaults; a failed settings read must not bypass saved policy. */
-async function generationPolicy(): Promise<{ classify: boolean; advanced: boolean; allowedKinds: string[];clientGuideline:unknown }> {
+async function generationPolicy(): Promise<{ classify: boolean; advanced: boolean; allowedKinds: string[] }> {
     const record = await getSettingsRecord()
     const preferences = normalizeAccessibilityPreferences(record?.accessibility).preferences
-    return { classify: preferences.general.useAutoClassification !== false, advanced: preferences.general.processingPreference !== "standard_only" && process.env.ALT_TEXT_ADVANCED_DISABLED !== "1", allowedKinds: descriptionKindsForTypes(preferences.general.analysisTypes),clientGuideline:record?.clientGuideline }
+    return { classify: preferences.general.useAutoClassification !== false, advanced: preferences.general.processingPreference !== "standard_only" && process.env.ALT_TEXT_ADVANCED_DISABLED !== "1", allowedKinds: descriptionKindsForTypes(preferences.general.analysisTypes) }
 }
 
 function pickResult(o: AltTextResult) {

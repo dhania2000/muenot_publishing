@@ -39,7 +39,7 @@ export type GenerateResponse = {
   usage: { requestId: string | null; model: string; creditsReserved: number; creditsCharged: number | null; status: string }
 }
 
-export type EditPayload = { expectedVersion: number; shortAlt?: string; longDescription?: string;outputLanguage?:"en"|"hi" }
+export type EditPayload = { expectedVersion: number; shortAlt?: string; longDescription?: string;outputLanguage?:"en"|"hi";clientGuidelineId?:string|null;clientGuidelineVersion?:number|null }
 
 const CREDIT_CODES = /BUDGET_EXCEEDED|TOKEN_LIMIT_EXCEEDED|INSUFFICIENT/
 

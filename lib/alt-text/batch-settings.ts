@@ -24,6 +24,8 @@ export function validateBatchInfo(info: BatchInfo): BatchInfoErrors {
 
 /** Batch-wide only: content type and target audience cannot be overridden per image. */
 export const OVERRIDABLE_FIELDS = [
+  "clientGuidelineId",
+  "clientGuidelineVersion",
   "imageType",
   "imagePurpose",
   "subject",
@@ -46,6 +48,7 @@ export function buildOverride(defaults: GenerationSettings, edited: GenerationSe
   const normalized = normalizeGenerationSettings(edited)
   const override: Record<string, unknown> = {}
   for (const key of OVERRIDABLE_FIELDS) if (normalized[key] !== defaults[key]) override[key] = normalized[key]
+  if(normalized.clientGuidelineId!==defaults.clientGuidelineId||normalized.clientGuidelineVersion!==defaults.clientGuidelineVersion){override.clientGuidelineId=normalized.clientGuidelineId??null;override.clientGuidelineVersion=normalized.clientGuidelineVersion??null}
   return Object.keys(override).length ? (override as ImageOverride) : null
 }
 

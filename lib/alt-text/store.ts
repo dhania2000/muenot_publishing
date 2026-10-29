@@ -584,7 +584,8 @@ export async function saveGeneration(
       : ""
     const [res] = await conn.query<ResultSetHeader>(
       `UPDATE alt_text_assets SET status = ?, classification = ?, short_alt = ?, long_description = ?, extracted_text = ?, warnings = ?, treatment = ?,
-         model_id = ?, credits_used = credits_used + ?, language = COALESCE(?, language), current_version = GREATEST(current_version + 1, COALESCE((SELECT MAX(v.version) + 1 FROM alt_text_versions v WHERE v.tenant_id = alt_text_assets.tenant_id AND v.asset_id = alt_text_assets.id), 1)), approved_at = ?, reviewed_by = NULL, error_message = NULL, error_code = NULL${classificationSet}
+         model_id = ?, credits_used = credits_used + ?, language = COALESCE(?, language), current_version = GREATEST(current_version + 1, COALESCE((SELECT MAX(v.version) + 1 FROM alt_text_versions v WHERE v.tenant_id = alt_text_assets.tenant_id AND v.asset_id = alt_text_assets.id), 1)), approved_at = ?, reviewed_by = NULL, error_message = NULL, error_code = NULL,
+         settings_override=JSON_SET(COALESCE(settings_override,JSON_OBJECT()),'$.clientGuidelineId',?,'$.clientGuidelineVersion',?)${classificationSet}
        WHERE tenant_id = ? AND id = ?${claimGuard}`,
       [
         requireReview ? "in_review" : "approved",
@@ -598,6 +599,8 @@ export async function saveGeneration(
         credits,
         result.generationEvidence?.outputLanguage ?? null,
         requireReview ? null : new Date(),
+        result.generationEvidence?.clientGuideline?.id??null,
+        result.generationEvidence?.clientGuideline?Number(result.generationEvidence.clientGuideline.version):null,
         ...(automated ? [automated.schemaVersion, JSON.stringify(automated)] : []),
         tenantId,
         id,
@@ -682,7 +685,7 @@ export async function editAsset(
   edit: { classification: string; shortAlt: string; longDescription: string; extractedText: string },
   actorId: number,
   expectedVersion?: number,
-  audit?: {language:"en"|"hi";warnings:string[];note:string},
+  audit?: {language:"en"|"hi";warnings:string[];note:string;clientGuideline?:import("./client-guideline-profiles").SelectedClientGuideline|null},
 ): Promise<AssetRow | null | "busy" | "conflict"> {
   const current = await getAsset(id)
   if (!current) return null
@@ -690,19 +693,21 @@ export async function editAsset(
   if (expectedVersion !== undefined && current.currentVersion !== expectedVersion) return "conflict"
   const tenantId = tid()
   const versionGuard = expectedVersion === undefined ? "" : " AND current_version = ?"
+  const clientChange=audit!==undefined&&Object.prototype.hasOwnProperty.call(audit,"clientGuideline")
+  const clientSet=clientChange?", settings_override=JSON_SET(COALESCE(settings_override,JSON_OBJECT()),'$.clientGuidelineId',?,'$.clientGuidelineVersion',?)":""
   const saved = await withTransaction(async (conn) => {
     const [res] = await conn.query<ResultSetHeader>(
       `UPDATE alt_text_assets SET classification = ?, short_alt = ?, long_description = ?, extracted_text = ?, current_version = GREATEST(current_version + 1, COALESCE((SELECT MAX(v.version) + 1 FROM alt_text_versions v WHERE v.tenant_id = alt_text_assets.tenant_id AND v.asset_id = alt_text_assets.id), 1)),
-         status = CASE WHEN status IN ('approved','rejected','failed','uploaded') THEN 'in_review' ELSE status END, approved_at = NULL, reviewed_by = NULL, language = COALESCE(?,language), warnings = COALESCE(?,warnings)
+         status = CASE WHEN status IN ('approved','rejected','failed','uploaded') THEN 'in_review' ELSE status END, approved_at = NULL, reviewed_by = NULL, language = COALESCE(?,language), warnings = COALESCE(?,warnings)${clientSet}
        WHERE tenant_id = ? AND id = ? AND status <> 'processing'${versionGuard}`,
-      [edit.classification, edit.shortAlt, edit.longDescription, edit.extractedText, audit?.language??null, audit?JSON.stringify(audit.warnings):null, tenantId, id, ...(expectedVersion === undefined ? [] : [expectedVersion])],
+      [edit.classification, edit.shortAlt, edit.longDescription, edit.extractedText, audit?.language??null, audit?JSON.stringify(audit.warnings):null,...clientChange?[audit?.clientGuideline?.id??null,audit?.clientGuideline?Number(audit.clientGuideline.version):null]:[], tenantId, id, ...(expectedVersion === undefined ? [] : [expectedVersion])],
     )
     if (!res.affectedRows) return false
     const [rows] = await conn.query<RowDataPacket[]>("SELECT current_version FROM alt_text_assets WHERE tenant_id = ? AND id = ?", [tenantId, id])
     await conn.query(
-      `INSERT INTO alt_text_versions (tenant_id, asset_id, version, action, classification, short_alt, long_description, extracted_text, note, model_id, actor_id)
-       VALUES (?, ?, ?, 'edited', ?, ?, ?, ?, ?, NULL, ?)`,
-      [tenantId, id, Number(rows[0]?.current_version ?? 1), edit.classification, edit.shortAlt, edit.longDescription, edit.extractedText, audit?.note.slice(0,500)??null, actorId],
+      `INSERT INTO alt_text_versions (tenant_id, asset_id, version, action, classification, short_alt, long_description, extracted_text, note, model_id, actor_id,generation_evidence_json)
+       VALUES (?, ?, ?, 'edited', ?, ?, ?, ?, ?, NULL, ?,?)`,
+      [tenantId, id, Number(rows[0]?.current_version ?? 1), edit.classification, edit.shortAlt, edit.longDescription, edit.extractedText, audit?.note.slice(0,500)??null, actorId,clientChange?JSON.stringify({clientGuideline:audit?.clientGuideline??null,guidelineVersion:audit?.clientGuideline?.version??null,origin:"manual_selection"}):null],
     )
     return true
   })
@@ -1044,7 +1049,9 @@ export function normalizeOverride(defaults: GenerationSettings, raw: unknown): I
   const picked = pickOverride(raw)
   if (!picked) return null
   const resolved = normalizeGenerationSettings({ ...defaults, ...picked })
-  return Object.fromEntries(Object.keys(picked).map((k) => [k, resolved[k as keyof GenerationSettings]])) as ImageOverride
+  const clientId=Object.hasOwn(picked,"clientGuidelineId"),clientVersion=Object.hasOwn(picked,"clientGuidelineVersion")
+  if(clientId!==clientVersion)throw new BatchError("Client guideline ID and version must be overridden together")
+  return {...Object.fromEntries(Object.keys(picked).map((k) => [k, resolved[k as keyof GenerationSettings]])),...clientId?{clientGuidelineId:resolved.clientGuidelineId??null,clientGuidelineVersion:resolved.clientGuidelineVersion??null}:{}} as ImageOverride
 }
 
 const isBatchStatus = (s: unknown): s is BatchStatus => typeof s === "string" && (BATCH_STATUSES as readonly string[]).includes(s)

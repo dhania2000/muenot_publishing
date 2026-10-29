@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const s = vi.hoisted(() => ({
+  selected: null as any,
   assets: [] as any[],
   versions: [] as any[],
   session: { userId: 5, role: "employee" } as any,
@@ -11,6 +12,7 @@ const s = vi.hoisted(() => ({
   editCalls: [] as any[],
   throwOnGet: null as any,
 }))
+vi.mock("@/lib/alt-text/client-guideline-profile-store",()=>({ClientProfileError:class extends Error{},resolveSelectedClientGuideline:async()=>s.selected}))
 
 vi.mock("@/lib/alt-text/store", () => ({
   getSettings: vi.fn(async () => ({ shortMaxChars: 125 })),
@@ -68,6 +70,7 @@ const ctx = (id: string) => ({ params: Promise.resolve({ id }) })
 const patch = (id: string, body: unknown) => patchRoute(req(`/api/alt-text/assets/${id}`, { method: "PATCH", body: JSON.stringify(body) }), ctx(id))
 
 beforeEach(() => {
+  s.selected=null
   s.assets = [
     asset(),
     asset({ id: 2, fileName: "chart.png", classification: "chart", createdBy: 6 }),
@@ -82,6 +85,18 @@ beforeEach(() => {
   s.editCalls = []
   s.throwOnGet = null
 })
+
+it("binds a manually edited description to the selected client and clears old policy warnings",async()=>{
+ s.assets[0].warnings=["Source warning","Client guideline literal is absent: OLD"]
+ s.selected={id:"client_D",version:"2",clientName:"Client D",rules:[{type:"required_literal",text:"Revenue"}]}
+ const r=await patch("1",{expectedVersion:1,shortAlt:"Annual revenue chart",clientGuidelineId:"client_D",clientGuidelineVersion:2})
+ expect(r.status).toBe(200)
+ expect(s.editCalls[0].audit.clientGuideline).toEqual(s.selected)
+ expect(s.editCalls[0].audit.warnings).toContain("Source warning")
+ expect(s.editCalls[0].audit.warnings.join(" ")).toContain("Revenue")
+ expect(s.editCalls[0].audit.warnings.join(" ")).not.toContain("OLD")
+})
+it("rejects incomplete client selection in manual edits",()=>{expect(parseEditRequest({expectedVersion:1,shortAlt:"Alt",clientGuidelineId:"client_D"})).toMatchObject({ok:false,code:"INVALID_CLIENT_GUIDELINE"})})
 
 describe("GET /api/alt-text/assets", () => {
   it("lists only the current tenant's assets without internal fields", async () => {

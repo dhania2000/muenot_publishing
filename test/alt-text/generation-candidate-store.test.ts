@@ -11,8 +11,20 @@ vi.mock("@/lib/db", () => ({ query: vi.fn(async (sql:string) => (sql.startsWith(
 import { saveGeneration,getSavedGeneration,listVersions } from "@/lib/alt-text/store"
 import type { AltTextResult } from "@/lib/alt-text/core"
 const output: AltTextResult = { classification: "chart", shortAlt: "नया विवरण", longDescription: "Reviewed printed labels", extractedText: "१२", warnings: ["Review required"], treatment: "Adjacent description", generationEvidence: { schemaVersion: 1, requestId: "alttext:a1_test", strategy: "chart", sourceSha256: "a".repeat(64), occurrenceId: 2, regionAnalysisId: "rga_12345678", evidence: [{ id: "evidence:20",version: 2,kind: "chart_data",state: "candidate" }], outputLanguage: "hi", provider: "openai", generatedAt: "2026-10-28T00:00:00Z", guidelineVersion: null, reviewStatus: "needs_review", warnings: ["Review required"], treatment: "Adjacent description" } }
-beforeEach(() => { s.approved = true; s.claimed = true; s.calls = [];s.publicRow=null;delete output.documentContextSnapshot })
+beforeEach(() => { s.approved = true; s.claimed = true; s.calls = [];s.publicRow=null;delete output.documentContextSnapshot;delete output.generationEvidence!.clientGuideline })
 describe("approved content preservation in existing version history", () => {
+ it("pins the selected client in active work while keeping approved work's binding unchanged for candidates",async()=>{
+   output.generationEvidence!.clientGuideline={id:"client_D",clientName:"Client D",version:"3",rules:[{type:"require_long"}]}
+   await saveGeneration(1,output,"model",4,2,true,5)
+   expect(s.calls.filter(c=>c.sql.startsWith("UPDATE")).every(c=>!c.sql.includes("settings_override"))).toBe(true)
+   expect(JSON.parse(s.calls.find(c=>c.sql.startsWith("INSERT"))!.params.at(-1)).clientGuideline).toMatchObject({id:"client_D",version:"3"})
+   s.calls=[];s.approved=false
+   await saveGeneration(1,output,"model",4,2,true,5)
+   const update=s.calls.find(c=>c.sql.startsWith("UPDATE"))!
+   expect(update.sql).toContain("'$.clientGuidelineId',?,'$.clientGuidelineVersion',?")
+   expect(update.params).toContain("client_D")
+   expect(update.sql.match(/\?/g)?.length).toBe(update.params.length)
+ })
  it("stores private context evidence but redacts it from asset-only replay and history",async()=>{
    output.documentContextSnapshot={snippets:[{text:"DO_NOT_EXPOSE_DOCUMENT_TEXT"}]} as any
    await saveGeneration(1,output,"model",4,2,true,5)

@@ -1,4 +1,4 @@
-/** Optional, declarative tenant default. Never executable instructions, regex or factual evidence. */
+/** Bounded declarative rules for a named client. Never executable instructions, regex or factual evidence. */
 export type ClientGuidelineSettings={enabled:boolean;clientName:string;requiredLiterals:string[];forbiddenLiterals:string[];requireLong:boolean}
 export type SavedClientGuideline=ClientGuidelineSettings&{version:number}
 export const DEFAULT_CLIENT_GUIDELINE:SavedClientGuideline={enabled:false,clientName:"",requiredLiterals:[],forbiddenLiterals:[],requireLong:false,version:0}
@@ -27,7 +27,10 @@ export function activeClientGuideline(raw:unknown):import("./advanced-quality-co
  return g.enabled?{id:"tenant-client-guideline",version:String(g.version),rules:[...g.requiredLiterals.map(text=>({type:"required_literal" as const,text})),...g.forbiddenLiterals.map(text=>({type:"forbidden_literal" as const,text})),...(g.requireLong?[{type:"require_long" as const}]:[])]}:null
 }
 export function clientGuidelineWarnings(raw:unknown,short:string,long:string,decorative:boolean):string[]{
- const g=activeClientGuideline(raw);if(!g||decorative)return []
+ return guidelineWarningsForPolicy(activeClientGuideline(raw),short,long,decorative)
+}
+export function guidelineWarningsForPolicy(g:import("./advanced-quality-contract").QualityGuideline|null,short:string,long:string,decorative:boolean):string[]{
+ if(!g||decorative)return []
  const text=`${short}\n${long}`.normalize("NFC"),warnings:string[]=[]
  for(const rule of g.rules){if(rule.type==="require_long"){if(!long.trim())warnings.push("Client guideline requests a detailed description; review before approval.")}
  else if(rule.type==="required_literal"&&!text.includes(rule.text))warnings.push(`Client guideline literal is absent: ${rule.text}. Add it only if supported by the source; otherwise resolve with the reviewer.`)

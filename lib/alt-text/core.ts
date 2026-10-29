@@ -164,6 +164,9 @@ export type DescriptionLength = keyof typeof DESCRIPTION_LENGTHS
 export const GENERATION_FIELD_LIMITS = { chapterTopic: 200, imageContext: 2000 } as const
 
 export type GenerationSettings = {
+  /** Immutable tenant-owned client guideline version selected for this work only. */
+  clientGuidelineId?: string | null
+  clientGuidelineVersion?: number | null
   imageType: GenerationImageType
   imagePurpose: GenerationPurpose
   contentType: ContentType
@@ -178,6 +181,8 @@ export type GenerationSettings = {
 }
 
 export const DEFAULT_GENERATION_SETTINGS: GenerationSettings = {
+  clientGuidelineId: null,
+  clientGuidelineVersion: null,
   imageType: "auto",
   imagePurpose: "informative",
   contentType: "general",
@@ -200,6 +205,8 @@ export function normalizeGenerationSettings(input: unknown): GenerationSettings 
   const d = DEFAULT_GENERATION_SETTINGS
   const text = (v: unknown, max: number) => (typeof v === "string" ? boundText(v.trim(),max).text : "")
   return {
+    clientGuidelineId:s.clientGuidelineId==null?null:typeof s.clientGuidelineId==="string"?s.clientGuidelineId:"!invalid",
+    clientGuidelineVersion:s.clientGuidelineVersion==null?null:typeof s.clientGuidelineVersion==="number"?s.clientGuidelineVersion:-1,
     imageType: pick(GENERATION_IMAGE_TYPES, s.imageType, d.imageType),
     imagePurpose: pick(GENERATION_PURPOSES, s.imagePurpose, d.imagePurpose),
     contentType: pick(CONTENT_TYPES, s.contentType, d.contentType),
@@ -218,6 +225,9 @@ export type GenerationSettingsErrors = Partial<Record<keyof GenerationSettings, 
 
 export function validateGenerationSettings(s: GenerationSettings): GenerationSettingsErrors {
   const errors: GenerationSettingsErrors = {}
+  const id=s.clientGuidelineId,version=s.clientGuidelineVersion
+  if(id!=null&&!/^[A-Za-z0-9_-]{8,48}$/.test(id))errors.clientGuidelineId="Choose a saved client guideline."
+  if((id==null)!==(version==null)||version!=null&&(!Number.isSafeInteger(version)||version<1||version>1_000_000))errors.clientGuidelineVersion="Choose a client guideline and its saved version together."
   const { chapterTopic, imageContext } = GENERATION_FIELD_LIMITS
   if (s.chapterTopic.length > chapterTopic) errors.chapterTopic = `Keep the chapter / topic to ${chapterTopic} characters or fewer.`
   if (s.imageContext.length > imageContext) errors.imageContext = `Image context must be ${imageContext.toLocaleString()} characters or fewer.`

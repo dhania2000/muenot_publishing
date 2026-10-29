@@ -21,7 +21,7 @@ export type DescriptionEvidence = {
   guidelineVersion: null
 }
 export type GenerationEvidenceMetadata = {
-  clientGuideline?:import("./advanced-quality-contract").QualityGuideline|null
+  clientGuideline?:(import("./advanced-quality-contract").QualityGuideline&{clientName?:string})|null
   terminology?: {policy:import("./terminology-policy").TerminologyPolicy;issues:import("./terminology-policy").TerminologyIssue[]}
   documentContext?: { documentId:number;occurrenceId:number;contextVersion:number|null;source:import("./document-context-packet").ContextSourceBinding;fingerprint:string;references:{id:string;sourceKind:string;sourceRef:string|null;duplicates:{sourceKind:string;sourceRef:string|null}[]}[];policy:import("./document-context-packet").ContextPacketPolicy }
   schemaVersion: 1

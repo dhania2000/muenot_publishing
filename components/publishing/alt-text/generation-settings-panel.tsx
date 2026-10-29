@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
+import {ClientGuidelineSelector} from "./client-guideline-selector"
 import {
   CONTENT_TYPES,
   DEFAULT_GENERATION_SETTINGS,
@@ -140,6 +141,7 @@ export function GenerationSettingsPanel({
 
   const sections = (
     <>
+        <ClientGuidelineSelector settings={settings} onChange={onChange}/>
         <Section title="Image">
           <div className={FIELD_GRID}>
             <SelectField

@@ -17,8 +17,8 @@ it("treats policy strings as data under source fidelity and mandatory review ins
  const result=buildPrompt({language:"hi",audience:"business_document",context:"",shortMaxChars:125,clientGuideline:activeClientGuideline(policy)})
  expect(result.prompt).toContain("UNTRUSTED optional client literal-policy data");expect(result.prompt).toContain('"version":"3"');expect(result.instructions).toContain("Never invent a label or alter source notation")
 })
-it("exposes saved policy and job snapshot provenance without requiring a guideline",()=>{
+it("does not auto-select the legacy client policy for the whole organization",()=>{
  const resolved=resolveEffectiveAccessibilitySettings({storedAccessibility:null,clientGuideline:policy,revision:9,tenant:{requireReview:true,defaultLanguage:"hi"},backend:{implemented:["client_guidelines"],visionModelAvailable:false,ocrLanguagePacks:[],disabledByPolicy:[]}})
- expect(resolved.guideline).toMatchObject({status:"active",reference:{version:3,clientName:policy.clientName}})
- expect(accessibilitySnapshot(resolved,{modelId:null,requireReview:true}).guidelineVersion).toBe("3")
+ expect(resolved.guideline).toMatchObject({status:"none",reference:null})
+ expect(accessibilitySnapshot(resolved,{modelId:null,requireReview:true}).guidelineVersion).toBeNull()
 })

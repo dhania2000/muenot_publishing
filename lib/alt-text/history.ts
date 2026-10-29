@@ -11,7 +11,9 @@
  */
 import "server-only"
 import type { PermissionScope } from "@/lib/permission-model"
-import { ASSET_STATUSES, COMPLEX_CLASSIFICATIONS, IMAGE_CLASSIFICATIONS, type ImageClassification } from "./core"
+import { ASSET_STATUSES, COMPLEX_CLASSIFICATIONS, IMAGE_CLASSIFICATIONS,normalizeGenerationSettings,validateGenerationSettings, type ImageClassification } from "./core"
+import {ClientProfileError,resolveSelectedClientGuideline} from "./client-guideline-profile-store"
+import {guidelineWarningsForPolicy} from "./client-guideline"
 import { editAsset, getAsset, getSettings, listAssets, listVersions, type AssetRow } from "./store"
 import { terminologyIssues,TERMINOLOGY_RULE_VERSION } from "./terminology-policy"
 
@@ -20,6 +22,8 @@ export type HistoryFailure = { ok: false; status: number; code: string; error: s
 type Ok<T> = { ok: true; body: T }
 
 export type AltTextAssetView = {
+  clientGuidelineId?:string|null
+  clientGuidelineVersion?:number|null
   id: number
   fileName: string
   mimeType: string
@@ -62,7 +66,7 @@ export type AltTextVersionList = { success: true; assetId: number; versions: Alt
 export const EDIT_LIMITS = { shortAlt: 1000, longDescription: 20_000, extractedText: 20_000 } as const
 const MAX_SEARCH = 200
 const MAX_PAGE_SIZE = 100
-const EDIT_KEYS = new Set(["shortAlt", "longDescription", "classification", "extractedText", "expectedVersion", "outputLanguage"])
+const EDIT_KEYS = new Set(["shortAlt", "longDescription", "classification", "extractedText", "expectedVersion", "outputLanguage","clientGuidelineId","clientGuidelineVersion"])
 
 const fail = (status: number, code: string, error: string, details?: Record<string, unknown>): HistoryFailure => ({
   ok: false,
@@ -100,6 +104,8 @@ export function withinScope(scope: PermissionScope | undefined, userId: number, 
 
 export function toAssetView(a: AssetRow): AltTextAssetView {
   return {
+    clientGuidelineId:a.settingsOverride?.clientGuidelineId??null,
+    clientGuidelineVersion:a.settingsOverride?.clientGuidelineVersion??null,
     id: a.id,
     fileName: a.fileName,
     mimeType: a.mimeType,
@@ -220,6 +226,8 @@ export function cleanText(s: string): string {
 }
 
 export type EditRequest = {
+  clientGuidelineId?:string|null
+  clientGuidelineVersion?:number|null
   outputLanguage?: "en" | "hi"
   expectedVersion: number
   shortAlt?: string
@@ -237,6 +245,7 @@ export function parseEditRequest(body: unknown): { ok: true; value: EditRequest 
     return fail(400, "EXPECTED_VERSION_REQUIRED", "expectedVersion (the version you loaded) is required.")
   }
   const value: EditRequest = { expectedVersion: b.expectedVersion }
+  if(b.clientGuidelineId!==undefined||b.clientGuidelineVersion!==undefined){const selection=normalizeGenerationSettings(b),errors=validateGenerationSettings(selection);if(errors.clientGuidelineId||errors.clientGuidelineVersion)return fail(400,"INVALID_CLIENT_GUIDELINE","Choose a saved client guideline and version together.");value.clientGuidelineId=selection.clientGuidelineId;value.clientGuidelineVersion=selection.clientGuidelineVersion}
   if(b.outputLanguage!==undefined){if(b.outputLanguage!=="en"&&b.outputLanguage!=="hi")return fail(422,"UNSUPPORTED_LANGUAGE","Alt Text output currently supports English and Hindi only.");value.outputLanguage=b.outputLanguage}
   for (const key of ["shortAlt", "longDescription", "extractedText"] as const) {
     if (b[key] === undefined) continue
@@ -252,7 +261,7 @@ export function parseEditRequest(body: unknown): { ok: true; value: EditRequest 
     }
     value.classification = b.classification as ImageClassification
   }
-  if (value.shortAlt === undefined && value.longDescription === undefined && value.classification === undefined && value.extractedText === undefined && value.outputLanguage === undefined) {
+  if (value.shortAlt === undefined && value.longDescription === undefined && value.classification === undefined && value.extractedText === undefined && value.outputLanguage === undefined&&value.clientGuidelineId===undefined) {
     return fail(400, "NO_CHANGES", "Provide at least one field to update.")
   }
   return { ok: true, value }
@@ -280,7 +289,11 @@ export async function updateAsset(id: number, req: EditRequest, actor: HistoryAc
   const notices=terminologyIssues(`${shortAlt}\n${longDescription}`,language).map(i=>`Terminology review (${i.code}): ${i.message}`)
   if(shortAlt.length>shortMaxChars)notices.push(`Short Alt Text exceeds the ${shortMaxChars}-character editorial target. Essential labels and notation were retained; this target is not a WCAG limit.`)
 
-  const saved = await editAsset(id, { classification, shortAlt, longDescription, extractedText }, actor.userId, req.expectedVersion,{language,warnings:[...new Set([...current.warnings,...notices])],note:`Terminology ${TERMINOLOGY_RULE_VERSION}; selected output language ${language}; reviewer-edited language not assessed; no guideline applied.`})
+  let selectedClient:Awaited<ReturnType<typeof resolveSelectedClientGuideline>>|undefined
+  if(req.clientGuidelineId!==undefined){try{selectedClient=await resolveSelectedClientGuideline(req)}catch(e){return e instanceof ClientProfileError?fail(e.status,e.code,e.message):fail(503,"CLIENT_GUIDELINE_UNAVAILABLE","Client guidelines could not be read; no edit was saved.")}}
+  const previousWarnings=selectedClient===undefined?current.warnings:current.warnings.filter(w=>!w.startsWith("Client guideline "))
+  const policyWarnings=selectedClient===undefined?[]:guidelineWarningsForPolicy(selectedClient,shortAlt,longDescription,decorative)
+  const saved = await editAsset(id, { classification, shortAlt, longDescription, extractedText }, actor.userId, req.expectedVersion,{language,warnings:[...new Set([...previousWarnings,...notices,...policyWarnings])],note:`Terminology ${TERMINOLOGY_RULE_VERSION}; output ${language}; client ${selectedClient===undefined?"selection retained":selectedClient?`${selectedClient.id} v${selectedClient.version}`:"none"}; reviewer-edited language not assessed.`,...selectedClient!==undefined?{clientGuideline:selectedClient}:{}})
   if (saved === null) return NOT_FOUND()
   if (saved === "busy") return fail(409, "ASSET_BUSY", "This image is being generated. Try again when generation finishes.")
   if (saved === "conflict") {

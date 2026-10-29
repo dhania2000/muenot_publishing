@@ -1,5 +1,5 @@
 import "server-only"
-import {activeClientGuideline} from "./client-guideline"
+import {descriptionClientGuideline} from "./client-guideline-description-source"
 import {createHash} from "node:crypto"
 import {descriptionStrategy} from "./description-evidence"
 import {query} from "@/lib/db"
@@ -51,7 +51,7 @@ export async function loadQualityInput(assetId:number,occurrenceId:number|null,a
  const analysis=analysisRow?toAnalysisView(analysisRow):null,header=readImageHeader(bytes,asset.mimeType),frame=!!analysis&&!!header&&header.orientation===1&&!header.orientationUnknown&&analysis.source.orientation===1&&!analysis.source.orientationUnknown&&header.width===analysis.source.storedWidth&&header.height===analysis.source.storedHeight
  const category=occurrence?.manual?.primaryCategory??asset.classificationRecord?.manual?.primaryCategory??asset.classificationRecord?.automated?.primaryCategory??asset.classification
  const complex=["math","chart","scientific","flowchart","table","map","mixed"].includes(descriptionStrategy(category??null))
- const input:QualityInput={assetId,occurrenceId,contentVersion:asset.currentVersion,sourceSha256:sha,classification:category??null,description:{shortAlt:asset.shortAlt??"",longDescription:asset.longDescription??"",extractedText:asset.extractedText??"",language:asset.language==="en"||asset.language==="hi"?asset.language:null,approved:asset.status==="approved"&&asset.approvedAt!==null,decorative:asset.classification==="decorative"},policy:{requireLong:complex||asset.settingsOverride?.imagePurpose==="complex",shortTarget:settings.settings.shortMaxChars,guideline:activeClientGuideline(settings.clientGuideline)},coverage:{complete:ocrRows.length<=32&&rows.length<=96,staleSources:0,notes:[]},ocr:[],math:[],charts:[],science:[],illustrations:[],reviewReferences:[]}
+ const input:QualityInput={assetId,occurrenceId,contentVersion:asset.currentVersion,sourceSha256:sha,classification:category??null,description:{shortAlt:asset.shortAlt??"",longDescription:asset.longDescription??"",extractedText:asset.extractedText??"",language:asset.language==="en"||asset.language==="hi"?asset.language:null,approved:asset.status==="approved"&&asset.approvedAt!==null,decorative:asset.classification==="decorative"},policy:{requireLong:complex||asset.settingsOverride?.imagePurpose==="complex",shortTarget:settings.settings.shortMaxChars,guideline:await descriptionClientGuideline(asset)},coverage:{complete:ocrRows.length<=32&&rows.length<=96,staleSources:0,notes:[]},ocr:[],math:[],charts:[],science:[],illustrations:[],reviewReferences:[]}
  const ref=(kind:string,id:unknown,version:number,regionId:string|null,reviewState:string|null=null):QualityReference=>({kind,id:String(id),version:Number(version),regionId,reviewState})
  const originals=new Map<string,string>(),reviewRows=rows.filter(r=>r.kind==="ocr_review"),validReview=(sourceRef:string)=>{
   const r=reviewRows.find(r=>parse(r.input_json)?.sourceRef===sourceRef),p=r?parse(r.input_json):null,v=r?parse(r.result_json):null

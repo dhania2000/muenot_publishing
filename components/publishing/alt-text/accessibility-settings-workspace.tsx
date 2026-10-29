@@ -9,8 +9,7 @@
  *   revision checks. Capability states and permissions come from the server response.
  */
 import { useEffect, useMemo, useState } from "react"
-import {normalizeClientGuideline,type ClientGuidelineSettings} from "@/lib/alt-text/client-guideline"
-import {ClientGuidelineEditor} from "./client-guideline-editor"
+import {ClientGuidelineLibrary} from "./client-guideline-library"
 import useSWR from "swr"
 import {
   BarChart3,
@@ -62,7 +61,7 @@ import { CapabilityBadge, CapabilityList, FieldErrorText, LockedPolicyList, Sett
 
 type SectionId = AccessibilitySectionId | "guidelines"
 type TenantDraft = Pick<AltTextSettings, "defaultLanguage" | "defaultAudience" | "shortMaxChars" | "requireReview">
-type Draft = { tenant: TenantDraft; accessibility: AccessibilityPreferences;guideline:ClientGuidelineSettings }
+type Draft = { tenant: TenantDraft; accessibility: AccessibilityPreferences }
 type Loose = Record<string, Record<string, FieldValue>>
 
 const TENANT_KEYS = ["defaultLanguage", "defaultAudience", "shortMaxChars", "requireReview"] as const
@@ -88,7 +87,6 @@ const fetcher = async () => {
 }
 
 const draftFrom = (data: AltTextSettingsResponse): Draft => ({
-  guideline:(( {version,...config})=>config)(normalizeClientGuideline(data.clientGuideline)),
   tenant: Object.fromEntries(TENANT_KEYS.map((k) => [k, data.settings[k]])) as TenantDraft,
   accessibility: structuredClone(data.accessibility.configured),
 })
@@ -97,7 +95,6 @@ const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 
 function buildPatch(base: Draft, draft: Draft, revision: number): AltTextSettingsPatch {
   const body: AltTextSettingsPatch = { expectedRevision: revision }
-  if(!same(base.guideline,draft.guideline))body.clientGuideline={...draft.guideline,requiredLiterals:draft.guideline.requiredLiterals.filter(s=>s.trim()),forbiddenLiterals:draft.guideline.forbiddenLiterals.filter(s=>s.trim())}
   for (const k of TENANT_KEYS) if (draft.tenant[k] !== base.tenant[k]) Object.assign(body, { [k]: draft.tenant[k] })
   const a = draft.accessibility as unknown as Loose
   const b = base.accessibility as unknown as Loose
@@ -112,7 +109,6 @@ function buildPatch(base: Draft, draft: Draft, revision: number): AltTextSetting
 /** Changed field paths per section, used for nav indicators and the save bar. */
 function changedPaths(base: Draft, draft: Draft): Record<SectionId, number> {
   const counts = Object.fromEntries(SECTION_ORDER.map((s) => [s, 0])) as Record<SectionId, number>
-  if(!same(base.guideline,draft.guideline))counts.guidelines++
   const a = draft.accessibility as unknown as Loose
   const b = base.accessibility as unknown as Loose
   for (const s of ACCESSIBILITY_SECTION_IDS) for (const key of Object.keys(a[s])) if (!same(a[s][key], b[s][key])) counts[s]++
@@ -127,6 +123,7 @@ export function AccessibilitySettingsWorkspace({ onDirtyChange }: { onDirtyChang
   const [draft, setDraft] = useState<Draft | null>(null)
   const [base, setBase] = useState<Draft | null>(null)
   const [saving, setSaving] = useState(false)
+  const [libraryDirty,setLibraryDirty]=useState(false)
   const [saveError, setSaveError] = useState<{ message: string; conflict: boolean } | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [savedAt, setSavedAt] = useState<string | null>(null)
@@ -145,13 +142,13 @@ export function AccessibilitySettingsWorkspace({ onDirtyChange }: { onDirtyChang
   const dirty = totalChanges > 0
   const shortInvalid = !!draft && (!Number.isInteger(draft.tenant.shortMaxChars) || draft.tenant.shortMaxChars < SHORT_MIN || draft.tenant.shortMaxChars > SHORT_MAX)
 
-  useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange])
+  useEffect(() => onDirtyChange?.(dirty||libraryDirty), [dirty,libraryDirty, onDirtyChange])
   useEffect(() => {
-    if (!dirty) return
+    if (!dirty&&!libraryDirty) return
     const warn = (e: BeforeUnloadEvent) => e.preventDefault()
     window.addEventListener("beforeunload", warn)
     return () => window.removeEventListener("beforeunload", warn)
-  }, [dirty])
+  }, [dirty,libraryDirty])
 
   if (isLoading && !data) return <SettingsSkeleton />
   if (error && !data) {
@@ -324,8 +321,8 @@ export function AccessibilitySettingsWorkspace({ onDirtyChange }: { onDirtyChang
               </SchemaSection>
             </TabsContent>
           ))}
-          <TabsContent value="guidelines" className="mt-0">
-            <GuidelinesSection data={data} guideline={draft.guideline} readOnly={readOnly} onChange={guideline=>{setDraft(d=>d?{...d,guideline}:d);setSavedAt(null)}} />
+          <TabsContent value="guidelines" keepMounted className="mt-0">
+            <GuidelinesSection active={section==="guidelines"} onDirtyChange={setLibraryDirty} />
           </TabsContent>
         </div>
       </Tabs>
@@ -335,7 +332,7 @@ export function AccessibilitySettingsWorkspace({ onDirtyChange }: { onDirtyChang
         aria-live="polite"
       >
         <div className="flex min-w-0 flex-col gap-0.5 text-sm">
-          {saveError ? (
+          {libraryDirty ? (<span className="font-medium">Client guideline changes pending — use Save client.</span>) : saveError ? (
             <span className="font-medium text-destructive">{saveError.message}</span>
           ) : dirty ? (
             <span className="font-medium">
@@ -622,50 +619,8 @@ function OcrLanguages({ data }: { data: AltTextSettingsResponse }) {
   )
 }
 
-function GuidelinesSection({ data,guideline,onChange,readOnly }: { data: AltTextSettingsResponse;guideline:ClientGuidelineSettings;onChange:(value:ClientGuidelineSettings)=>void;readOnly:boolean }) {
-  const cap = data.accessibility.capabilities.client_guidelines
-  return (
-    <div className="flex flex-col gap-4">
-      <Card>
-        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex min-w-0 flex-col gap-1.5">
-            <CardTitle className="text-base">Client Guidelines</CardTitle>
-            <CardDescription className="leading-relaxed">{data.accessibility.guideline.message}</CardDescription>
-          </div>
-          <CapabilityBadge status={cap.status} />
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <ClientGuidelineEditor value={guideline} onChange={onChange} readOnly={readOnly}/>
-          <dl className="grid gap-3 text-sm sm:grid-cols-2">
-            <div className="flex flex-col gap-0.5">
-              <dt className="text-xs text-muted-foreground">Applied guideline</dt>
-              <dd className="font-medium">{data.accessibility.guideline.reference?`${data.accessibility.guideline.reference.clientName} · v${data.accessibility.guideline.reference.version}`:"None"}</dd>
-            </div>
-            <div className="flex flex-col gap-0.5">
-              <dt className="text-xs text-muted-foreground">Settings source</dt>
-              <dd className="font-medium">Optional client policy supplements tenant settings and platform safeguards</dd>
-            </div>
-          </dl>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm font-semibold">Settings scopes</CardTitle>
-          <CardDescription>Where effective settings can come from in this ERP.</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-2 text-sm">
-          <p>
-            <span className="font-medium">Supported:</span> Platform defaults → Tenant settings
-          </p>
-          <ul className="flex flex-col gap-1.5 text-muted-foreground">
-            {data.accessibility.scopes.unsupported.map((s) => (
-              <li key={s.scope}>{s.reason}</li>
-            ))}
-          </ul>
-        </CardContent>
-      </Card>
-    </div>
-  )
+function GuidelinesSection({active,onDirtyChange}:{active:boolean;onDirtyChange:(dirty:boolean)=>void}) {
+  return <Card><CardContent className="pt-5"><ClientGuidelineLibrary active={active} onDirtyChange={onDirtyChange}/></CardContent></Card>
 }
 
 function SettingsSkeleton() {

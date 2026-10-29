@@ -88,6 +88,8 @@ function settingsForAsset(asset: AltTextAssetView, base: GenerationSettings): Ge
   const imageType = asset.classification && asset.classification in GENERATION_IMAGE_TYPES ? (asset.classification as GenerationImageType) : "auto"
   return {
     ...base,
+    clientGuidelineId:asset.clientGuidelineId??null,
+    clientGuidelineVersion:asset.clientGuidelineVersion??null,
     imageType,
     imagePurpose: asset.classification === "decorative" ? "decorative" : base.imagePurpose === "decorative" ? "informative" : base.imagePurpose,
     outputLanguage: asset.language in LANGUAGES ? (asset.language as LanguageCode) : base.outputLanguage,
@@ -197,7 +199,11 @@ export function AltTextWorkspace() {
     if (!savedAsset || !saved) return
     setSaving(true)
     setSaveError(null)
-    const r = await saveAltTextEdit(savedAsset.id, { expectedVersion: saved.version,outputLanguage:useCandidate&&output?output.language:settings.outputLanguage, ...(useCandidate && output ? { shortAlt: output.result.shortAlt, longDescription: output.result.longDescription, ...drafts.current } : drafts.current) })
+    const candidatePolicy = useCandidate && output ? output.result.generationEvidence?.clientGuideline : undefined
+    const selection = useCandidate && output
+      ? { clientGuidelineId: candidatePolicy?.id ?? null, clientGuidelineVersion: candidatePolicy ? Number(candidatePolicy.version) : null }
+      : { clientGuidelineId: settings.clientGuidelineId ?? null, clientGuidelineVersion: settings.clientGuidelineVersion ?? null }
+    const r = await saveAltTextEdit(savedAsset.id, { expectedVersion: saved.version,...selection,outputLanguage:useCandidate&&output?output.language:settings.outputLanguage, ...(useCandidate && output ? { shortAlt: output.result.shortAlt, longDescription: output.result.longDescription, ...drafts.current } : drafts.current) })
     setSaving(false)
     if (!r.ok) {
       setSaveError(

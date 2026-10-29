@@ -27,6 +27,7 @@ const CREDITS = {
 }
 
 const s = vi.hoisted(() => ({
+  selected: null as any,
   asset: null as any,
   claim: 1 as number | null,
   prior: null as any,
@@ -37,6 +38,14 @@ const s = vi.hoisted(() => ({
   saveResult: true as boolean | Error,
   image: null as any,
   calls: { claim: 0, save: [] as any[], failed: [] as any[], open: [] as any[] },
+}))
+
+vi.mock("@/lib/alt-text/client-guideline-profile-store", () => ({
+  ClientProfileError: class extends Error {constructor(readonly status:number,readonly code:string,message:string){super(message)}},
+  resolveSelectedClientGuideline: vi.fn(async (settings:any) => {
+    if(s.selected instanceof Error)throw s.selected
+    return settings.clientGuidelineId ? s.selected?.[settings.clientGuidelineId] ?? null : null
+  }),
 }))
 
 vi.mock("@/lib/ai/assistant-store", () => ({ getTenantAiSettings: vi.fn(async () => ({ enabled: true, allowVision: true })) }))
@@ -89,17 +98,10 @@ const req = settings.value
 const run = vi.fn()
 it("does not bypass saved tenant policy or charge when its settings read fails",async()=>{const {getSettingsRecord}=await import("@/lib/alt-text/store");vi.mocked(getSettingsRecord).mockRejectedValueOnce(new Error("Synthetic unavailable settings"));expect(await generateAltTextForAsset(req,actor,{run})).toMatchObject({ok:false,status:503,code:"SETTINGS_UNAVAILABLE"});expect(run).not.toHaveBeenCalled();expect(s.calls.claim).toBe(0)})
 
-it("uses the saved tenant client policy in generation, warnings and version provenance without approving text",async()=>{
- s.policy={accessibility:null,clientGuideline:{enabled:true,clientName:"Synthetic client",requiredLiterals:["unsupported required term"],forbiddenLiterals:[],requireLong:false,version:4}}
- run.mockResolvedValue({status:"generated",output:structuredClone(OUTPUT),vision:{modelId:"openai/gpt-4o",provider:"openai"},credits:CREDITS})
- const result=await generateAltTextForAsset(req,actor,{run})
- expect(result.ok).toBe(true);expect(run.mock.calls[0][0].vision.clientGuideline).toMatchObject({version:"4",rules:[{type:"required_literal",text:"unsupported required term"}]})
- expect(s.calls.save[0][1].generationEvidence).toMatchObject({guidelineVersion:"4",reviewStatus:"needs_review",clientGuideline:{version:"4"}})
- expect(s.calls.save[0][1].warnings.join(" ")).toContain("only if supported by the source")
- expect(s.calls.save[0][1].shortAlt).toBe(OUTPUT.shortAlt)
-})
+it("does not apply another client from the legacy tenant-wide setting",async()=>{s.policy={accessibility:null,clientGuideline:{enabled:true,clientName:"Other client",requiredLiterals:["never auto apply"],forbiddenLiterals:[],requireLong:false,version:4}};run.mockResolvedValue({status:"generated",output:structuredClone(OUTPUT),vision:{modelId:"openai/gpt-4o",provider:"openai"},credits:CREDITS});expect(await generateAltTextForAsset(req,actor,{run})).toMatchObject({ok:true});expect(run.mock.calls[0][0].vision.clientGuideline).toBeNull();expect(s.calls.save[0][1].generationEvidence.clientGuideline).toBeNull()})
 
 beforeEach(() => {
+  s.selected=null
   s.asset = { id: 3, status: "uploaded", currentVersion: 0, classification: null, shortAlt: null, longDescription: null, extractedText: null, warnings: [], treatment: null, storageKey: "tenants/9/secret", createdBy: 5, reviewerId: null }
   s.claim = 1
   s.prior = null
@@ -131,6 +133,29 @@ describe("parseGenerateRequest", () => {
 })
 
 describe("generateAltTextForAsset", () => {
+  it("uses each expert's selected client snapshot independently in prompts and saved evidence",async()=>{
+    s.selected={client_A:{id:"client_A",clientName:"Client A",version:"1",rules:[{type:"required_literal",text:"Alpha"}]},client_D:{id:"client_D",clientName:"Client D",version:"3",rules:[{type:"required_literal",text:"Delta"}]}}
+    for(const id of ["client_A","client_D"]){
+      const policy=s.selected[id]
+      run.mockResolvedValueOnce({status:"generated",output:structuredClone(OUTPUT),vision:{modelId:"openai/gpt-4o"},credits:CREDITS})
+      const result=await generateAltTextForAsset({...req,settings:{...req.settings,clientGuidelineId:id,clientGuidelineVersion:Number(policy.version)}},actor,{run})
+      expect(result).toMatchObject({ok:true})
+      expect(run.mock.calls.at(-1)![0].vision.clientGuideline).toEqual(policy)
+      expect(s.calls.save.at(-1)[1].generationEvidence.clientGuideline).toEqual(policy)
+    }
+  })
+  it("rejects an unavailable client before claiming or charging",async()=>{
+    const {ClientProfileError}=await import("@/lib/alt-text/client-guideline-profile-store")
+    s.selected=new ClientProfileError(409,"CLIENT_GUIDELINE_UNAVAILABLE","Unavailable")
+    expect(await generateAltTextForAsset({...req,settings:{...req.settings,clientGuidelineId:"client_A",clientGuidelineVersion:1}},actor,{run})).toMatchObject({ok:false,status:409,code:"CLIENT_GUIDELINE_UNAVAILABLE"})
+    expect(s.calls.claim).toBe(0);expect(run).not.toHaveBeenCalled()
+  })
+  it("refuses to replay a charged request under another client's selection",async()=>{
+    s.prior=CREDITS
+    s.savedGeneration={version:1,result:{generationEvidence:{clientGuideline:{id:"client_A",version:"1",rules:[]}}}}
+    expect(await generateAltTextForAsset({...req,settings:{...req.settings,clientGuidelineId:"client_D",clientGuidelineVersion:1}},actor,{run})).toMatchObject({ok:false,status:409,code:"CLIENT_GUIDELINE_REPLAY_CONFLICT"})
+    expect(run).not.toHaveBeenCalled()
+  })
   it("records the effective terminology policy in the existing generation version",async()=>{
     const policy=terminologyPolicy(req.settings)
     ;(OUTPUT as any).terminologyReview={policy,issues:[]}

@@ -19,7 +19,6 @@
  * overrides continue to apply to per-request GenerationSettings only (lib/alt-text/batch-settings.ts).
  */
 import { SUBJECTS, type AltTextSettings, type Subject } from "./core"
-import {normalizeClientGuideline} from "./client-guideline"
 
 /* ───────────────────────── Capability registry ───────────────────────── */
 
@@ -57,7 +56,7 @@ export const ACCESSIBILITY_CAPABILITIES = {
   table_image_analysis: { label: "Table-as-image analysis", dependency: "Bounded visible table/cell/row/column proposals with cell-scoped OCR. No missing values or native table remediation." },
   map_geometry_analysis: { label: "Map and geometry analysis", dependency: "Source-bound map elements and existing geometry evidence. No geocoding, distances, scale calibration or routing." },
   mixed_complex_analysis: { label: "Mixed complex image analysis", dependency: "Retains source panels and mixed region categories without flattening or automatic reading-order verification." },
-  client_guidelines: { label: "Client guidelines", dependency: "Optional named client policy saved as this tenant's default. Literal and detailed-description checks supplement source evidence and mandatory review." },
+  client_guidelines: { label: "Client guidelines", dependency: "Multiple saved client profiles. Writers select a client and immutable guideline version independently for each image, batch or document." },
   advanced_qa: { label: "Advanced accessibility QA", dependency: "Versioned local checks for saved OCR, equations, charts, science and reviewed descriptions. Findings require human resolution; no conformance certification." },
 } as const
 export type CapabilityId = keyof typeof ACCESSIBILITY_CAPABILITIES
@@ -643,7 +642,6 @@ export function resolveEffectiveAccessibilitySettings(ctx: {
   backend: AccessibilityBackend
 }): EffectiveAccessibilitySettings {
   const capabilities = deriveCapabilityStates(ctx.backend)
-  const guideline=normalizeClientGuideline(ctx.clientGuideline)
   const { preferences: configured, explicit } = normalizeAccessibilityPreferences(ctx.storedAccessibility)
   const effective = structuredClone(configured) as unknown as LoosePreferences
   const sources: EffectiveAccessibilitySettings["sources"] = {}
@@ -689,9 +687,9 @@ export function resolveEffectiveAccessibilitySettings(ctx: {
       { id: "tenant_require_review", label: "Human review is required before AI output is approved.", source: "tenant", active: ctx.tenant.requireReview },
     ],
     guideline: {
-      status: guideline.enabled?"active":"none",
-      reference:guideline.enabled?{id:"tenant-client-guideline",version:guideline.version,clientName:guideline.clientName}:null,
-      message:guideline.enabled?`Client policy for ${guideline.clientName}, version ${guideline.version}, applies as the tenant default to new generation and QA. Source evidence and mandatory review take priority.`:"Client guidelines are optional. No guideline is applied, so tenant settings and platform defaults are used.",
+      status:"none",
+      reference:null,
+      message:"Save guidelines for multiple clients. Each writer chooses the client by name while preparing their own work; no client is selected for the whole organization.",
     },
     scopes: {
       supported: ["platform_default", "tenant"],

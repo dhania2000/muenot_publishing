@@ -22,6 +22,18 @@ describe("batch info validation", () => {
 })
 
 describe("overrides and effective settings", () => {
+  it("pins a client's ID and version together when another client uses the same version", () => {
+    const a = {...defaults, clientGuidelineId:"client_A", clientGuidelineVersion:1}
+    const d = {...a, clientGuidelineId:"client_D"}
+    const override = buildOverride(a,d)!
+    expect(override).toEqual({clientGuidelineId:"client_D",clientGuidelineVersion:1})
+    expect(resolveEffectiveSettings({...a,clientGuidelineVersion:7},override)).toMatchObject({clientGuidelineId:"client_D",clientGuidelineVersion:1})
+    const clear = buildOverride(a,{...a,clientGuidelineId:null,clientGuidelineVersion:null})!
+    expect(resolveEffectiveSettings(a,clear)).toMatchObject({clientGuidelineId:null,clientGuidelineVersion:null})
+    const config=buildBatchConfiguration(info,a,["expertA","expertB"],{expertB:override})
+    expect(config.isValid).toBe(true)
+    expect(config.images.map(i=>i.effectiveSettings.clientGuidelineId)).toEqual(["client_A","client_D"])
+  })
   it("loads Phase 1 defaults", () => {
     expect(DEFAULT_GENERATION_SETTINGS).toMatchObject({ imageType: "auto", imagePurpose: "informative", outputLanguage: "en", descriptionMode: "both" })
   })

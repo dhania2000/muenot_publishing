@@ -10,7 +10,7 @@
  *   enabled when the backend reports the capability as available.
  */
 import type { NextRequest } from "next/server"
-import {parseClientGuideline,normalizeClientGuideline} from "@/lib/alt-text/client-guideline"
+import {normalizeClientGuideline} from "@/lib/alt-text/client-guideline"
 import {readBody} from "@/lib/alt-text/document-extraction-run"
 import { getSession } from "@/lib/auth"
 import { getTenantAiSettings } from "@/lib/ai/assistant-store"
@@ -93,9 +93,7 @@ export async function PATCH(req: NextRequest) {
   if (unknown.length) return jsonError({ status: 400, code: "INVALID_REQUEST", error: "Unexpected fields in request.", details: { fields: unknown } })
 
   const { accessibility: accessibilityPatch,clientGuideline:rawGuideline, expectedRevision: rawRevision, ...legacy } = body as Record<string, unknown>
-  const guideline=rawGuideline===undefined?null:parseClientGuideline(rawGuideline)
-  if(guideline&&!guideline.ok)return jsonError({status:400,code:"VALIDATION_FAILED",error:guideline.error})
-  if(guideline&&rawRevision===undefined)return jsonError({status:400,code:"INVALID_REQUEST",error:"expectedRevision is required when saving client guidelines."})
+  if(rawGuideline!==undefined)return jsonError({status:400,code:"CLIENT_GUIDELINE_LIBRARY_REQUIRED",error:"Client guidelines are now saved separately for each client. Reload Settings and use the client library."})
   if (rawRevision !== undefined && !(Number.isSafeInteger(rawRevision) && Number(rawRevision) >= 0)) {
     return jsonError({ status: 400, code: "INVALID_REQUEST", error: "expectedRevision must be a non-negative integer." })
   }
@@ -128,10 +126,10 @@ export async function PATCH(req: NextRequest) {
       }
     }
 
-    const saved = await saveSettingsRecord({ settings: next, accessibility: nextAccessibility,...guideline?.ok?{clientGuideline:guideline.value}:{}, expectedRevision: expectedRevision ?? record.revision }, session.userId)
+    const saved = await saveSettingsRecord({ settings: next, accessibility: nextAccessibility, expectedRevision: expectedRevision ?? record.revision }, session.userId)
     if (!saved.ok) return conflict(saved.revision)
     const changedLegacy = (Object.keys(next) as (keyof AltTextSettings)[]).filter((k) => next[k] !== record.settings[k])
-    console.info("[alt-text/settings] updated", { tenantId, actorId: session.userId, revision: saved.revision, fields: [...changedLegacy, ...changedFields,...guideline?["clientGuideline"]:[]] })
+    console.info("[alt-text/settings] updated", { tenantId, actorId: session.userId, revision: saved.revision, fields: [...changedLegacy, ...changedFields] })
 
     return jsonOk(await settingsPayload(await getSettingsRecord(), tenantId, session, true))
   } catch (err) {
