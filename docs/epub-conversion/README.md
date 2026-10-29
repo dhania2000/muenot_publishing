@@ -12,9 +12,10 @@ Each batch contains ten consecutive global task numbers, even across a phase bou
 | --- | --- | --- | --- |
 | 1 | 1–10 | P1-T01–P1-T10 | [Batch 1 report](2026-10-29/batch-01-report.md) |
 | 2 | 11–20 | P1-T11–P2-T05 | [Checkpoint report](2026-10-29/batch-02-report.md) and [intake closure](2026-10-29/P2-T05-intake-integration.md): complete |
-| 3–30 | 21–300 | Exact task order in roadmap.json | Pending |
+| 3 | 21–30 | P2-T06–P2-T15 | [Batch 3 checkpoint](2026-10-30/batch-03-report.md): 9 complete, Task 30 verification partial |
+| 4–30 | 31–300 | Exact task order in roadmap.json | Pending |
 
-Phase 1 is documentation only, as the supplied prompts require. No runtime, database, dependency or production setting is changed by that phase. Phase 2 provides the EPUB overview, requirements pages, selectors, saved wizard and private held-project submission. Sources remain pending security review; no conversion job or charge is created. Overall: 20 complete, 280 not started. Live database/hosting verification and the actual EPUB engine remain future gates.
+Phase 1 is documentation only, as the supplied prompts require. No runtime, database, dependency or production setting is changed by that phase. Phase 2 provides the EPUB overview, requirements pages, selectors, saved wizard and private held-project submission. Sources remain pending security review; no conversion job or charge is created. The workbench now includes scoped dashboards, configuration revisions, safe stored preview/report views, feedback/decisions and administrator assignment/templates. Overall: 29 complete, 1 verification partial, 270 not started. Task 30 needs native screen-reader and remaining state verification. Live database/hosting verification and the actual EPUB engine remain future gates.
 
 ## Shared rules
 

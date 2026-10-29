@@ -1,0 +1,10 @@
+import {createElement as h} from "react"
+import {renderToStaticMarkup} from "react-dom/server"
+import {it,expect} from "vitest"
+import {EpubTimeline,EpubPreview,EpubReports,EpubFeedback} from "@/components/publishing/conversion/epub/epub-project-panels"
+import {EpubConfigurationPanel} from "@/components/publishing/conversion/epub/epub-configuration"
+import {emptyEpubDraft} from "@/lib/epub/intake-plan"
+const data={project:{id:"fixture",status:"held",revision:1,createdAt:"2026-10-29T12:00:00Z",holdReason:"SECURITY_PENDING"},timeline:[{stage:"build",status:"failed",attempts:3}],events:[],jobs:[],outputs:[],previews:[],reports:[],comments:[],decisions:[],permissions:{canInternalReview:false,canOwnerAccept:true}}
+it("never fabricates completion, progress, QA or safe preview for a held intake",()=>{const timeline=renderToStaticMarkup(h(EpubTimeline,{data}));expect(timeline).toContain("failed");expect(timeline).not.toContain("100%");expect(timeline).toContain("No processing job started");expect(renderToStaticMarkup(h(EpubPreview,{data}))).toContain("No verified preview snapshots");expect(renderToStaticMarkup(h(EpubReports,{data,onDiscuss:()=>{}}))).toContain("No quality reports recorded")})
+it("keeps decisions and feedback available without enabling unavailable output approval",()=>{const html=renderToStaticMarkup(h(EpubFeedback,{data,anchor:{kind:"project",ref:""},onSave:async()=>true,busy:false}));expect(html).toContain("No current output exists");expect(html).toContain("Owner acceptance");expect(html).not.toContain("Independent internal review");expect(html).toContain("append-only")})
+it("uses labeled advanced controls and shared keyboard tabs without executable scripts",()=>{const d=emptyEpubDraft(),html=renderToStaticMarkup(h(EpubConfigurationPanel,{value:d.configuration,selection:d.selection,onChange:()=>{}}));expect(html).toContain("Publication configuration sections");expect(html).toContain('role="tab"');expect(html).toContain("Book description");expect(html).not.toContain("dangerouslySetInnerHTML")})

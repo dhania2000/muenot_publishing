@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
-import { notFound } from "next/navigation"
+import { notFound,redirect } from "next/navigation"
+import {getSession} from "@/lib/auth"
 import { FileType } from "lucide-react"
 import { guardBusinessLine } from "@/components/business-line/business-line-landing"
 import { PageHeader } from "@/components/enterprise/page-header"
@@ -71,6 +72,8 @@ export default async function ConversionSubmodulePage({ params }: { params: Prom
   }
 
   const service = conversionModule!
+  const epubSession=service.slug==="epub"?await getSession():null
+  if(service.slug==="epub"&&!epubSession)redirect("/login")
 
   if (service.slug === "pdf") {
     return (
@@ -89,7 +92,7 @@ export default async function ConversionSubmodulePage({ params }: { params: Prom
         breadcrumbs={[...PUBLISHING_CRUMBS, CONVERSION_CRUMB, { label: service.label }]}
       />
       <ConversionModuleTabs module={service} activePage="" />
-      {service.slug === "epub" ? <EpubOverview /> : <PlannedPage
+      {service.slug === "epub" ? <EpubOverview actorScope={`${epubSession!.tenantId}:${epubSession!.userId}`} /> : <PlannedPage
         icon={service.icon}
         title="Coming soon"
         description={`${service.label} is set up. Its tools will appear here once they are built.`}

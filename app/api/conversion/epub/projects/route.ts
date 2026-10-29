@@ -2,6 +2,8 @@ import {getSession} from "@/lib/auth"
 import {checkRateLimit} from "@/lib/rate-limit"
 import {readBody} from "@/lib/alt-text/document-extraction-run"
 import {EPUB_INTAKE_BODY_LIMIT,EpubIntakeError,parseEpubIntake,createEpubIntake,listEpubIntakes} from "@/lib/epub/intake"
+import {parseWorkbenchFilters} from "@/lib/epub/workbench-contract"
+import {listWorkbench,listOperators} from "@/lib/epub/workbench-store"
 export const runtime="nodejs"
 export const dynamic="force-dynamic"
 const response=(body:unknown,status=200)=>Response.json(body,{status,headers:{"Cache-Control":"private, no-store"}})
@@ -22,4 +24,4 @@ export async function POST(req:Request){
   return response({success:true,project},project.created?201:200)
  }catch(e){if(e instanceof EpubIntakeError)return response({success:false,code:e.code,error:e.message},e.status);console.error("[epub/intake] failed",e instanceof Error?e.name:"unknown");return response({success:false,code:"INTAKE_UNAVAILABLE",error:"Project intake is temporarily unavailable. Retry with the same plan; no conversion charge was made."},503)}finally{if(acquired)intakeBusy=false}
 }
-export async function GET(){try{const actor=await getSession();if(!actor)return response({success:false,code:"UNAUTHENTICATED"},401);return response({success:true,items:await listEpubIntakes(actor.userId)})}catch{return response({success:false,code:"INTAKE_UNAVAILABLE",error:"Projects could not be loaded."},503)}}
+export async function GET(req:Request){try{const actor=await getSession();if(!actor)return response({success:false,code:"UNAUTHENTICATED"},401);const limited=await checkRateLimit(`epub-project-list:${actor.tenantId}:${actor.userId}`,{max:120,windowMs:60000});if(!limited.allowed)return response({success:false,code:"RATE_LIMITED",error:"Please wait before refreshing projects."},429);const params=new URL(req.url).searchParams;if(params.get("view")==="operators")return response({success:true,items:await listOperators(actor)});if(params.get("view")==="workbench"){const filters=parseWorkbenchFilters(params);if(!filters)return response({success:false,code:"INVALID_FILTERS",error:"Choose valid search, page and status filters."},400);return response({success:true,...await listWorkbench(filters,actor)})}return response({success:true,items:await listEpubIntakes(actor.userId)})}catch(e){if(e instanceof EpubIntakeError)return response({success:false,code:e.code,error:e.message},e.status);return response({success:false,code:"INTAKE_UNAVAILABLE",error:"Projects could not be loaded."},503)}}

@@ -1,4 +1,5 @@
-/** Frontend planning contract. No upload, execution or availability claim. */
+import {DEFAULT_EPUB_CONFIGURATION,parseEpubConfiguration,configurationProblems,type EpubConfiguration} from "./configuration"
+/** Bounded intake configuration, not an execution or availability claim. */
 export const EPUB_SOURCES = ["docx", "pdf", "images", "html", "xml", "latex", "idml", "epub"] as const
 export const EPUB_VERSIONS = ["3.3", "3.4-experimental", "2.0.1-legacy"] as const
 export const EPUB_LAYOUTS = ["reflowable", "fixed", "mixed", "roll"] as const
@@ -28,13 +29,15 @@ export function detectEpubSource(name:string):EpubSelection["source"]|null {
   if(ext==="tex")return "latex"
   return EPUB_SOURCES.includes(ext as any)?ext as EpubSelection["source"]:null
 }
-export type EpubDraft = {schemaVersion:1;title:string;author:string;guidelineNotes:string;selection:EpubSelection;step:number;sources:{name:string;size:number;kind:EpubSelection["source"]}[]}
-export const emptyEpubDraft=():EpubDraft=>({schemaVersion:1,title:"",author:"",guidelineNotes:"",selection:{...DEFAULT_EPUB_SELECTION},step:0,sources:[]})
+export type EpubDraft = {schemaVersion:1;title:string;author:string;guidelineNotes:string;selection:EpubSelection;configuration?:EpubConfiguration;step:number;sources:{name:string;size:number;kind:EpubSelection["source"]}[]}
+export const emptyEpubDraft=():EpubDraft=>({schemaVersion:1,title:"",author:"",guidelineNotes:"",selection:{...DEFAULT_EPUB_SELECTION},configuration:structuredClone(DEFAULT_EPUB_CONFIGURATION),step:0,sources:[]})
 export function parseEpubDraft(raw:unknown):EpubDraft|null {
   if(!raw||typeof raw!=="object"||Array.isArray(raw))return null
   const d=raw as any,s=d.selection
-  if(Object.keys(d).some(k=>!["schemaVersion","title","author","guidelineNotes","selection","step","sources"].includes(k))||d.schemaVersion!==1||typeof d.title!=="string"||d.title.length>160||typeof d.author!=="string"||d.author.length>160||typeof d.guidelineNotes!=="string"||d.guidelineNotes.length>2000||!Number.isInteger(d.step)||d.step<0||d.step>4||!s||Object.keys(s).sort().join()!=="layout,profile,rendition,source,version"||!EPUB_SOURCES.includes(s.source)||!EPUB_VERSIONS.includes(s.version)||!EPUB_LAYOUTS.includes(s.layout)||!["single","multiple"].includes(s.rendition)||!["standard","accessible","enhanced","stem"].includes(s.profile)||selectionProblems(s).length||!Array.isArray(d.sources)||d.sources.length>10)return null
+  if(Object.keys(d).some(k=>!["schemaVersion","title","author","guidelineNotes","selection","configuration","step","sources"].includes(k))||d.schemaVersion!==1||typeof d.title!=="string"||d.title.length>160||typeof d.author!=="string"||d.author.length>160||typeof d.guidelineNotes!=="string"||d.guidelineNotes.length>2000||!Number.isInteger(d.step)||d.step<0||d.step>4||!s||Object.keys(s).sort().join()!=="layout,profile,rendition,source,version"||!EPUB_SOURCES.includes(s.source)||!EPUB_VERSIONS.includes(s.version)||!EPUB_LAYOUTS.includes(s.layout)||!["single","multiple"].includes(s.rendition)||!["standard","accessible","enhanced","stem"].includes(s.profile)||selectionProblems(s).length||!Array.isArray(d.sources)||d.sources.length>10)return null
+  const configuration=parseEpubConfiguration(d.configuration)
+  if(!configuration||configurationProblems(configuration,s).length)return null
   for(const f of d.sources)if(!f||Object.keys(f).sort().join()!=="kind,name,size"||typeof f.name!=="string"||!f.name||f.name.length>255||/[\x00-\x1f\\/]/.test(f.name)||!Number.isSafeInteger(f.size)||f.size<1||f.size>25*1024*1024||!EPUB_SOURCES.includes(f.kind)||detectEpubSource(f.name)!==f.kind)return null
   if(d.sources.reduce((n:number,f:any)=>n+f.size,0)>100*1024*1024)return null
-  return structuredClone(d)
+  return {...structuredClone(d),configuration}
 }

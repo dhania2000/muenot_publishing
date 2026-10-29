@@ -5,6 +5,7 @@ import {ensurePlatformSchema} from "@/lib/platform-schema"
 import {currentTenantId} from "@/lib/tenant-scope"
 import {storePendingFileInTransaction} from "@/lib/storage"
 import {detectEpubSource,parseEpubDraft,type EpubDraft} from "./intake-plan"
+import {DEFAULT_EPUB_CONFIGURATION} from "./configuration"
 
 export const EPUB_INTAKE_BODY_LIMIT=101*1024*1024
 export class EpubIntakeError extends Error{constructor(readonly status:number,readonly code:string,message:string){super(message)}}
@@ -13,7 +14,7 @@ export const EPUB_INTAKE_DDL=[
  `CREATE TABLE IF NOT EXISTS conversion_project_assets (tenant_id BIGINT UNSIGNED NOT NULL,project_id CHAR(36) NOT NULL,ordinal INT UNSIGNED NOT NULL,file_id BIGINT UNSIGNED NOT NULL,sha256 CHAR(64) NOT NULL,source_kind VARCHAR(32) NOT NULL,PRIMARY KEY(tenant_id,project_id,ordinal),KEY conversion_asset_file(tenant_id,file_id),CONSTRAINT conversion_asset_project_fk FOREIGN KEY(tenant_id,project_id) REFERENCES conversion_projects(tenant_id,id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 ] as const
 let schema:Promise<void>|null=null
-async function ensure(){schema??=(async()=>{await ensurePlatformSchema();for(const ddl of EPUB_INTAKE_DDL)await query(ddl)})().catch(e=>{schema=null;throw e});return schema}
+export async function ensureEpubIntake(){schema??=(async()=>{await ensurePlatformSchema();for(const ddl of EPUB_INTAKE_DDL)await query(ddl)})().catch(e=>{schema=null;throw e});return schema}
 export type IntakeSource={name:string;bytes:Buffer;kind:NonNullable<ReturnType<typeof detectEpubSource>>;sha256:string}
 export async function parseEpubIntake(form:FormData):Promise<{plan:EpubDraft;requestId:string;sources:IntakeSource[]}>{
  if([...form.keys()].some(k=>!["plan","requestId","rightsConfirmed","sources"].includes(k))||form.getAll("plan").length!==1||form.getAll("requestId").length!==1||form.getAll("rightsConfirmed").length!==1)throw new EpubIntakeError(400,"INVALID_REQUEST","Send one project plan and request reference.")
@@ -38,7 +39,9 @@ export async function parseEpubIntake(form:FormData):Promise<{plan:EpubDraft;req
  return {plan,requestId,sources}
 }
 export async function createEpubIntake(input:Awaited<ReturnType<typeof parseEpubIntake>>,actorId:number){
- await ensure();const tenant=currentTenantId(),id=randomUUID(),s=input.plan.selection,fingerprint=createHash("sha256").update(JSON.stringify([input.plan.title,input.plan.author,input.plan.guidelineNotes,[s.source,s.version,s.layout,s.rendition,s.profile],input.sources.map(f=>[f.name,f.kind,f.bytes.length,f.sha256])])).digest("hex")
+ await ensureEpubIntake();const tenant=currentTenantId(),id=randomUUID(),s=input.plan.selection,parts:unknown[]=[input.plan.title,input.plan.author,input.plan.guidelineNotes,[s.source,s.version,s.layout,s.rendition,s.profile],input.sources.map(f=>[f.name,f.kind,f.bytes.length,f.sha256])]
+ if(input.plan.configuration&&JSON.stringify(input.plan.configuration)!==JSON.stringify(DEFAULT_EPUB_CONFIGURATION))parts.push(input.plan.configuration)
+ const fingerprint=createHash("sha256").update(JSON.stringify(parts)).digest("hex")
  return withTransaction(async conn=>{
   // Serializes this intake's tenant quota and idempotency writes without introducing another queue.
   await conn.query("SELECT id FROM users WHERE tenant_id=? ORDER BY id LIMIT 1 FOR UPDATE",[tenant])
@@ -56,4 +59,4 @@ export async function createEpubIntake(input:Awaited<ReturnType<typeof parseEpub
  })
 }
 function receipt(row:any,created:boolean){return {id:row.id,status:row.status,holdReason:row.hold_reason,revision:Number(row.revision),created,message:"Project received. Sources are private and pending security review. EPUB conversion is not available; no processing job or charge was created."}}
-export async function listEpubIntakes(actorId:number){await ensure();return query<any[]>("SELECT id,title,status,hold_reason AS holdReason,revision,created_at AS createdAt FROM conversion_projects WHERE tenant_id=? AND created_by=? AND service='epub' ORDER BY created_at DESC,id DESC LIMIT 20",[currentTenantId(),actorId])}
+export async function listEpubIntakes(actorId:number){await ensureEpubIntake();return query<any[]>("SELECT id,title,status,hold_reason AS holdReason,revision,created_at AS createdAt FROM conversion_projects WHERE tenant_id=? AND created_by=? AND service='epub' ORDER BY created_at DESC,id DESC LIMIT 20",[currentTenantId(),actorId])}
