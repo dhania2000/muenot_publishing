@@ -15,10 +15,11 @@
  *     analysis engines when those engines are implemented. They never trigger processing.
  *
  * Supported scopes are the ones that exist in this ERP: platform defaults → tenant settings.
- * There is no client-guideline, project-settings or per-batch accessibility scope; batch and image
+ * An optional named client guideline supplements the tenant defaults; there is no project-settings or per-batch accessibility scope. Batch and image
  * overrides continue to apply to per-request GenerationSettings only (lib/alt-text/batch-settings.ts).
  */
 import { SUBJECTS, type AltTextSettings, type Subject } from "./core"
+import {normalizeClientGuideline} from "./client-guideline"
 
 /* ───────────────────────── Capability registry ───────────────────────── */
 
@@ -38,16 +39,16 @@ export const ACCESSIBILITY_CAPABILITIES = {
     label: "Image region detection",
     dependency: "Uses an approved vision model to estimate region positions. Positions are model estimates, not pixel-verified.",
   },
-  classification_confidence: { label: "Classification confidence", dependency: "The vision model does not return calibrated classification confidence. Planned in Task 3." },
+  classification_confidence: { label: "Classification uncertainty & review", dependency: "Uses categorical clear, ambiguous or insufficient evidence and the existing manual review workflow. These are not calibrated confidence percentages." },
   advanced_description: { label: "Advanced description pipeline", dependency: "Uses bounded saved OCR, math, chart and diagram evidence in the existing governed generator. Missing or tentative evidence requires review; no analyzer runs automatically." },
   text_heavy_analysis: { label: "Text-heavy image analysis", dependency: "Uses existing saved raw and corrected OCR in the governed description generator. Recognition must be run separately." },
   ocr: { label: "OCR text recognition", dependency: "Self-hosted Tesseract.js engine with integrity-checked English and Hindi language packs. Printed English, Hindi (Devanagari) and mixed English + Hindi text." },
-  math_analysis: { label: "Mathematical equation analysis", dependency: "No mathematical recognizer is installed. Planned in Task 8." },
-  math_ocr: { label: "Mathematical OCR", dependency: "No mathematical OCR is installed. Planned in Task 8." },
-  math_verification: { label: "Formula verification", dependency: "No formula validator is installed. Planned in Task 9." },
-  latex_output: { label: "LaTeX output", dependency: "LaTeX generation and validation are planned in Tasks 8–9." },
-  mathml_output: { label: "MathML output", dependency: "MathML conversion and validation are planned in Tasks 8–9." },
-  chart_analysis: { label: "Graph and chart analysis", dependency: "No chart analyzer is installed. Planned in Tasks 11–13." },
+  math_analysis: { label: "Mathematical equation analysis", dependency: "Local recognizer with runtime readiness checks. Recognition remains a candidate requiring human verification." },
+  math_ocr: { label: "Mathematical OCR", dependency: "Local mathematical recognition; output accuracy requires human review." },
+  math_verification: { label: "Equation syntax & human verification", dependency: "Local bounded syntax parsing, KaTeX rendering and separate human source-match review. Syntax validity does not establish mathematical truth." },
+  latex_output: { label: "LaTeX output", dependency: "Saved equation candidates and reviewer corrections with bounded syntax validation." },
+  mathml_output: { label: "Presentation MathML output", dependency: "Local KaTeX conversion and sanitized Presentation MathML; no semantic mathematical proof." },
+  chart_analysis: { label: "Graph and chart analysis", dependency: "Governed vision proposals for existing chart regions. Labels and data require review." },
   chart_axes: {label:"Chart axes, labels and scales",dependency:"Uses reviewer-verified OCR and existing chart regions. Geometry and scale fits remain candidates."},
   chart_data_extraction: { label: "Graph data extraction", dependency: "Local reviewed visible data labels only. Native chart data and image digitization are unsupported; reviewer confirmation and source provenance are required." },
   scientific_diagram_analysis: { label: "Scientific diagram analysis", dependency: "Governed vision of existing diagram/component regions, OCR references and tentative visual relationships. No subject identity or scientific accuracy is verified." },
@@ -56,8 +57,8 @@ export const ACCESSIBILITY_CAPABILITIES = {
   table_image_analysis: { label: "Table-as-image analysis", dependency: "Bounded visible table/cell/row/column proposals with cell-scoped OCR. No missing values or native table remediation." },
   map_geometry_analysis: { label: "Map and geometry analysis", dependency: "Source-bound map elements and existing geometry evidence. No geocoding, distances, scale calibration or routing." },
   mixed_complex_analysis: { label: "Mixed complex image analysis", dependency: "Retains source panels and mixed region categories without flattening or automatic reading-order verification." },
-  client_guidelines: { label: "Client guidelines", dependency: "This ERP has no client guideline records or guideline parser yet." },
-  advanced_qa: { label: "Advanced accessibility QA", dependency: "Planned in Task 21." },
+  client_guidelines: { label: "Client guidelines", dependency: "Optional named client policy saved as this tenant's default. Literal and detailed-description checks supplement source evidence and mandatory review." },
+  advanced_qa: { label: "Advanced accessibility QA", dependency: "Versioned local checks for saved OCR, equations, charts, science and reviewed descriptions. Findings require human resolution; no conformance certification." },
 } as const
 export type CapabilityId = keyof typeof ACCESSIBILITY_CAPABILITIES
 export const CAPABILITY_IDS = Object.keys(ACCESSIBILITY_CAPABILITIES) as CapabilityId[]
@@ -92,6 +93,7 @@ const RUNTIME_REQUIREMENTS: Partial<Record<CapabilityId, (b: AccessibilityBacken
   standard_description: (b) =>
     b.visionModelAvailable === true ? null : b.visionModelAvailable === false ? "No approved vision-capable model is available to this tenant." : "Vision model availability could not be verified.",
   auto_classification: (b) => (b.visionModelAvailable === true ? null : "Requires an available vision model."),
+  classification_confidence: (b) => (b.visionModelAvailable === true ? null : "Requires an available vision model for automated uncertainty; existing manual review remains available."),
   region_detection: (b) => (b.visionModelAvailable === true ? null : "Requires an available vision model."),
   scientific_domain_analysis: (b) => b.visionModelAvailable===true?null:"Requires an authorized, configured vision model.",
   scientific_diagram_analysis: (b) => b.visionModelAvailable===true?null:"Requires an authorized, configured vision model.",
@@ -312,7 +314,7 @@ export const ACCESSIBILITY_SCHEMA = {
   },
   math: {
     title: "Mathematics & Equations",
-    description: "Recognition and representation of equations, symbols and geometry labels.",
+    description: "Recognition and representation of equations, symbols and geometry labels. Local syntax/MathML validation runs from equation review or the shared processing pipeline; mathematical truth requires human verification.",
     capabilities: ["math_analysis", "math_verification", "latex_output", "mathml_output"],
     fields: [
       flag("equationRecognition", "Equation recognition", false, { group: "Recognition", requires: "math_analysis" }),
@@ -320,7 +322,6 @@ export const ACCESSIBILITY_SCHEMA = {
       flag("displayedEquations", "Displayed equations", false, { group: "Recognition", requires: "math_analysis" }),
       flag("inlineEquations", "Inline equations", false, { group: "Recognition", requires: "math_analysis" }),
       flag("geometryLabels", "Geometry labels", false, { group: "Recognition", requires: "math_analysis" }),
-      flag("formulaVerification", "Formula verification", false, { group: "Recognition", requires: "math_verification" }),
       {
         kind: "choice",
         key: "outputFormat",
@@ -606,7 +607,7 @@ export const ACTIVE_QA_CHECKS = [
   { id: "length", label: "Short description length (tenant limit)" },
 ] as const
 
-export const PLANNED_QA_CHECKS = [
+export const ADVANCED_QA_CHECKS = [
   { id: "ocr_warnings", label: "Unresolved OCR warnings" },
   { id: "unverified_equations", label: "Unverified equations" },
   { id: "ambiguous_graph_data", label: "Ambiguous graph data" },
@@ -629,18 +630,20 @@ export type EffectiveAccessibilitySettings = {
   ocrLanguages: { code: OcrLanguage; label: string; configured: boolean; packInstalled: boolean }[]
   outputLanguage: AltTextSettings["defaultLanguage"]
   mandatory: { id: string; label: string; source: "platform" | "tenant"; active: boolean }[]
-  guideline: { status: "none"; reference: null; message: string }
+  guideline: { status: "none"|"active"; reference: {id:string;version:number;clientName:string}|null; message: string }
   scopes: { supported: ("platform_default" | "tenant")[]; unsupported: { scope: string; reason: string }[] }
 }
 
 /** The single resolution path for accessibility settings. Frontend tabs and future engines both read its output. */
 export function resolveEffectiveAccessibilitySettings(ctx: {
   storedAccessibility: unknown
+  clientGuideline?:unknown
   revision: number
   tenant: Pick<AltTextSettings, "requireReview" | "defaultLanguage">
   backend: AccessibilityBackend
 }): EffectiveAccessibilitySettings {
   const capabilities = deriveCapabilityStates(ctx.backend)
+  const guideline=normalizeClientGuideline(ctx.clientGuideline)
   const { preferences: configured, explicit } = normalizeAccessibilityPreferences(ctx.storedAccessibility)
   const effective = structuredClone(configured) as unknown as LoosePreferences
   const sources: EffectiveAccessibilitySettings["sources"] = {}
@@ -686,14 +689,13 @@ export function resolveEffectiveAccessibilitySettings(ctx: {
       { id: "tenant_require_review", label: "Human review is required before AI output is approved.", source: "tenant", active: ctx.tenant.requireReview },
     ],
     guideline: {
-      status: "none",
-      reference: null,
-      message: "Client guidelines are optional. No guideline is applied, so tenant settings and platform defaults are used.",
+      status: guideline.enabled?"active":"none",
+      reference:guideline.enabled?{id:"tenant-client-guideline",version:guideline.version,clientName:guideline.clientName}:null,
+      message:guideline.enabled?`Client policy for ${guideline.clientName}, version ${guideline.version}, applies as the tenant default to new generation and QA. Source evidence and mandatory review take priority.`:"Client guidelines are optional. No guideline is applied, so tenant settings and platform defaults are used.",
     },
     scopes: {
       supported: ["platform_default", "tenant"],
       unsupported: [
-        { scope: "client_guideline", reason: ACCESSIBILITY_CAPABILITIES.client_guidelines.dependency },
         { scope: "project", reason: "Projects do not carry Alt Text settings in this ERP." },
         { scope: "batch_and_image", reason: "Batch and image overrides apply to per-request generation settings only." },
       ],
@@ -711,7 +713,7 @@ export type AccessibilitySettingsSnapshot = {
   analysisTypes: string[]
   ocr: { enabled: boolean; languages: string[]; defaultLanguageMode: string | null }
   mathOutput: string
-  guidelineVersion: null
+  guidelineVersion: string|null
   reviewPolicy: {
     requireReview: boolean
     ocrReview: string
@@ -735,7 +737,7 @@ export function accessibilitySnapshot(resolved: EffectiveAccessibilitySettings, 
     analysisTypes: [...e.general.analysisTypes],
     ocr: { enabled: e.ocr.enabled, languages: e.ocr.enabled ? [...e.ocr.languages] : [], defaultLanguageMode: e.ocr.enabled ? e.ocr.defaultLanguageMode : null },
     mathOutput: e.math.outputFormat,
-    guidelineVersion: null,
+    guidelineVersion:resolved.guideline.reference?String(resolved.guideline.reference.version):null,
     reviewPolicy: {
       requireReview: extras.requireReview,
       ocrReview: e.ocr.reviewPolicy,

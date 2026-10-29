@@ -481,6 +481,7 @@ export function triggerDownload(blob: Blob, filename: string) {
 export const ALT_TEXT_SETTINGS_URL = "/api/alt-text/settings"
 
 export type AltTextSettingsResponse = {
+  clientGuideline?:import("./client-guideline").SavedClientGuideline
   success: true
   settings: import("./core").AltTextSettings
   revision: number
@@ -491,7 +492,7 @@ export type AltTextSettingsResponse = {
 
 export type AltTextSettingsPatch = Partial<
   Pick<import("./core").AltTextSettings, "defaultLanguage" | "defaultAudience" | "shortMaxChars" | "requireReview">
-> & { accessibility?: import("./accessibility-settings").AccessibilityPatch; expectedRevision: number }
+> & { accessibility?: import("./accessibility-settings").AccessibilityPatch; clientGuideline?:import("./client-guideline").ClientGuidelineSettings; expectedRevision: number }
 
 export function getAltTextSettings() {
   return requestJson<AltTextSettingsResponse>(ALT_TEXT_SETTINGS_URL, { cache: "no-store" })

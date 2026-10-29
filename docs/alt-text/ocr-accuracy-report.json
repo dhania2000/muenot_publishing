@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-26T05:08:22.365Z",
+  "generatedAt": "2026-10-29T06:37:15.912Z",
   "engine": "tesseract.js@7.0.0",
   "models": {
     "eng": [
@@ -40,7 +40,7 @@
     "exactMatches": 4,
     "cer": 0.1938,
     "wer": 0.5112,
-    "meanDurationMs": 56
+    "meanDurationMs": 165
   },
   "byMode": {
     "eng": {
@@ -48,21 +48,21 @@
       "exactMatches": 1,
       "cer": 0,
       "wer": 0,
-      "meanDurationMs": 173
+      "meanDurationMs": 905
     },
     "hin": {
       "samples": 23,
       "exactMatches": 3,
       "cer": 0.1848,
       "wer": 0.6413,
-      "meanDurationMs": 32
+      "meanDurationMs": 87
     },
     "eng_hin": {
       "samples": 13,
       "exactMatches": 0,
       "cer": 0.2251,
       "wer": 0.4211,
-      "meanDurationMs": 89
+      "meanDurationMs": 247
     }
   },
   "byCategory": {
@@ -71,77 +71,77 @@
       "exactMatches": 2,
       "cer": 0.2,
       "wer": 0.7059,
-      "meanDurationMs": 31
+      "meanDurationMs": 66
     },
     "hindi_features": {
       "samples": 7,
       "exactMatches": 1,
       "cer": 0.1615,
       "wer": 0.5,
-      "meanDurationMs": 24
+      "meanDurationMs": 70
     },
     "mixed": {
       "samples": 10,
       "exactMatches": 0,
       "cer": 0.14,
       "wer": 0.4082,
-      "meanDurationMs": 65
+      "meanDurationMs": 162
     },
     "clean_english": {
       "samples": 1,
       "exactMatches": 1,
       "cer": 0,
       "wer": 0,
-      "meanDurationMs": 173
+      "meanDurationMs": 905
     },
     "low_resolution_hindi": {
       "samples": 1,
       "exactMatches": 0,
       "cer": 0.2222,
       "wer": 1,
-      "meanDurationMs": 83
+      "meanDurationMs": 341
     },
     "small_font": {
       "samples": 1,
       "exactMatches": 0,
       "cer": 0.4118,
       "wer": 1,
-      "meanDurationMs": 13
+      "meanDurationMs": 38
     },
     "bold_heading": {
       "samples": 1,
       "exactMatches": 0,
       "cer": 0.2727,
       "wer": 0.5,
-      "meanDurationMs": 18
+      "meanDurationMs": 59
     },
     "multi_line": {
       "samples": 1,
       "exactMatches": 0,
       "cer": 0.1333,
       "wer": 0.6667,
-      "meanDurationMs": 81
+      "meanDurationMs": 276
     },
     "multi_column": {
       "samples": 1,
       "exactMatches": 0,
       "cer": 0.5846,
       "wer": 0.5455,
-      "meanDurationMs": 290
+      "meanDurationMs": 1026
     },
     "scientific_labels": {
       "samples": 1,
       "exactMatches": 0,
       "cer": 0.2805,
       "wer": 0.4545,
-      "meanDurationMs": 159
+      "meanDurationMs": 422
     },
     "numbers_punctuation": {
       "samples": 1,
       "exactMatches": 0,
       "cer": 0.0294,
       "wer": 0.2,
-      "meanDurationMs": 56
+      "meanDurationMs": 148
     }
   },
   "samples": [
@@ -158,7 +158,7 @@
       "refChars": 13,
       "wordEdits": 1,
       "refWords": 2,
-      "durationMs": 152
+      "durationMs": 306
     },
     {
       "id": "hin-02",
@@ -173,7 +173,7 @@
       "refChars": 10,
       "wordEdits": 2,
       "refWords": 2,
-      "durationMs": 16
+      "durationMs": 30
     },
     {
       "id": "hin-03",
@@ -188,7 +188,7 @@
       "refChars": 8,
       "wordEdits": 2,
       "refWords": 2,
-      "durationMs": 17
+      "durationMs": 35
     },
     {
       "id": "hin-04",
@@ -203,7 +203,7 @@
       "refChars": 17,
       "wordEdits": 3,
       "refWords": 3,
-      "durationMs": 18
+      "durationMs": 43
     },
     {
       "id": "hin-05",
@@ -218,7 +218,7 @@
       "refChars": 25,
       "wordEdits": 0,
       "refWords": 4,
-      "durationMs": 25
+      "durationMs": 67
     },
     {
       "id": "hin-06",
@@ -233,7 +233,7 @@
       "refChars": 18,
       "wordEdits": 2,
       "refWords": 3,
-      "durationMs": 21
+      "durationMs": 58
     },
     {
       "id": "hin-07",
@@ -248,7 +248,7 @@
       "refChars": 20,
       "wordEdits": 3,
       "refWords": 4,
-      "durationMs": 23
+      "durationMs": 44
     },
     {
       "id": "hin-08",
@@ -263,7 +263,7 @@
       "refChars": 20,
       "wordEdits": 3,
       "refWords": 3,
-      "durationMs": 20
+      "durationMs": 44
     },
     {
       "id": "hin-09",
@@ -278,7 +278,7 @@
       "refChars": 16,
       "wordEdits": 3,
       "refWords": 3,
-      "durationMs": 21
+      "durationMs": 49
     },
     {
       "id": "hin-10",
@@ -293,7 +293,7 @@
       "refChars": 12,
       "wordEdits": 2,
       "refWords": 2,
-      "durationMs": 15
+      "durationMs": 31
     },
     {
       "id": "hin-11",
@@ -308,7 +308,7 @@
       "refChars": 16,
       "wordEdits": 0,
       "refWords": 3,
-      "durationMs": 20
+      "durationMs": 48
     },
     {
       "id": "hin-12",
@@ -323,7 +323,7 @@
       "refChars": 15,
       "wordEdits": 3,
       "refWords": 3,
-      "durationMs": 19
+      "durationMs": 42
     },
     {
       "id": "hin-feature-matras",
@@ -338,7 +338,7 @@
       "refChars": 38,
       "wordEdits": 5,
       "refWords": 8,
-      "durationMs": 37
+      "durationMs": 96
     },
     {
       "id": "hin-feature-nukta",
@@ -353,7 +353,7 @@
       "refChars": 15,
       "wordEdits": 0,
       "refWords": 3,
-      "durationMs": 21
+      "durationMs": 59
     },
     {
       "id": "hin-feature-anusvara_chandrabindu",
@@ -368,7 +368,7 @@
       "refChars": 17,
       "wordEdits": 3,
       "refWords": 3,
-      "durationMs": 19
+      "durationMs": 73
     },
     {
       "id": "hin-feature-visarga",
@@ -383,7 +383,7 @@
       "refChars": 8,
       "wordEdits": 1,
       "refWords": 2,
-      "durationMs": 13
+      "durationMs": 68
     },
     {
       "id": "hin-feature-virama_conjuncts",
@@ -398,7 +398,7 @@
       "refChars": 50,
       "wordEdits": 3,
       "refWords": 8,
-      "durationMs": 38
+      "durationMs": 83
     },
     {
       "id": "hin-feature-danda_digits",
@@ -413,7 +413,7 @@
       "refChars": 24,
       "wordEdits": 2,
       "refWords": 6,
-      "durationMs": 28
+      "durationMs": 65
     },
     {
       "id": "hin-feature-ri_matra",
@@ -428,7 +428,7 @@
       "refChars": 9,
       "wordEdits": 2,
       "refWords": 2,
-      "durationMs": 15
+      "durationMs": 43
     },
     {
       "id": "bi-01",
@@ -443,7 +443,7 @@
       "refChars": 16,
       "wordEdits": 2,
       "refWords": 3,
-      "durationMs": 191
+      "durationMs": 438
     },
     {
       "id": "bi-02",
@@ -458,7 +458,7 @@
       "refChars": 21,
       "wordEdits": 1,
       "refWords": 5,
-      "durationMs": 45
+      "durationMs": 89
     },
     {
       "id": "bi-03",
@@ -473,7 +473,7 @@
       "refChars": 28,
       "wordEdits": 2,
       "refWords": 4,
-      "durationMs": 47
+      "durationMs": 143
     },
     {
       "id": "bi-04",
@@ -488,7 +488,7 @@
       "refChars": 13,
       "wordEdits": 2,
       "refWords": 3,
-      "durationMs": 29
+      "durationMs": 71
     },
     {
       "id": "bi-05",
@@ -503,7 +503,7 @@
       "refChars": 41,
       "wordEdits": 4,
       "refWords": 8,
-      "durationMs": 70
+      "durationMs": 146
     },
     {
       "id": "bi-06",
@@ -518,7 +518,7 @@
       "refChars": 23,
       "wordEdits": 1,
       "refWords": 5,
-      "durationMs": 49
+      "durationMs": 99
     },
     {
       "id": "bi-07",
@@ -533,7 +533,7 @@
       "refChars": 27,
       "wordEdits": 1,
       "refWords": 5,
-      "durationMs": 61
+      "durationMs": 134
     },
     {
       "id": "bi-08",
@@ -548,7 +548,7 @@
       "refChars": 26,
       "wordEdits": 1,
       "refWords": 5,
-      "durationMs": 51
+      "durationMs": 122
     },
     {
       "id": "bi-09",
@@ -563,7 +563,7 @@
       "refChars": 33,
       "wordEdits": 4,
       "refWords": 7,
-      "durationMs": 58
+      "durationMs": 139
     },
     {
       "id": "bi-10",
@@ -578,7 +578,7 @@
       "refChars": 22,
       "wordEdits": 2,
       "refWords": 4,
-      "durationMs": 51
+      "durationMs": 236
     },
     {
       "id": "eng-clean",
@@ -593,7 +593,7 @@
       "refChars": 47,
       "wordEdits": 0,
       "refWords": 10,
-      "durationMs": 173
+      "durationMs": 905
     },
     {
       "id": "hin-low-res",
@@ -608,7 +608,7 @@
       "refChars": 18,
       "wordEdits": 3,
       "refWords": 3,
-      "durationMs": 83
+      "durationMs": 341
     },
     {
       "id": "hin-small-font",
@@ -623,7 +623,7 @@
       "refChars": 17,
       "wordEdits": 3,
       "refWords": 3,
-      "durationMs": 13
+      "durationMs": 38
     },
     {
       "id": "hin-bold-heading",
@@ -638,7 +638,7 @@
       "refChars": 11,
       "wordEdits": 1,
       "refWords": 2,
-      "durationMs": 18
+      "durationMs": 59
     },
     {
       "id": "hin-paragraph",
@@ -653,7 +653,7 @@
       "refChars": 90,
       "wordEdits": 12,
       "refWords": 18,
-      "durationMs": 81
+      "durationMs": 276
     },
     {
       "id": "bi-two-columns",
@@ -668,7 +668,7 @@
       "refChars": 65,
       "wordEdits": 6,
       "refWords": 11,
-      "durationMs": 290
+      "durationMs": 1026
     },
     {
       "id": "bi-scientific",
@@ -683,7 +683,7 @@
       "refChars": 82,
       "wordEdits": 5,
       "refWords": 11,
-      "durationMs": 159
+      "durationMs": 422
     },
     {
       "id": "num-punct",
@@ -698,7 +698,7 @@
       "refChars": 34,
       "wordEdits": 1,
       "refWords": 5,
-      "durationMs": 56
+      "durationMs": 148
     }
   ]
 }

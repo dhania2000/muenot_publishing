@@ -934,6 +934,7 @@ export async function saveSettings(settings: AltTextSettings, actorId: number) {
  * keeps reading exactly the fields it did before.
  */
 export type AltTextSettingsRecord = {
+  clientGuideline?: import("./client-guideline").SavedClientGuideline
   settings: AltTextSettings
   accessibility: unknown
   revision: number
@@ -955,6 +956,7 @@ export async function getSettingsRecord(): Promise<AltTextSettingsRecord> {
   return {
     settings: normalizeSettings(json),
     accessibility: json.accessibility ?? null,
+    clientGuideline: (await import("./client-guideline")).normalizeClientGuideline(json.clientGuideline),
     revision: revisionOf(json),
     updatedBy: row?.updated_by == null ? null : Number(row.updated_by),
     updatedAt: row?.updated_at ? new Date(row.updated_at).toISOString() : null,
@@ -967,7 +969,7 @@ export async function getSettingsRecord(): Promise<AltTextSettingsRecord> {
  * on a stale read returns a conflict instead of overwriting a concurrent change.
  */
 export async function saveSettingsRecord(
-  input: { settings: AltTextSettings; accessibility?: unknown; expectedRevision: number | null },
+  input: { settings: AltTextSettings; accessibility?: unknown; clientGuideline?:import("./client-guideline").ClientGuidelineSettings; expectedRevision: number | null },
   actorId: number,
 ): Promise<{ ok: true; revision: number } | { ok: false; reason: "conflict"; revision: number }> {
   await ensureAltTextSchema()
@@ -978,7 +980,11 @@ export async function saveSettingsRecord(
     const revision = revisionOf(current)
     if (input.expectedRevision != null && input.expectedRevision !== revision) return { ok: false, reason: "conflict", revision } as const
     const accessibility = input.accessibility === undefined ? current.accessibility : input.accessibility
-    const next = { ...input.settings, ...(accessibility == null ? {} : { accessibility }), revision: revision + 1 }
+    const {normalizeClientGuideline}=await import("./client-guideline")
+    const priorGuideline=normalizeClientGuideline(current.clientGuideline)
+    const {version:priorVersion,...priorConfig}=priorGuideline
+    const clientGuideline=input.clientGuideline===undefined?priorGuideline:{...input.clientGuideline,version:JSON.stringify(priorConfig)===JSON.stringify(input.clientGuideline)?priorVersion:priorVersion+1}
+    const next = { ...input.settings, ...(accessibility == null ? {} : { accessibility }),clientGuideline, revision: revision + 1 }
     await conn.query(
       "INSERT INTO alt_text_settings (tenant_id, settings, updated_by) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE settings = VALUES(settings), updated_by = VALUES(updated_by)",
       [tenantId, JSON.stringify(next), actorId],

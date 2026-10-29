@@ -1,5 +1,5 @@
 import {summarizeChecks,csvCell,type ValidationCheck,type CheckStatus,type Severity,type ValidationSummary} from "./output-validation-contract"
-export const ADVANCED_QUALITY_VERSION="advanced-quality.v1"
+export const ADVANCED_QUALITY_VERSION="advanced-quality.v2"
 export type QualityCategory="source"|"description"|"ocr"|"mathematics"|"graph"|"scientific"|"illustration"|"guideline"
 export type QualityReference={kind:string;id:string;version:number;regionId:string|null;reviewState:string|null}
 export type QualityFinding=Omit<ValidationCheck,"severity">&{severity:Severity|"information";appliesTo:QualityCategory;evidence:QualityReference[];validationVersion:typeof ADVANCED_QUALITY_VERSION;executed:boolean}
