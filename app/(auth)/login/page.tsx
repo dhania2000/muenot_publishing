@@ -1,3 +1,4 @@
+import Link from "next/link"
 import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 import { BookOpen } from "lucide-react"
@@ -33,6 +34,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             <BookOpen className="size-5 text-primary" aria-hidden="true" />
             Muenot Services
           </div>
+          <p className="text-sm"><Link href="/epub-enquiry" className="underline">Request an EPUB quotation</Link></p>
           <AuthForm
             initialMode={initialMode}
             notice={reset === "1" ? "Your password was updated. Sign in with your new password." : undefined}

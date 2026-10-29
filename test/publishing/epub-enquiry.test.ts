@@ -1,0 +1,17 @@
+import {beforeEach,it,expect,vi} from "vitest"
+const d=vi.hoisted(()=>({actor:null as any,allowed:true,rows:[] as any[],calls:[] as any[],tenant:9,count:0}))
+vi.mock("@/lib/auth",()=>({getSession:async()=>d.actor}))
+vi.mock("@/lib/rate-limit",()=>({checkRateLimit:async()=>({allowed:d.allowed})}))
+vi.mock("@/lib/platform-schema",()=>({ensurePlatformSchema:async()=>{}}))
+vi.mock("@/lib/tenant-scope",()=>({DEFAULT_TENANT_ID:1,currentTenantId:()=>d.tenant}))
+vi.mock("@/lib/db",()=>({query:async(sql:string,p:any[])=>{d.calls.push({sql,p});return sql.startsWith("CREATE")?[]:d.rows},withTransaction:async(fn:any)=>fn({query:async(sql:string,p:any[])=>{d.calls.push({sql,p});if(sql.startsWith("SELECT id FROM users"))return [[{id:5}]];if(sql.startsWith("SELECT id FROM conversion_enquiries"))return [d.rows.filter(r=>r.key===p[1])];if(sql.startsWith("SELECT COUNT"))return [[{n:d.count}]];if(sql.startsWith("INSERT INTO conversion_enquiries")){d.rows.push({key:p[2]});d.count++}return [[]]}})}))
+import {parseEnquiry,saveEnquiry,listEnquiries} from "@/lib/epub/enquiries"
+import {POST,GET} from "@/app/api/conversion/epub/enquiries/route"
+const body=()=>({requestId:"request_1234567890",name:"मुनोत लेखक",email:"writer@example.test",message:"EPUB quotation\nHindi publication",website:"",consent:true as const})
+const post=(b:unknown=body(),origin="http://local")=>POST(new Request("http://local/api/conversion/epub/enquiries",{method:"POST",headers:{origin,"content-type":"application/json"},body:JSON.stringify(b)}))
+beforeEach(()=>{d.actor=null;d.allowed=true;d.rows=[];d.calls=[];d.count=0;d.tenant=9})
+it("keeps guest enquiries separate from account creation and private project identifiers",async()=>{const r=await post();expect(r.status).toBe(202);expect(r.headers.get("cache-control")).toContain("no-store");const b=await r.json();expect(b).not.toHaveProperty("id");expect(d.calls.some(c=>/INSERT INTO (users|conversion_projects|platform_background_jobs)/.test(c.sql))).toBe(false);expect((await GET()).status).toBe(401)})
+it("validates consent, honeypot, authority, safe contact fields and bounded messages",()=>{expect(parseEnquiry(body())).not.toBeNull();for(const p of [{consent:false},{website:"spam"},{tenantId:2},{email:"bad\r\nheader@example.test"},{message:"x".repeat(2001)},{requestId:"short"}])expect(parseEnquiry({...body(),...p})).toBeNull()})
+it("uses a fixed server installation tenant and idempotent durable capture",async()=>{await saveEnquiry(body());await saveEnquiry(body());const insert=d.calls.filter(c=>c.sql.startsWith("INSERT INTO conversion_enquiries"));expect(insert).toHaveLength(1);expect(insert[0].p[0]).toBe(1);expect(insert[0].p[3]).toBe("मुनोत लेखक")})
+it("bounds anonymous capture even when request headers are forged",async()=>{d.allowed=false;expect((await post()).status).toBe(429);d.allowed=true;d.count=50;expect((await post()).status).toBe(429);expect((await post(body(),"https://foreign.test")).status).toBe(403);expect((await post({...body(),message:"x".repeat(9000)})).status).toBe(413)})
+it("only exposes an inbox within the authenticated administrator tenant",async()=>{d.actor={role:"employee"};expect((await GET()).status).toBe(403);d.actor={role:"admin"};expect((await GET()).status).toBe(200);const read=d.calls.find(c=>c.sql.startsWith("SELECT id,name"));expect(read.p).toEqual([9]);expect(read.sql).toContain("LIMIT 50");await expect(listEnquiries({role:"employee"})).rejects.toMatchObject({status:403})})

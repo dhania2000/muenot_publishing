@@ -1,0 +1,8 @@
+export const EPUB_CHUNK_BYTES=1024*1024
+export const EPUB_UPLOAD_TTL_HOURS=24
+export const EPUB_UPLOAD_DDL=[
+ `CREATE TABLE IF NOT EXISTS conversion_upload_sessions (tenant_id BIGINT UNSIGNED NOT NULL,id CHAR(36) NOT NULL,owner_id BIGINT UNSIGNED NOT NULL,request_key VARCHAR(64) NOT NULL,token_hash CHAR(64) NOT NULL,filename VARCHAR(255) NOT NULL,total_size INT UNSIGNED NOT NULL,expected_sha256 CHAR(64) NOT NULL,status VARCHAR(16) NOT NULL DEFAULT 'open',inspection_json JSON NULL,project_id CHAR(36) NULL,plan_hash CHAR(64) NULL,expires_at DATETIME NOT NULL,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(tenant_id,id),KEY upload_owner(tenant_id,owner_id,expires_at)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+ `CREATE TABLE IF NOT EXISTS conversion_upload_chunks (tenant_id BIGINT UNSIGNED NOT NULL,session_id CHAR(36) NOT NULL,chunk_index INT UNSIGNED NOT NULL,sha256 CHAR(64) NOT NULL,size_bytes INT UNSIGNED NOT NULL,body MEDIUMBLOB NOT NULL,PRIMARY KEY(tenant_id,session_id,chunk_index)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+] as const
+export type UploadStart={requestId:string;name:string;size:number;sha256:string}
+export function parseUploadStart(v:unknown):UploadStart|null{if(!v||typeof v!=="object"||Array.isArray(v))return null;const p=v as any;if(Object.keys(p).sort().join()!=="name,requestId,sha256,size"||typeof p.requestId!=="string"||!/^[A-Za-z0-9_-]{8,64}$/.test(p.requestId)||typeof p.name!=="string"||!p.name||p.name.length>255||!p.name.isWellFormed()||/[\x00-\x1f\\/]/.test(p.name)||!Number.isSafeInteger(p.size)||p.size<1||p.size>25*1024*1024||typeof p.sha256!=="string"||!/^[a-f0-9]{64}$/.test(p.sha256))return null;return p}

@@ -1,0 +1,8 @@
+"use client"
+import {useId} from "react"
+import {Input} from "@/components/ui/input"
+import {Label} from "@/components/ui/label"
+import {Textarea} from "@/components/ui/textarea"
+import {BOOK_FIELDS,normalizeIsbn} from "@/lib/epub/book-metadata"
+import type {EpubConfiguration} from "@/lib/epub/configuration"
+export function EpubBookMetadataFields({value,onChange}:{value:EpubConfiguration["metadata"];onChange:(v:EpubConfiguration["metadata"])=>void}){const id=useId();const fields={language:35,publisher:160,identifier:160,rights:500,...BOOK_FIELDS};return <div className="grid gap-3 sm:grid-cols-2">{Object.entries(fields).map(([key,max])=><div key={key} className="space-y-1"><Label htmlFor={`${id}-${key}`} className="capitalize">{key==='isbn'?'ISBN':key}{key==='language'?" (required language tag)":" (optional)"}</Label><Input id={`${id}-${key}`} maxLength={max} required={key==='language'} aria-invalid={key==='isbn'&&normalizeIsbn(value.isbn??"")===null?true:undefined} value={(value as any)[key]??""} onChange={e=>onChange({...value,[key]:e.target.value})}/></div>)}<div className="space-y-1 sm:col-span-2"><Label htmlFor={`${id}-description`}>Book description (optional)</Label><Textarea id={`${id}-description`} rows={3} maxLength={2000} value={value.description} onChange={e=>onChange({...value,description:e.target.value})}/></div>{normalizeIsbn(value.isbn??"")===null&&<p role="alert" className="text-sm text-destructive sm:col-span-2">The supplied ISBN has an invalid format or check digit.</p>}<p className="text-xs sm:col-span-2">ISBN is optional; supplied ISBN-10/13 values must have a valid check digit. A valid checksum does not verify ownership or assignment. Title and language are required for every planned profile.</p></div>}
