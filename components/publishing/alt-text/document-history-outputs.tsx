@@ -21,6 +21,7 @@ import { outputDownloadUrl, validationRunDownloadUrl, type HistoryOutput, type H
 import { OVERALL_LABEL, READINESS_LABEL, STATUS_LABEL, type CheckStatus, type ReleaseReadiness, type ValidationReport } from "@/lib/alt-text/output-validation-contract"
 import { actorLabel, downloadWithToast, Fact, fmtBytes, fmtDateTime, GenericStatus, ValidationBadge } from "./document-history-labels"
 import { Finding } from "./output-validation-panel"
+import {DocumentExportProvenance} from "./document-export-provenance"
 
 const ALL = "all"
 const REPORT_PAGE = 20
@@ -91,6 +92,7 @@ function OutputDetail({ documentId, output: o, onBack, onViewValidation }: { doc
         <Fact label="Latest validation"><ValidationBadge status={o.latestValidation} /></Fact>
         <Fact label="Stored file">{o.fileAvailable ? "Available" : "Not available"}</Fact>
       </dl>
+      {o.status==="completed"&&<DocumentExportProvenance documentId={documentId} outputId={o.outputId}/>}
       <div className="flex flex-wrap gap-2">
         <Button size="sm" disabled={!o.fileAvailable || o.status !== "completed"} onClick={() => void downloadWithToast(outputDownloadUrl(documentId, o.outputId), o.filename)}>
           <Download aria-hidden="true" /> Download output

@@ -9,6 +9,7 @@
  *   human-judgement checks are reported as Not Verified / Manual Review — never as passed.
  */
 import "server-only"
+import {documentProvenanceChecks} from "./document-export-provenance"
 import { createHash } from "node:crypto"
 import { XMLValidator } from "fast-xml-parser"
 import { readZipDirectory, readZipEntryBytes, validateDocumentBytes } from "./document-validation"
@@ -22,6 +23,10 @@ import { readPptxPackage, type PptxPackage } from "./pptx-package"
 import { terminologyIssues,TERMINOLOGY_RULE_VERSION } from "./terminology-policy"
 
 export type ExpectedOccurrence = {
+  assetId?:number|null
+  currentSourceLocator?:string|null
+  sourceLocatorSnapshotVerified?:boolean
+  accessibility?:import("./document-accessibility-contract").DocumentAccessibilitySnapshot
   outputLanguage?: "en"|"hi"
   occurrenceId: number
   sourceLocator: string
@@ -198,6 +203,7 @@ async function parse(format: AccessibleExportFormat, buf: Buffer): Promise<Parse
 
 export async function validateExportOutput(input: ValidationInput): Promise<ValidationCheck[]> {
   const c = new Checks()
+  c.list.push(...documentProvenanceChecks(input.occurrences))
   const { format, original, output, record } = input
 
   // A. File integrity

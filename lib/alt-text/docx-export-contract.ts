@@ -59,6 +59,12 @@ export function parseDocxExportRequest(body: unknown): { ok: true; request: Docx
 export type DocxExportItemStatus = "updated" | "unchanged" | "skipped" | "unsupported" | "failed"
 
 export type DocxExportItem = {
+  documentId?:number
+  assetId?:number|null
+  sourceLocator?:string
+  approvedVersionId?:number|null
+  approvedVersion?:number|null
+  accessibility?:import("./document-accessibility-contract").DocumentAccessibilitySnapshot
   occurrenceId: number
   status: DocxExportItemStatus
   code: string
@@ -75,6 +81,7 @@ export type DocxExportItem = {
 }
 
 export type DocxExportSummary = {
+  accessibility?:import("./document-accessibility-contract").DocumentAccessibilitySummary
   updated: number
   unchanged: number
   skipped: number

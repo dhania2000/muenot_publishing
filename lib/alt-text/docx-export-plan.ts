@@ -22,6 +22,7 @@ const PENDING_REVIEW = new Set<InsertionBlocker>(["NO_AI_RESULT", "NOT_APPROVED"
 export type DocxExportTotals = { occurrences: number; eligible: number; pendingReview: number; unmapped: number; blocked: number }
 
 export type DocxExportPlan = {
+  occurrenceSnapshots?:Map<number,InsertionReadinessRow>
   instructions: DocxInsertInstruction[]
   /** Occurrences that are never sent to the inserter, with the reason. */
   skipped: DocxExportItem[]
@@ -61,7 +62,7 @@ export function planDocxExport(rows: InsertionReadinessRow[]): DocxExportPlan {
       decorative: r.decorativeApproved,
     })
   }
-  return { instructions, skipped, totals, approvedVersions }
+  return { instructions, skipped, totals, approvedVersions,occurrenceSnapshots:new Map(rows.map(r=>[r.imageOccurrenceId,r])) }
 }
 
 /**
@@ -79,6 +80,7 @@ export function approvalSnapshot(rows: InsertionReadinessRow[]): string {
       r.decorativeApproved ? 1 : 0,
       r.sourceLocator,
       createHash("sha256").update(r.approvedShortAlt ?? "").digest("hex"),
+      r.accessibility?.fingerprint??null,
     ])
   return createHash("sha256").update(JSON.stringify(facts)).digest("hex")
 }
@@ -107,7 +109,7 @@ export function mergeExportReport(report: DocxInsertReport | PptxInsertReport | 
   }))
   const slides = report && "slideCount" in report ? { slideCount: report.slideCount, groupedPictureCount: report.groupedPictureCount } : {}
   const pdf = report && "pdf" in report ? { pdf: report.pdf } : {}
-  const items = [...inserted, ...plan.skipped].sort((a, b) => a.occurrenceId - b.occurrenceId)
+  const items = [...inserted, ...plan.skipped].map(item=>{const row=plan.occurrenceSnapshots?.get(item.occurrenceId);return row?{...item,documentId:row.documentId,assetId:row.accessibility?.assetId??null,sourceLocator:row.sourceLocator,approvedVersionId:row.approvedVersionId,approvedVersion:row.approvedVersion,...row.accessibility?{accessibility:row.accessibility}:{}}:item}).sort((a, b) => a.occurrenceId - b.occurrenceId)
   const warnings = [...(report?.warnings ?? [])]
   if (plan.totals.unmapped > 0) {
     warnings.push({
@@ -115,9 +117,13 @@ export function mergeExportReport(report: DocxInsertReport | PptxInsertReport | 
       message: `${plan.totals.unmapped} image${plan.totals.unmapped === 1 ? " has" : "s have"} no source location and cannot receive alt text.`,
     })
   }
+  const captured=items.flatMap(i=>i.accessibility?[i.accessibility]:[])
+  const accessibility=captured.length?{schemaVersion:1 as const,capturedOccurrences:captured.length,withGenerationEvidence:captured.filter(s=>!!s.generation).length,withQa:captured.filter(s=>!!s.qa).length,recordedQaBlockers:captured.reduce((n,s)=>n+(s.qa?.blockingFailures??0),0),qaMissingOrDifferentVersion:captured.filter(s=>!s.qa?.matchesApprovedVersion).length,omittedReferences:captured.reduce((n,s)=>n+(s.generation?.omittedReferences??0),0),structuredEvidenceEmbedded:false as const,conformance:"not_verified" as const}:null
+  if(accessibility){warnings.push({code:"STRUCTURED_EVIDENCE_SEPARATE",message:"Native picture/Figure metadata uses only the exact approved Short Alt Text. Detailed descriptions, OCR, LaTeX/MathML, datasets and reviewer corrections remain linked in ERP."});if(accessibility.recordedQaBlockers)warnings.push({code:"RECORDED_ADVANCED_QA_BLOCKERS",message:`Saved advanced QA snapshots record ${accessibility.recordedQaBlockers} blocking findings. They are provenance rather than a fresh validation; inspect the image findings before release.`});if(accessibility.qaMissingOrDifferentVersion)warnings.push({code:"ADVANCED_QA_NOT_CURRENT",message:`${accessibility.qaMissingOrDifferentVersion} approved occurrences have no saved QA matching the approved version. This export does not certify their advanced content.`});if(accessibility.omittedReferences)warnings.push({code:"ADVANCED_REFERENCE_LIMIT",message:`${accessibility.omittedReferences} evidence references exceeded bounded export metadata limits; source evidence remains in ERP.`})}
   return {
     items,
     summary: {
+      ...accessibility?{accessibility}:{},
       updated: report?.updated ?? 0,
       unchanged: report?.unchanged ?? 0,
       skipped: plan.skipped.length,

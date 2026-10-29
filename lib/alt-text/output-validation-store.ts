@@ -159,12 +159,12 @@ export async function loadOccurrenceApprovals(documentId: number, ids: number[])
 }
 
 /** Immutable approved version rows referenced by an export. */
-export async function loadVersionTexts(ids: number[]): Promise<Map<number, { version: number; shortAlt: string | null }>> {
+export async function loadVersionTexts(ids: number[]): Promise<Map<number, { version: number; shortAlt: string | null;assetId:number }>> {
   await ensureSchema()
-  const out = new Map<number, { version: number; shortAlt: string | null }>()
+  const out = new Map<number, { version: number; shortAlt: string | null;assetId:number }>()
   for (const chunk of chunks([...new Set(ids)])) {
-    const rows = await query<RowDataPacket[]>(`SELECT id, version, short_alt FROM alt_text_versions WHERE tenant_id = ? AND id IN (${placeholders(chunk.length)})`, [tid(), ...chunk])
-    for (const r of rows) out.set(Number(r.id), { version: Number(r.version), shortAlt: r.short_alt ?? null })
+    const rows = await query<RowDataPacket[]>(`SELECT id, asset_id,version, short_alt FROM alt_text_versions WHERE tenant_id = ? AND id IN (${placeholders(chunk.length)})`, [tid(), ...chunk])
+    for (const r of rows) out.set(Number(r.id), { version: Number(r.version), shortAlt: r.short_alt ?? null,assetId:Number(r.asset_id) })
   }
   return out
 }

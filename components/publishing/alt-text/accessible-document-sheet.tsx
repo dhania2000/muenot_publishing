@@ -13,6 +13,7 @@ import useSWR from "swr"
 import { toast } from "sonner"
 import { AlertTriangle, Download, FileCheck2, Loader2, RefreshCw, ShieldCheck } from "lucide-react"
 import { OutputValidationPanel } from "./output-validation-panel"
+import {DocumentExportProvenance} from "./document-export-provenance"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -285,6 +286,10 @@ export function AccessibleDocumentSheet({
                     </div>
                   </AlertDescription>
                 </Alert>
+              ) : null}
+
+              {(result?.export.outputId??data.exports.find(e=>e.status==="completed")?.outputId) ? (
+                <DocumentExportProvenance key={result?.export.outputId??data.exports.find(e=>e.status==="completed")!.outputId} documentId={documentId!} outputId={result?.export.outputId??data.exports.find(e=>e.status==="completed")!.outputId}/>
               ) : null}
 
               {data.exports.length ? (
