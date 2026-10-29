@@ -87,6 +87,17 @@ const settings = parseGenerateRequest({ assetId: 3, requestId: "req-abcdef12", s
 if (!settings.ok) throw new Error("fixture")
 const req = settings.value
 const run = vi.fn()
+it("does not bypass saved tenant policy or charge when its settings read fails",async()=>{const {getSettingsRecord}=await import("@/lib/alt-text/store");vi.mocked(getSettingsRecord).mockRejectedValueOnce(new Error("Synthetic unavailable settings"));expect(await generateAltTextForAsset(req,actor,{run})).toMatchObject({ok:false,status:503,code:"SETTINGS_UNAVAILABLE"});expect(run).not.toHaveBeenCalled();expect(s.calls.claim).toBe(0)})
+
+it("uses the saved tenant client policy in generation, warnings and version provenance without approving text",async()=>{
+ s.policy={accessibility:null,clientGuideline:{enabled:true,clientName:"Synthetic client",requiredLiterals:["unsupported required term"],forbiddenLiterals:[],requireLong:false,version:4}}
+ run.mockResolvedValue({status:"generated",output:structuredClone(OUTPUT),vision:{modelId:"openai/gpt-4o",provider:"openai"},credits:CREDITS})
+ const result=await generateAltTextForAsset(req,actor,{run})
+ expect(result.ok).toBe(true);expect(run.mock.calls[0][0].vision.clientGuideline).toMatchObject({version:"4",rules:[{type:"required_literal",text:"unsupported required term"}]})
+ expect(s.calls.save[0][1].generationEvidence).toMatchObject({guidelineVersion:"4",reviewStatus:"needs_review",clientGuideline:{version:"4"}})
+ expect(s.calls.save[0][1].warnings.join(" ")).toContain("only if supported by the source")
+ expect(s.calls.save[0][1].shortAlt).toBe(OUTPUT.shortAlt)
+})
 
 beforeEach(() => {
   s.asset = { id: 3, status: "uploaded", currentVersion: 0, classification: null, shortAlt: null, longDescription: null, extractedText: null, warnings: [], treatment: null, storageKey: "tenants/9/secret", createdBy: 5, reviewerId: null }

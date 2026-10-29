@@ -38,6 +38,12 @@ const record = (over: Record<string, unknown> = {}) => ({
 const patch = (body: unknown) =>
   PATCH(new Request("http://localhost/api/alt-text/settings", { method: "PATCH", body: JSON.stringify(body), headers: { "content-type": "application/json" } }) as never)
 
+const clientPolicy={enabled:true,clientName:"Synthetic client",requiredLiterals:["H₂O"],forbiddenLiterals:[],requireLong:false}
+it("saves an authorized declarative client policy with the existing tenant revision and actor",async()=>{const response=await patch({expectedRevision:4,clientGuideline:clientPolicy});expect(response.status).toBe(200);expect(deps.saveSettingsRecord.mock.calls[0]).toEqual([expect.objectContaining({clientGuideline:clientPolicy,expectedRevision:4}),7])})
+it("requires a revision and rejects forged guideline versions or executable fields",async()=>{expect((await patch({clientGuideline:clientPolicy})).status).toBe(400);expect((await patch({expectedRevision:4,clientGuideline:{...clientPolicy,version:999}})).status).toBe(400);expect((await patch({expectedRevision:4,clientGuideline:{...clientPolicy,script:"override review"}})).status).toBe(400);expect(deps.saveSettingsRecord).not.toHaveBeenCalled()})
+it("denies client-policy changes without Manage settings permission",async()=>{deps.getSession.mockResolvedValue({userId:7,role:"employee"});expect((await patch({expectedRevision:4,clientGuideline:clientPolicy})).status).toBe(403);expect(deps.saveSettingsRecord).not.toHaveBeenCalled()})
+it("bounds streamed settings bytes even when Content-Length is absent",async()=>{const response=await PATCH(new Request("http://localhost/api/alt-text/settings",{method:"PATCH",body:JSON.stringify({clientGuideline:{...clientPolicy,clientName:"क".repeat(17000)}})}) as never);expect(response.status).toBe(413);expect(deps.saveSettingsRecord).not.toHaveBeenCalled()})
+
 beforeEach(() => {
   vi.clearAllMocks()
   deps.requireFeatureInModule.mockResolvedValue({ ok: true, session: { userId: 7, role: "admin" } })

@@ -12,6 +12,7 @@
  * - Provider usage that cannot be saved stays billed and is logged for reconciliation, never refunded blindly.
  */
 import "server-only"
+import {activeClientGuideline,clientGuidelineWarnings} from "./client-guideline"
 import { createHash } from "node:crypto"
 import { getTenantAiSettings } from "@/lib/ai/assistant-store"
 import { AiError } from "@/lib/ai/governance-core"
@@ -215,7 +216,8 @@ export async function generateAltTextForAsset(
     if (prior?.status === "reserved") return fail(409, "GENERATION_IN_PROGRESS", "This generation request is already being processed.")
   }
 
-  const policy = await generationPolicy()
+  let policy:Awaited<ReturnType<typeof generationPolicy>>
+  try{policy=await generationPolicy()}catch{return fail(503,"SETTINGS_UNAVAILABLE","Tenant accessibility settings could not be read. No generation was charged; try again.")}
   const classify = policy.classify
   const classificationHint = manualTypeHint(target.classificationRecord ?? null)
   let advancedEvidence: import("./description-evidence").DescriptionEvidence | null = null
@@ -237,7 +239,7 @@ export async function generateAltTextForAsset(
       tenantId: actor.tenantId,
       userId: actor.userId,
       operationId: requestId.slice("alttext:".length),
-      vision: { image: { bytes, mediaType: image.contentType }, generation: req.settings, altTextSettings, model, document, classify, classificationHint, ...(advancedEvidence ? { advancedEvidence } : {}), ...(req.signal ? {abortSignal:req.signal} : {}) },
+      vision: { image: { bytes, mediaType: image.contentType }, generation: req.settings, altTextSettings, model, document, classify, classificationHint,clientGuideline:activeClientGuideline(policy.clientGuideline), ...(advancedEvidence ? { advancedEvidence } : {}), ...(req.signal ? {abortSignal:req.signal} : {}) },
     })
   } catch (e) {
     const failure = e instanceof AiError ? aiErrorToFailure(e) : fail(500, "GENERATION_FAILED", "Alt text generation failed. Please try again.")
@@ -252,13 +254,14 @@ export async function generateAltTextForAsset(
   }
 
   const { output, vision, credits } = outcome
+  output.warnings=[...new Set([...output.warnings,...clientGuidelineWarnings(policy.clientGuideline,output.shortAlt,output.longDescription,output.classification==="decorative")])]
   output.documentContextSnapshot = document?.packet ?? undefined
   output.generationEvidence = {
     schemaVersion: 1, requestId, strategy: advancedEvidence?.strategy ?? "standard", sourceSha256: advancedEvidence?.sourceSha256 ?? createHash("sha256").update(bytes).digest("hex"),
     occurrenceId: advancedEvidence?.occurrenceId ?? document?.imageOccurrenceId ?? null, regionAnalysisId: advancedEvidence?.regionAnalysisId ?? null,
     evidence: advancedEvidence?.items.map(({ id, version, kind, state }) => ({ id, version, kind, state })) ?? [],
     outputLanguage: req.settings.outputLanguage, provider: vision.provider, generatedAt: new Date().toISOString(),
-    guidelineVersion: null, reviewStatus: "needs_review", warnings: output.warnings, treatment: output.treatment,
+    guidelineVersion: activeClientGuideline(policy.clientGuideline)?.version??null,clientGuideline:activeClientGuideline(policy.clientGuideline), reviewStatus: "needs_review", warnings: output.warnings, treatment: output.treatment,
     ...(output.terminologyReview?{terminology:output.terminologyReview}:{}),
     ...(document?.packet ? {documentContext:{documentId:document.documentId,occurrenceId:document.imageOccurrenceId,contextVersion:document.contextVersion,source:document.packet.source,fingerprint:createHash("sha256").update(JSON.stringify(document.packet)).digest("hex"),references:document.packet.snippets.map(s=>({id:s.id,sourceKind:s.sourceKind,sourceRef:s.sourceRef,duplicates:s.duplicateReferences})),policy:document.packet.policy}} : {}),
   }
@@ -288,15 +291,11 @@ export async function generateAltTextForAsset(
   return success
 }
 
-/** Classification is on by default; an unreadable settings row must never block generation. */
-async function generationPolicy(): Promise<{ classify: boolean; advanced: boolean; allowedKinds: string[] }> {
-  try {
+/** Missing historical preferences use defaults; a failed settings read must not bypass saved policy. */
+async function generationPolicy(): Promise<{ classify: boolean; advanced: boolean; allowedKinds: string[];clientGuideline:unknown }> {
     const record = await getSettingsRecord()
-    const preferences = normalizeAccessibilityPreferences(record.accessibility).preferences
-    return { classify: preferences.general.useAutoClassification !== false, advanced: preferences.general.processingPreference !== "standard_only" && process.env.ALT_TEXT_ADVANCED_DISABLED !== "1", allowedKinds: descriptionKindsForTypes(preferences.general.analysisTypes) }
-  } catch {
-    return { classify: true, advanced: false, allowedKinds: [] }
-  }
+    const preferences = normalizeAccessibilityPreferences(record?.accessibility).preferences
+    return { classify: preferences.general.useAutoClassification !== false, advanced: preferences.general.processingPreference !== "standard_only" && process.env.ALT_TEXT_ADVANCED_DISABLED !== "1", allowedKinds: descriptionKindsForTypes(preferences.general.analysisTypes),clientGuideline:record?.clientGuideline }
 }
 
 function pickResult(o: AltTextResult) {

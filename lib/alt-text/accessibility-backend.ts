@@ -15,10 +15,11 @@ import { isVisionCompatible } from "./vision-service"
 import { checkMathReadiness } from "./math-engine"
 
 /**
- * Engines implemented today: Phase 1 vision generation (which also returns an image
- * classification), Phase 3 Task 4 vision region detection and Phase 3 Task 5 self-hosted OCR.
+ * Registered engines include the integrated classification, OCR, mathematical, chart,
+ * scientific, structured-review/QA and optional client-policy workflows. Runtime readiness
+ * and model authorization are checked separately; registration never proves output accuracy.
  */
-export const IMPLEMENTED_ACCESSIBILITY_ENGINES: readonly CapabilityId[] = ["standard_description", "advanced_description", "text_heavy_analysis", "auto_classification", "region_detection", "ocr", "math_analysis", "math_ocr", "latex_output", "mathml_output", "chart_analysis", "chart_axes", "chart_data_extraction", "scientific_diagram_analysis", "scientific_domain_analysis", "flowchart_analysis", "table_image_analysis", "map_geometry_analysis", "mixed_complex_analysis"]
+export const IMPLEMENTED_ACCESSIBILITY_ENGINES: readonly CapabilityId[] = ["standard_description", "advanced_description", "text_heavy_analysis", "auto_classification", "classification_confidence", "region_detection", "ocr", "math_analysis", "math_ocr", "math_verification", "latex_output", "mathml_output", "chart_analysis", "chart_axes", "chart_data_extraction", "scientific_diagram_analysis", "scientific_domain_analysis", "flowchart_analysis", "table_image_analysis", "map_geometry_analysis", "mixed_complex_analysis", "advanced_qa", "client_guidelines"]
 
 const OCR_CHECK_FAILED = "The OCR engine health check failed. Reload this page to try again."
 

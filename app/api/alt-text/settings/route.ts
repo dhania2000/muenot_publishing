@@ -10,6 +10,8 @@
  *   enabled when the backend reports the capability as available.
  */
 import type { NextRequest } from "next/server"
+import {parseClientGuideline,normalizeClientGuideline} from "@/lib/alt-text/client-guideline"
+import {readBody} from "@/lib/alt-text/document-extraction-run"
 import { getSession } from "@/lib/auth"
 import { getTenantAiSettings } from "@/lib/ai/assistant-store"
 import { resolveTenantModels } from "@/lib/ai/model-catalog"
@@ -34,7 +36,7 @@ export const dynamic = "force-dynamic"
 
 const MAX_BODY_BYTES = 16 * 1024
 const SETTING_KEYS = new Set<keyof AltTextSettings>(["defaultLanguage", "defaultAudience", "preferredModelId", "shortMaxChars", "requireReview", "maxFileMb", "maxBatchSize"])
-const BODY_KEYS = new Set<string>([...SETTING_KEYS, "accessibility", "expectedRevision"])
+const BODY_KEYS = new Set<string>([...SETTING_KEYS, "accessibility", "clientGuideline", "expectedRevision"])
 
 type Session = NonNullable<Awaited<ReturnType<typeof getSession>>>
 const modelRole = (s: Session) => (s.role === "admin" ? "admin" : "employee")
@@ -45,9 +47,10 @@ async function settingsPayload(record: AltTextSettingsRecord, tenantId: number, 
   return {
     success: true,
     settings: record.settings,
+    clientGuideline:normalizeClientGuideline(record.clientGuideline),
     revision: record.revision,
     updatedAt: record.updatedAt,
-    accessibility: resolveEffectiveAccessibilitySettings({ storedAccessibility: record.accessibility, revision: record.revision, tenant: record.settings, backend }),
+    accessibility: resolveEffectiveAccessibilitySettings({ storedAccessibility: record.accessibility,clientGuideline:record.clientGuideline, revision: record.revision, tenant: record.settings, backend }),
     permissions: { canManage: manage },
   }
 }
@@ -79,7 +82,9 @@ export async function PATCH(req: NextRequest) {
   if (Number(req.headers.get("content-length")) > MAX_BODY_BYTES) return jsonError({ status: 413, code: "PAYLOAD_TOO_LARGE", error: "Request body is too large." })
   let body: unknown
   try {
-    body = await req.json()
+    const bytes=await readBody(req.body,MAX_BODY_BYTES)
+    if(!bytes)return jsonError({status:413,code:"PAYLOAD_TOO_LARGE",error:"Settings body is empty or exceeds the byte limit."})
+    body = JSON.parse(bytes.toString("utf8"))
   } catch {
     return jsonError({ status: 400, code: "INVALID_REQUEST", error: "Send a valid JSON body." })
   }
@@ -87,7 +92,10 @@ export async function PATCH(req: NextRequest) {
   const unknown = Object.keys(body).filter((k) => !BODY_KEYS.has(k))
   if (unknown.length) return jsonError({ status: 400, code: "INVALID_REQUEST", error: "Unexpected fields in request.", details: { fields: unknown } })
 
-  const { accessibility: accessibilityPatch, expectedRevision: rawRevision, ...legacy } = body as Record<string, unknown>
+  const { accessibility: accessibilityPatch,clientGuideline:rawGuideline, expectedRevision: rawRevision, ...legacy } = body as Record<string, unknown>
+  const guideline=rawGuideline===undefined?null:parseClientGuideline(rawGuideline)
+  if(guideline&&!guideline.ok)return jsonError({status:400,code:"VALIDATION_FAILED",error:guideline.error})
+  if(guideline&&rawRevision===undefined)return jsonError({status:400,code:"INVALID_REQUEST",error:"expectedRevision is required when saving client guidelines."})
   if (rawRevision !== undefined && !(Number.isSafeInteger(rawRevision) && Number(rawRevision) >= 0)) {
     return jsonError({ status: 400, code: "INVALID_REQUEST", error: "expectedRevision must be a non-negative integer." })
   }
@@ -120,10 +128,10 @@ export async function PATCH(req: NextRequest) {
       }
     }
 
-    const saved = await saveSettingsRecord({ settings: next, accessibility: nextAccessibility, expectedRevision: expectedRevision ?? record.revision }, session.userId)
+    const saved = await saveSettingsRecord({ settings: next, accessibility: nextAccessibility,...guideline?.ok?{clientGuideline:guideline.value}:{}, expectedRevision: expectedRevision ?? record.revision }, session.userId)
     if (!saved.ok) return conflict(saved.revision)
     const changedLegacy = (Object.keys(next) as (keyof AltTextSettings)[]).filter((k) => next[k] !== record.settings[k])
-    console.info("[alt-text/settings] updated", { tenantId, actorId: session.userId, revision: saved.revision, fields: [...changedLegacy, ...changedFields] })
+    console.info("[alt-text/settings] updated", { tenantId, actorId: session.userId, revision: saved.revision, fields: [...changedLegacy, ...changedFields,...guideline?["clientGuideline"]:[]] })
 
     return jsonOk(await settingsPayload(await getSettingsRecord(), tenantId, session, true))
   } catch (err) {

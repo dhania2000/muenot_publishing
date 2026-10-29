@@ -9,6 +9,8 @@
  *   revision checks. Capability states and permissions come from the server response.
  */
 import { useEffect, useMemo, useState } from "react"
+import {normalizeClientGuideline,type ClientGuidelineSettings} from "@/lib/alt-text/client-guideline"
+import {ClientGuidelineEditor} from "./client-guideline-editor"
 import useSWR from "swr"
 import {
   BarChart3,
@@ -38,7 +40,7 @@ import {
   ACCESSIBILITY_SCHEMA,
   ACCESSIBILITY_SECTION_IDS,
   ACTIVE_QA_CHECKS,
-  PLANNED_QA_CHECKS,
+  ADVANCED_QA_CHECKS,
   fieldDefaultValue,
   type AccessibilityField,
   type AccessibilityPatch,
@@ -60,7 +62,7 @@ import { CapabilityBadge, CapabilityList, FieldErrorText, LockedPolicyList, Sett
 
 type SectionId = AccessibilitySectionId | "guidelines"
 type TenantDraft = Pick<AltTextSettings, "defaultLanguage" | "defaultAudience" | "shortMaxChars" | "requireReview">
-type Draft = { tenant: TenantDraft; accessibility: AccessibilityPreferences }
+type Draft = { tenant: TenantDraft; accessibility: AccessibilityPreferences;guideline:ClientGuidelineSettings }
 type Loose = Record<string, Record<string, FieldValue>>
 
 const TENANT_KEYS = ["defaultLanguage", "defaultAudience", "shortMaxChars", "requireReview"] as const
@@ -86,6 +88,7 @@ const fetcher = async () => {
 }
 
 const draftFrom = (data: AltTextSettingsResponse): Draft => ({
+  guideline:(( {version,...config})=>config)(normalizeClientGuideline(data.clientGuideline)),
   tenant: Object.fromEntries(TENANT_KEYS.map((k) => [k, data.settings[k]])) as TenantDraft,
   accessibility: structuredClone(data.accessibility.configured),
 })
@@ -94,6 +97,7 @@ const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 
 function buildPatch(base: Draft, draft: Draft, revision: number): AltTextSettingsPatch {
   const body: AltTextSettingsPatch = { expectedRevision: revision }
+  if(!same(base.guideline,draft.guideline))body.clientGuideline={...draft.guideline,requiredLiterals:draft.guideline.requiredLiterals.filter(s=>s.trim()),forbiddenLiterals:draft.guideline.forbiddenLiterals.filter(s=>s.trim())}
   for (const k of TENANT_KEYS) if (draft.tenant[k] !== base.tenant[k]) Object.assign(body, { [k]: draft.tenant[k] })
   const a = draft.accessibility as unknown as Loose
   const b = base.accessibility as unknown as Loose
@@ -108,6 +112,7 @@ function buildPatch(base: Draft, draft: Draft, revision: number): AltTextSetting
 /** Changed field paths per section, used for nav indicators and the save bar. */
 function changedPaths(base: Draft, draft: Draft): Record<SectionId, number> {
   const counts = Object.fromEntries(SECTION_ORDER.map((s) => [s, 0])) as Record<SectionId, number>
+  if(!same(base.guideline,draft.guideline))counts.guidelines++
   const a = draft.accessibility as unknown as Loose
   const b = base.accessibility as unknown as Loose
   for (const s of ACCESSIBILITY_SECTION_IDS) for (const key of Object.keys(a[s])) if (!same(a[s][key], b[s][key])) counts[s]++
@@ -249,8 +254,7 @@ export function AccessibilitySettingsWorkspace({ onDirtyChange }: { onDirtyChang
       <header className="flex shrink-0 flex-col gap-0.5 rounded-lg border bg-card px-3 py-2 shadow-xs">
         <h2 className="text-sm font-semibold text-balance">Accessibility Settings</h2>
         <p className="text-xs leading-relaxed text-muted-foreground text-pretty">
-          Tenant-wide preferences for advanced image accessibility. Capabilities marked as not yet implemented can&apos;t be switched on;
-          their preferences are applied automatically once the engine is installed.
+          Tenant-wide preferences for advanced image accessibility. Availability reflects the installed engine, model configuration and platform policy. Recognition and QA run when requested; AI results still require review.
         </p>
       </header>
 
@@ -321,7 +325,7 @@ export function AccessibilitySettingsWorkspace({ onDirtyChange }: { onDirtyChang
             </TabsContent>
           ))}
           <TabsContent value="guidelines" className="mt-0">
-            <GuidelinesSection data={data} />
+            <GuidelinesSection data={data} guideline={draft.guideline} readOnly={readOnly} onChange={guideline=>{setDraft(d=>d?{...d,guideline}:d);setSavedAt(null)}} />
           </TabsContent>
         </div>
       </Tabs>
@@ -567,18 +571,18 @@ function QualityExtras({
       <Card>
         <CardHeader>
           <CardTitle className="text-sm font-semibold">Quality checks</CardTitle>
-          <CardDescription>Deterministic checks run by Output Validation. Planned checks are listed for transparency only.</CardDescription>
+          <CardDescription>Output Validation checks document files. Advanced QA checks saved image evidence when requested; human-only findings remain review requirements.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <QaList title="Active" items={ACTIVE_QA_CHECKS} status="available" />
-          <QaList title="Planned (Task 21)" items={PLANNED_QA_CHECKS} status="not_implemented" />
+          <QaList title="Advanced evidence checks" items={ADVANCED_QA_CHECKS} status={data.accessibility.capabilities.advanced_qa.status} />
         </CardContent>
       </Card>
     </>
   )
 }
 
-function QaList({ title, items, status }: { title: string; items: readonly { id: string; label: string }[]; status: "available" | "not_implemented" }) {
+function QaList({ title, items, status }: { title: string; items: readonly { id: string; label: string }[]; status: import("@/lib/alt-text/accessibility-settings").CapabilityStatus }) {
   return (
     <div className="flex flex-col gap-2">
       <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</h4>
@@ -618,7 +622,7 @@ function OcrLanguages({ data }: { data: AltTextSettingsResponse }) {
   )
 }
 
-function GuidelinesSection({ data }: { data: AltTextSettingsResponse }) {
+function GuidelinesSection({ data,guideline,onChange,readOnly }: { data: AltTextSettingsResponse;guideline:ClientGuidelineSettings;onChange:(value:ClientGuidelineSettings)=>void;readOnly:boolean }) {
   const cap = data.accessibility.capabilities.client_guidelines
   return (
     <div className="flex flex-col gap-4">
@@ -631,19 +635,15 @@ function GuidelinesSection({ data }: { data: AltTextSettingsResponse }) {
           <CapabilityBadge status={cap.status} />
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <Alert>
-            <Info aria-hidden="true" />
-            <AlertTitle>No guideline system yet</AlertTitle>
-            <AlertDescription>{cap.reason}</AlertDescription>
-          </Alert>
+          <ClientGuidelineEditor value={guideline} onChange={onChange} readOnly={readOnly}/>
           <dl className="grid gap-3 text-sm sm:grid-cols-2">
             <div className="flex flex-col gap-0.5">
               <dt className="text-xs text-muted-foreground">Applied guideline</dt>
-              <dd className="font-medium">None</dd>
+              <dd className="font-medium">{data.accessibility.guideline.reference?`${data.accessibility.guideline.reference.clientName} · v${data.accessibility.guideline.reference.version}`:"None"}</dd>
             </div>
             <div className="flex flex-col gap-0.5">
               <dt className="text-xs text-muted-foreground">Settings source</dt>
-              <dd className="font-medium">Tenant settings, then platform defaults</dd>
+              <dd className="font-medium">Optional client policy supplements tenant settings and platform safeguards</dd>
             </div>
           </dl>
         </CardContent>

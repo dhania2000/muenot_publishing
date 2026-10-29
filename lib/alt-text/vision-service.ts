@@ -90,6 +90,7 @@ export type VisionGenerationResult = {
 }
 
 export type GenerateAltTextFromImageInput = {
+  clientGuideline?:import("./advanced-quality-contract").QualityGuideline|null
   advancedEvidence?: import("./description-evidence").DescriptionEvidence | null
   image: { bytes: Uint8Array; mediaType: SupportedImageType }
   generation: GenerationSettings
@@ -145,6 +146,7 @@ export async function generateAltTextFromImage(input: GenerateAltTextFromImageIn
     generation,
     document: input.document ?? null,
     advancedEvidence: input.advancedEvidence,
+    clientGuideline:input.clientGuideline,
     classificationRules: input.classify === false ? undefined : CLASSIFICATION_PROMPT_RULES,
     classificationHint: input.classificationHint ?? null,
   })
