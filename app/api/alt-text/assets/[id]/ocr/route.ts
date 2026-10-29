@@ -1,3 +1,4 @@
+import {readBody} from "@/lib/alt-text/document-extraction-run"
 /**
  * @file app/api/alt-text/assets/[id]/ocr/route.ts
  * @module Publishing · Alt Text
@@ -61,7 +62,9 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   if (Number(req.headers.get("content-length")) > MAX_BODY_BYTES) return jsonError({ status: 413, code: "PAYLOAD_TOO_LARGE", error: "Request body is too large." })
   let body: unknown
   try {
-    const text = await req.text()
+    const bytes = await readBody(req.body,MAX_BODY_BYTES)
+    if(!bytes)return jsonError({status:413,code:"PAYLOAD_TOO_LARGE",error:"Request body is empty or exceeds the byte limit."})
+    const text=bytes.toString("utf8")
     if (text.length > MAX_BODY_BYTES) return jsonError({ status: 413, code: "PAYLOAD_TOO_LARGE", error: "Request body is too large." })
     body = JSON.parse(text)
   } catch {

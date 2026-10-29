@@ -19,6 +19,7 @@ type EvidenceRow={id:number;version:number;kind:string;region_id:string;status:s
 export async function authorizeQualitySource(assetId:number,occurrenceId:number|null,actor:HistoryActor){
  const asset=await getAsset(assetId)
  if(!asset||!withinScope(actor.viewScope,actor.userId,asset))throw new AdvancedEvidenceError(404,"NOT_FOUND","Image not found.")
+ if(actor.exportScope!==undefined&&!withinScope(actor.exportScope,actor.userId,asset))throw new AdvancedEvidenceError(403,"FORBIDDEN","You cannot export this image's evidence.")
  const document=await (await import("./document-generation")).resolveDocumentPromptContext(assetId,actor,occurrenceId)
  if(document.kind==="ineligible")throw new AdvancedEvidenceError(404,"NOT_FOUND","The source occurrence/document is unavailable.")
  return {asset,document}

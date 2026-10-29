@@ -1,3 +1,4 @@
+import {readBody} from "@/lib/alt-text/document-extraction-run"
 /**
  * @file app/api/alt-text/documents/[uploadId]/images/route.ts
  * @module Publishing · Alt Text
@@ -64,7 +65,9 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ uploadId: str
   if (!gate.ok) return gate.response
   const { uploadId: id } = await ctx.params
   if (!DOCUMENT_ID.test(id)) return notFound()
-  const raw = await req.text().catch(() => "")
+  const bytes=await readBody(req.body,BODY_MAX).catch(()=>null)
+  if(!bytes)return jsonError({status:413,code:"PAYLOAD_TOO_LARGE",error:"Request body exceeds the byte limit."})
+  const raw=bytes.toString("utf8")
   if (!raw || raw.length > BODY_MAX) return invalid("Invalid request body.")
   let json: unknown
   try {

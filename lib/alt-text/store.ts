@@ -1739,7 +1739,7 @@ export async function listBatchAssetStatuses(
 
 export const BATCH_COMPLETED_ASSET_STATUSES: readonly string[] = COMPLETED_ASSET_STATUSES
 
-export type BatchExportOwner = { userId: number; match: "added" | "owned" | "both" }
+export type BatchExportOwner = { userId: number; match: "added" | "owned" | "both" | "intersection" }
 export type BatchExportAssetRow = {
   id: number
   fileName: string
@@ -1762,6 +1762,7 @@ function batchExportWhere(batchId: string, owner?: BatchExportOwner) {
   if (owner) {
     if (owner.match === "added") (where.push("a.created_by = ?"), params.push(owner.userId))
     else if (owner.match === "owned") (where.push("a.reviewer_id = ?"), params.push(owner.userId))
+    else if (owner.match === "intersection") (where.push("(a.created_by = ? AND a.reviewer_id = ?)"), params.push(owner.userId,owner.userId))
     else (where.push("(a.created_by = ? OR a.reviewer_id = ?)"), params.push(owner.userId, owner.userId))
   }
   return { sql: where.join(" AND "), params }
@@ -1775,6 +1776,7 @@ function batchAllWhere(batchId: string, owner?: BatchExportOwner) {
   if (owner) {
     if (owner.match === "added") (where.push("a.created_by = ?"), params.push(owner.userId))
     else if (owner.match === "owned") (where.push("a.reviewer_id = ?"), params.push(owner.userId))
+    else if (owner.match === "intersection") (where.push("(a.created_by = ? AND a.reviewer_id = ?)"), params.push(owner.userId,owner.userId))
     else (where.push("(a.created_by = ? OR a.reviewer_id = ?)"), params.push(owner.userId, owner.userId))
   }
   return { sql: where.join(" AND "), params }

@@ -220,12 +220,12 @@ export async function settleAltTextCredits(r: AltTextReservation, vision: Vision
   try {
     charged = (await settle()).credits
   } catch (first) {
-    console.error("[alt-text] credit settlement failed, retrying", { requestId: r.metered.requestId, error: (first as Error)?.message })
+    console.error("[alt-text] credit settlement failed, retrying", { requestId: r.metered.requestId, error: first instanceof Error ? first.name : "unknown" })
     // The engine only transitions 'reserved' rows and commits the ledger in the same transaction.
     charged = await settle()
       .then((res) => res.credits)
       .catch((e) => {
-        console.error("[alt-text] credit settlement failed", { requestId: r.metered.requestId, error: (e as Error)?.message })
+        console.error("[alt-text] credit settlement failed", { requestId: r.metered.requestId, error: e instanceof Error ? e.name : "unknown" })
         return null
       })
   }

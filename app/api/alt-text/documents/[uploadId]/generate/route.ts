@@ -1,3 +1,4 @@
+import {readBody} from "@/lib/alt-text/document-extraction-run"
 /**
  * @file app/api/alt-text/documents/[uploadId]/generate/route.ts
  * @module Publishing · Alt Text
@@ -54,7 +55,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ uploadId: 
     const limit = await checkRateLimit(`alt-text-document-generate:${tenantId}:${session.userId}`, RATE_LIMIT)
     if (!limit.allowed) return error(429, "RATE_LIMITED", "Too many requests. Please wait and try again.", undefined, { "Retry-After": String(limit.retryAfter) })
 
-    const raw = await req.text()
+    const bytes=req.body?await readBody(req.body,MAX_BODY_BYTES):Buffer.alloc(0)
+    if(!bytes)return error(413,"PAYLOAD_TOO_LARGE","Request body exceeds the byte limit.")
+    const raw=bytes.toString("utf8")
     if (raw.length > MAX_BODY_BYTES) return error(413, "PAYLOAD_TOO_LARGE", "Request body is too large.")
     let body: Record<string, unknown> = {}
     if (raw.trim()) {

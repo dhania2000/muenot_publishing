@@ -30,7 +30,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ uploadId: stri
     if (limited) return limited
     const doc = await resolveDocument(uploadId, gate.actor)
     if (!doc.ok) return doc.response
-    const result = await decideAndReload(doc.id, imageId, parsed.value, gate.actor.userId)
+    const result = await decideAndReload(doc.id, imageId, parsed.value, gate.actor)
     return result.ok ? jsonOk(result.body) : jsonError(result)
   } catch (err) {
     return unexpected("documents/review-decision", err)

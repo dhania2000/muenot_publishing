@@ -32,13 +32,14 @@ import {
   type DraftSaveResponse,
   type ReviewDetailResponse,
 } from "./document-approval-contract"
-import { updateAsset, type HistoryActor, type HistoryFailure } from "./history"
+import { updateAsset,withinScope, type HistoryActor, type HistoryFailure } from "./history"
 import { getAsset, getSettings } from "./store"
 
 type Fail = HistoryFailure
 const fail = (status: number, code: string, error: string, details?: Record<string, unknown>): Fail => ({ ok: false, status, code, error, ...(details ? { details } : {}) })
 
 export const DECISION_STATUS: Record<DecisionFailureCode, number> = {
+  FORBIDDEN:403,
   NOT_FOUND: 404,
   NO_AI_RESULT: 409,
   ASSET_BUSY: 409,
@@ -73,12 +74,15 @@ export async function buildReviewDetail(
   documentId: number,
   imageId: number,
   permissions: ReviewDetailResponse["permissions"],
+  actor:HistoryActor,
 ): Promise<{ ok: true; body: ReviewDetailResponse } | Fail> {
   const occ = await getOccurrenceForReview(documentId, imageId)
   if (!occ) return fail(404, "NOT_FOUND", "Image occurrence not found.")
   if (occ.assetId == null) return fail(409, "NO_AI_RESULT", "No description has been generated for this image yet.")
   const [asset, settings] = await Promise.all([getAsset(occ.assetId), getSettings()])
   if (!asset || asset.currentVersion <= 0) return fail(409, "NO_AI_RESULT", "No saved description exists for this image.")
+  if(!withinScope(actor.viewScope,actor.userId,asset))return fail(404,"NOT_FOUND","Image occurrence not found.")
+  permissions={canEdit:permissions.canEdit&&withinScope(actor.updateScope,actor.userId,asset),canReview:permissions.canReview&&withinScope(actor.updateScope,actor.userId,asset)&&withinScope(actor.approveScope,actor.userId,asset)}
 
   const approval = occ.review.approval
   const [snapshots, duplicateCount] = await Promise.all([
@@ -174,10 +178,10 @@ export async function decideAndReload(
   documentId: number,
   imageId: number,
   req: DecisionRequest,
-  actorId: number,
+  actor: HistoryActor,
 ): Promise<{ ok: true; body: DecisionResponse } | Fail> {
   const { shortMaxChars } = await getSettings()
-  const out = await decideOccurrence(documentId, imageId, req, actorId, { shortMaxChars })
+  const out = await decideOccurrence(documentId, imageId, req, actor.userId, { shortMaxChars,actor })
   if (!out.ok) {
     return fail(DECISION_STATUS[out.code], out.code, out.message, {
       ...(out.currentVersion != null ? { currentVersion: out.currentVersion } : {}),
@@ -193,7 +197,7 @@ export async function decideAndReload(
  * Applies one bulk action item by item. Each item runs in its own transaction against the version
  * the reviewer saw, so one stale or invalid item never blocks — or silently rides along with — the rest.
  */
-export async function bulkDecide(documentId: number, req: BulkReviewRequest, actorId: number): Promise<BulkReviewResponse> {
+export async function bulkDecide(documentId: number, req: BulkReviewRequest, actor:HistoryActor): Promise<BulkReviewResponse> {
   const { shortMaxChars } = await getSettings()
   const outcomes: BulkOutcome[] = []
   for (const item of req.items) {
@@ -202,8 +206,8 @@ export async function bulkDecide(documentId: number, req: BulkReviewRequest, act
         documentId,
         item.imageId,
         { action: req.action, expectedVersion: item.expectedVersion, comment: req.comment, category: req.category, decorative: false, justification: null },
-        actorId,
-        { shortMaxChars },
+        actor.userId,
+        { shortMaxChars,actor },
       )
       if (out.ok) outcomes.push({ imageId: item.imageId, result: out.changed ? "accepted" : "skipped", ...(out.changed ? {} : { code: "UNCHANGED", message: "Already in this state." }) })
       else outcomes.push({ imageId: item.imageId, result: "rejected", code: out.code, message: out.message })

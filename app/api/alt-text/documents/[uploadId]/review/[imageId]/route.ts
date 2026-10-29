@@ -29,7 +29,7 @@ export async function GET(_req: Request, ctx: Ctx) {
     if (limited) return limited
     const doc = await resolveDocument(uploadId, gate.actor)
     if (!doc.ok) return doc.response
-    const result = await buildReviewDetail(doc.id, imageId, gate.permissions ?? { canEdit: false, canReview: false })
+    const result = await buildReviewDetail(doc.id, imageId, gate.permissions ?? { canEdit: false, canReview: false },gate.actor)
     return result.ok ? jsonOk(result.body) : jsonError(result)
   } catch (err) {
     return unexpected("documents/review-detail", err)

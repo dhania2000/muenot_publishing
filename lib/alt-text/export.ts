@@ -9,6 +9,7 @@
  * out-of-scope or other-tenant assets are reported as 404.
  */
 import "server-only"
+import {auditAccessibilityDenial} from "./security-audit"
 import { CLASSIFICATION_LABELS, LANGUAGES, toCsv, type ImageClassification } from "./core"
 import { parseAssetId, toAssetView, withinScope, type HistoryActor, type HistoryFailure } from "./history"
 import { getAsset, recordExport, type AssetRow } from "./store"
@@ -114,6 +115,7 @@ const BUILDERS: Record<ExportFormat, (a: AssetRow) => string> = { txt: buildTxt,
 export async function exportAltText(q: ExportQuery, actor: HistoryActor): Promise<{ ok: true; file: ExportFile } | HistoryFailure> {
   const asset = await getAsset(q.assetId)
   if (!asset || !withinScope(actor.viewScope, actor.userId, asset)) return fail(404, "NOT_FOUND", "Asset not found.")
+  if(actor.exportScope!==undefined&&!withinScope(actor.exportScope,actor.userId,asset)){auditAccessibilityDenial(actor.userId,"export",asset.id);return fail(403,"FORBIDDEN","You cannot export this image.")}
   if (!isExportable(asset)) return fail(409, "NOT_EXPORTABLE", "This asset has no saved alt text to export yet.")
   const { storageKey: _omit, ...row } = asset
   const body = BUILDERS[q.format](row)

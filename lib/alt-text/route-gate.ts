@@ -44,8 +44,9 @@ export async function gateAltTextHistory(
   try {
     const viewScope = await getScope(session.userId, session.role, "publishing.alt_text", "view")
     if (viewScope === "none") return { ok: false, response: jsonError({ status: 403, code: "FORBIDDEN", error: "You do not have permission to view alt text." }) }
+    let exportScope:PermissionScope|undefined,approveScope:PermissionScope|undefined,permissionUpdate:PermissionScope|undefined
     if (opts.export) {
-      const exportScope = await getActionScope(session.userId, session.role, "publishing.alt_text", "export")
+      exportScope = await getActionScope(session.userId, session.role, "publishing.alt_text", "export")
       if (exportScope === "none") return { ok: false, response: jsonError({ status: 403, code: "FORBIDDEN", error: "You do not have permission to export alt text." }) }
     }
     let uploadScope: PermissionScope | undefined
@@ -55,19 +56,22 @@ export async function gateAltTextHistory(
     }
     let permissions: ReviewPermissions | undefined
     if (opts.review || opts.withPermissions) {
-      const [approveScope, update] = await Promise.all([
+      const [resolvedApprove, update] = await Promise.all([
         getActionScope(session.userId, session.role, "publishing.alt_text", "approve"),
         getScope(session.userId, session.role, "publishing.alt_text", "update"),
       ])
+      approveScope=resolvedApprove
+      permissionUpdate=update
       permissions = { canReview: approveScope !== "none" && update !== "none", canEdit: update !== "none" }
       if (opts.review && !permissions.canReview) {
         return { ok: false, response: jsonError({ status: 403, code: "FORBIDDEN", error: "You do not have permission to review or approve alt text." }) }
       }
     }
-    if (!opts.edit) return { ok: true, actor: { userId: session.userId, viewScope }, ...(uploadScope ? { uploadScope } : {}), ...(permissions ? { permissions } : {}) }
+    const actionScopes={...(exportScope?{exportScope}:{}),...(approveScope?{approveScope}:{}),...(permissionUpdate?{updateScope:permissionUpdate}:{})}
+    if (!opts.edit&&!opts.review) return { ok: true, actor: { userId: session.userId, viewScope,...actionScopes }, ...(uploadScope ? { uploadScope } : {}), ...(permissions ? { permissions } : {}) }
     const updateScope = await getScope(session.userId, session.role, "publishing.alt_text", "update")
     if (updateScope === "none") return { ok: false, response: jsonError({ status: 403, code: "FORBIDDEN", error: "You do not have permission to edit alt text." }) }
-    return { ok: true, actor: { userId: session.userId, viewScope, updateScope }, ...(permissions ? { permissions } : {}) }
+    return { ok: true, actor: { userId: session.userId, viewScope,...actionScopes,updateScope }, ...(permissions ? { permissions } : {}) }
   } catch (err) {
     return { ok: false, response: unexpected("gate", err) }
   }

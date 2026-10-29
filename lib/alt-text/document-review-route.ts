@@ -6,6 +6,7 @@
  *   owner-scoped document lookup, bounded JSON bodies and per-user rate limits.
  */
 import "server-only"
+import {readBody} from "./document-extraction-run"
 import type { NextResponse } from "next/server"
 import { checkRateLimit } from "@/lib/rate-limit"
 import { currentTenantIdOrNull } from "@/lib/tenant-scope"
@@ -41,8 +42,9 @@ export async function readJsonBody(req: Request): Promise<{ ok: true; body: unkn
     return { ok: false, response: jsonError({ status: 413, code: "PAYLOAD_TOO_LARGE", error: "Request body is too large." }) }
   }
   try {
-    const text = await req.text()
-    if (text.length > MAX_REVIEW_BODY_BYTES) return { ok: false, response: jsonError({ status: 413, code: "PAYLOAD_TOO_LARGE", error: "Request body is too large." }) }
+    const bytes=await readBody(req.body,MAX_REVIEW_BODY_BYTES)
+    if(!bytes)return {ok:false,response:jsonError({status:413,code:"PAYLOAD_TOO_LARGE",error:"Request body is empty or exceeds the byte limit."})}
+    const text=bytes.toString("utf8")
     return { ok: true, body: JSON.parse(text) }
   } catch {
     return { ok: false, response: jsonError({ status: 400, code: "INVALID_REQUEST", error: "Send a valid JSON body." }) }

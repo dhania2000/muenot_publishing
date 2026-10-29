@@ -1,4 +1,5 @@
 import "server-only"
+import {evidenceDocumentAllowed} from "./evidence-document-authorization"
 import {createHash} from "node:crypto"
 import {getAsset,getLatestRegionAnalysis,getSettingsRecord,occurrenceBelongsToAsset} from "./store"
 import {withinScope,type HistoryActor} from "./history"
@@ -34,6 +35,7 @@ export async function mathPolicy(){
 async function authorize(assetId:number,occurrenceId:number|null,actor:HistoryActor,edit=false){
  const asset=await getAsset(assetId)
  if(!asset||!withinScope(actor.viewScope,actor.userId,asset)||occurrenceId!=null&&!(await occurrenceBelongsToAsset(assetId,occurrenceId)))throw new MathRequestError(404,"NOT_FOUND","Image not found.")
+ if(!await evidenceDocumentAllowed(assetId,occurrenceId,actor))throw new MathRequestError(404,"NOT_FOUND","Source document occurrence is unavailable.")
  if(edit&&(!actor.updateScope||!withinScope(actor.updateScope,actor.userId,asset)))throw new MathRequestError(403,"FORBIDDEN","You do not have permission to analyze this image.")
  return asset
 }

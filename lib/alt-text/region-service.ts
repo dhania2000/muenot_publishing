@@ -15,6 +15,7 @@
  * - No region is ever fabricated: invalid provider output is rejected and reported, not repaired.
  */
 import "server-only"
+import {evidenceDocumentAllowed} from "./evidence-document-authorization"
 import { randomBytes,createHash } from "node:crypto"
 import { getTenantAiSettings } from "@/lib/ai/assistant-store"
 import { AiError } from "@/lib/ai/governance-core"
@@ -157,6 +158,7 @@ type Target = { asset: NonNullable<Awaited<ReturnType<typeof getAsset>>>; occurr
 async function resolveTarget(assetId: number, occurrenceId: number | null, actor: HistoryActor): Promise<Target | HistoryFailure> {
   const asset = await getAsset(assetId)
   if (!asset || !withinScope(actor.viewScope, actor.userId, asset)) return NOT_FOUND()
+  if(!await evidenceDocumentAllowed(assetId,occurrenceId,actor))return NOT_FOUND()
   let occurrenceManual: ManualClassification | null = null
   if (occurrenceId != null) {
     // Ownership: the occurrence must map to this asset inside the session tenant.

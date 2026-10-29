@@ -181,8 +181,11 @@ const BUILDERS: Record<ExportFormat, (meta: BatchExportMeta, records: BatchExpor
   json: buildBatchJson,
 }
 
-function exportOwner(actor: HistoryActor): { ok: true; owner?: BatchExportOwner } | { ok: false } {
-  const scope = actor.viewScope
+export function exportOwner(actor: HistoryActor): { ok: true; owner?: BatchExportOwner } | { ok: false } {
+  const view=actor.viewScope,action=actor.exportScope??view
+  if(view==="none"||action==="none")return {ok:false}
+  if((view==="added"&&action==="owned")||(view==="owned"&&action==="added"))return {ok:true,owner:{userId:actor.userId,match:"intersection"}}
+  const scope=view==="all"?action:action==="all"?view:view==="both"?action:action==="both"?view:view
   if (scope === "all") return { ok: true }
   if (scope === "added" || scope === "owned" || scope === "both") return { ok: true, owner: { userId: actor.userId, match: scope } }
   return { ok: false }

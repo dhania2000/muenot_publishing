@@ -24,7 +24,7 @@ vi.mock("@/lib/permission-store", () => ({
   getScope: vi.fn(async (_u: number, _r: string, _m: string, action: string) => s.scopes[action] ?? "none"),
   getActionScope: vi.fn(async (_u: number, _r: string, _m: string, action: string) => s.scopes[action] ?? "none"),
 }))
-vi.mock("@/lib/tenant-scope", () => ({ currentTenantIdOrNull: () => s.tenant }))
+vi.mock("@/lib/tenant-scope", () => ({ currentTenantIdOrNull: () => s.tenant,currentTenantId:()=>s.tenant }))
 
 import { GET } from "@/app/api/alt-text/export/route"
 
@@ -69,6 +69,9 @@ const expectHeaders = (res: Response, ext: string, type: string) => {
 }
 
 describe("GET /api/alt-text/export", () => {
+  it("enforces export ownership even when the user can view every image",async()=>{s.scopes.export="added";expect((await get("assetId=5&format=json")).status).toBe(403);expect(s.exports).toHaveLength(0);expect((await get("assetId=1&format=json")).status).toBe(200)})
+  it("requires actual reviewer assignment for an owned export scope",async()=>{s.scopes.export="owned";expect((await get("assetId=1&format=csv")).status).toBe(403);s.assets[0].reviewerId=5;expect((await get("assetId=1&format=csv")).status).toBe(200)})
+  it("does not let a broad export action widen a narrower view scope",async()=>{s.scopes.view="added";s.scopes.export="all";expect((await get("assetId=5&format=json")).status).toBe(404);expect(s.exports).toHaveLength(0)})
   it("TXT: saved edited version with Hindi, math, chemistry and paragraphs", async () => {
     const res = await get("assetId=1&format=txt")
     expectHeaders(res, "txt", "text/plain")

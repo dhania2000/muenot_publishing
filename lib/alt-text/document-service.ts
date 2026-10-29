@@ -30,8 +30,8 @@ import { isDocumentType, isExtractionReady, type DocumentRecord } from "./docume
 const UNSETTLED: ReadonlySet<DocumentSecurityStatus> = new Set(["scanning", "held"])
 
 /** Non-`all` viewers only see their own uploads (same rule as the Task 3 status endpoint). */
-export const ownerScopeFor = (actor: { userId: number; viewScope: PermissionScope }): DocumentOwnerScope =>
-  actor.viewScope === "all" ? null : { uploadedBy: actor.userId }
+export const ownerScopeFor = (actor: { userId: number; viewScope: PermissionScope;exportScope?:PermissionScope }): DocumentOwnerScope =>
+  actor.viewScope === "all" && (actor.exportScope===undefined||actor.exportScope==="all") ? null : { uploadedBy: actor.userId }
 
 /** Strip internal identifiers (file_objects.id) before returning a record to clients. */
 export function toPublicDocument(doc: StoredDocument): DocumentRecord {
