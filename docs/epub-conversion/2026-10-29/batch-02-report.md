@@ -1,6 +1,6 @@
 # EPUB batch 2 progress report
 
-29 October 2026 · global tasks 11–20 · **9 complete, 1 frontend partial**. This is a progress checkpoint, not a claim that all ten task acceptance gates passed.
+Historical checkpoint 46831e5 · global tasks 11–20 · **9 complete, 1 frontend partial at that checkpoint**. The remaining P2-T05 intake dependency was subsequently closed; see [batch 2 closure evidence](P2-T05-intake-integration.md). Current total: 20 complete, 280 pending. The report below preserves the earlier progress evidence.
 
 | Task | Evidence | Status |
 | --- | --- | --- |

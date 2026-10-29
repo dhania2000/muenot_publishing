@@ -4,10 +4,19 @@ import { query } from "@/lib/db"
 import { currentTenantId } from "@/lib/tenant-scope"
 import { getByObjectKey, type FileMetadataInput, type FileObject } from "./file-metadata"
 import { keyBelongsToTenant, tenantKey } from "./keys"
+import type {PoolConnection,ResultSetHeader} from "mysql2/promise"
 
 export { keyBelongsToTenant } from "./keys"
 
 export const STORAGE_UNAVAILABLE = "Storage is temporarily unavailable"
+
+/** Atomic private intake. New inputs stay pending; no scan or processing success is inferred. */
+export async function storePendingFileInTransaction(conn:PoolConnection,input:{path:string;name:string;bytes:Buffer;module:string;entityType:string;entityId:string;ownerId:number}){
+  const tenantId=currentTenantId(),key=tenantKey(tenantId,input.path),ref=randomUUID(),checksum=createHash("sha256").update(input.bytes).digest("hex")
+  await conn.query("INSERT INTO app_file_blobs (tenant_id,object_key,content_type,body) VALUES (?,?,?,?)",[tenantId,key,"application/octet-stream",input.bytes])
+  const [saved]=await conn.query<ResultSetHeader>(`INSERT INTO app_files (tenant_id,file_ref,module,entity_type,entity_id,object_key,filename,mime_type,size_bytes,checksum,upload_status,classification,owner_id,scan_status) VALUES (?,?,?,?,?,?,?,'application/octet-stream',?,?,'uploaded','restricted',?,'pending')`,[tenantId,ref,input.module,input.entityType,input.entityId,key,input.name,input.bytes.length,checksum,input.ownerId])
+  return {fileId:Number(saved.insertId),fileRef:ref,checksum}
+}
 
 export type UploadResult = { key: string; url: string; size: number; contentType: string }
 export type DownloadResult = { body: Buffer; contentType: string; size: number }

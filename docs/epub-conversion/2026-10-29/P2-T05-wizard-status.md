@@ -1,6 +1,6 @@
 # P2-T05 Guided project wizard status
 
-29 October 2026 · **frontend partial; end-to-end task acceptance pending**.
+Historical checkpoint 46831e5 · **frontend partial at that checkpoint**. The missing intake dependency is now implemented and verified as described in [P2-T05 intake integration](P2-T05-intake-integration.md). The text below records the earlier limitation, not the current feature status.
 
 Existing EPUB workspace now composes a five-step planner: sources, book profile, output settings, optional client notes and review. It reuses `PdfUploadDropzone`, existing input/button/label/textarea primitives and the tested EPUB planning contract. Required source/title feedback, back/next, keyboard focus, Save plan, Clear plan and explicit storage errors work.
 

@@ -2,7 +2,7 @@
 
 This directory tracks the 300 sequential tasks supplied in `Muenot_EPUB_300_Tasks_Download.docx`. The source SHA-256, original task text and all 300 task IDs are preserved in [roadmap.json](roadmap.json). Its task order is authoritative. A completed specification is not an implemented conversion engine.
 
-The current evidence baseline is commit `0cf661d69040185aeb5ffd73d23700a80d9f4f76`, inspected 29 October 2026. The documents under [2026-10-29](2026-10-29/) supersede conflicting findings in the older P1-T01–T03 reports at this directory's root. Those older reports remain historical evidence. Their missing-roadmap blocker B1 is resolved by the supplied DOCX and the imported catalogue; their provisional workstreams are not the task numbering authority.
+The initial audit baseline is commit `0cf661d69040185aeb5ffd73d23700a80d9f4f76`, inspected 29 October 2026. Later task reports record subsequent implementation changes. The documents under [2026-10-29](2026-10-29/) supersede conflicting findings in the older P1-T01–T03 reports at this directory's root. Those older reports remain historical evidence. Their missing-roadmap blocker B1 is resolved by the supplied DOCX and the imported catalogue; their provisional workstreams are not the task numbering authority.
 
 ## Delivery batches
 
@@ -11,10 +11,10 @@ Each batch contains ten consecutive global task numbers, even across a phase bou
 | Batch | Global numbers | Task range | Evidence |
 | --- | --- | --- | --- |
 | 1 | 1–10 | P1-T01–P1-T10 | [Batch 1 report](2026-10-29/batch-01-report.md) |
-| 2 | 11–20 | P1-T11–P2-T05 | [Progress report](2026-10-29/batch-02-report.md): 9 complete, P2-T05 frontend partial |
+| 2 | 11–20 | P1-T11–P2-T05 | [Checkpoint report](2026-10-29/batch-02-report.md) and [intake closure](2026-10-29/P2-T05-intake-integration.md): complete |
 | 3–30 | 21–300 | Exact task order in roadmap.json | Pending |
 
-Phase 1 is documentation only, as the supplied prompts require. No runtime, database, dependency or production setting is changed by that phase. Phase 2 now provides the EPUB overview, requirements pages, selectors and saved planning wizard. Actual source upload, project submission and conversion are not connected. Overall: 19 complete, 1 frontend partial, 280 not started.
+Phase 1 is documentation only, as the supplied prompts require. No runtime, database, dependency or production setting is changed by that phase. Phase 2 provides the EPUB overview, requirements pages, selectors, saved wizard and private held-project submission. Sources remain pending security review; no conversion job or charge is created. Overall: 20 complete, 280 not started. Live database/hosting verification and the actual EPUB engine remain future gates.
 
 ## Shared rules
 

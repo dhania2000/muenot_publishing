@@ -6,9 +6,9 @@ import {conversionHref} from "@/lib/conversion-modules"
 
 export function EpubOverview(){return <div className="space-y-6">
   <section className="rounded-lg border bg-card p-5 space-y-4" aria-labelledby="epub-start">
-    <Badge variant="secondary">Planning workspace ready · conversion planned</Badge>
+    <Badge variant="secondary">Project intake ready · conversion planned</Badge>
     <h2 id="epub-start" className="text-xl font-semibold">Plan your next EPUB publication</h2>
-    <p className="max-w-3xl text-sm text-muted-foreground">Choose a source, reading layout and book profile. Save a project plan while secure intake and conversion tools are being connected. Files are not uploaded or converted in this workspace yet.</p>
+    <p className="max-w-3xl text-sm text-muted-foreground">Choose a source, reading layout and book profile. Save a project plan or submit sources privately for intake. Submitted projects are held for security review and engine availability; conversion is not available yet.</p>
     <div className="flex flex-wrap gap-3"><Button asChild><Link href={conversionHref("epub","workspace")}>Plan a publication</Link></Button><Button asChild variant="outline"><Link href={`${conversionHref("epub","workspace")}#epub-inquiry`}>Prepare an enterprise inquiry</Link></Button></div>
     <ol className="grid gap-2 sm:grid-cols-3 lg:grid-cols-5" aria-label="Publication planning workflow">{["Choose sources","Book profile","Output settings","Guidelines (optional)","Review plan"].map((s,i)=><li className="rounded border p-3 text-sm" key={s}><span className="font-semibold">{i+1}.</span> {s}</li>)}</ol>
   </section>

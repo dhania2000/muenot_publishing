@@ -237,13 +237,14 @@
       "id": "P2-T05",
       "phase": 2,
       "title": "Guided conversion project wizard",
-      "status": "frontend_partial",
+      "status": "complete",
       "prompt": "MISSION:  Act as a senior enterprise EPUB publishing architect and full-stack engineer. Execute ONLY Muenot Publishing standalone website (service.muenot.co.in), EPUB Conversion, P2-T05 — Guided conversion project wizard. Implement the smallest production-ready change justified by the existing repository.\nAUDIT & REUSE:  Before acting, inspect actual repository files, prior phase/task documents and relevant existing pages, forms, components, services, APIs, schemas and tests. Record a real “existing page/service → improvement” map with file paths; reuse existing infrastructure and avoid duplicate routes, tables, dashboards or job workflows. If repository or dependencies are unavailable, state the blocker instead of inventing implementation.\nREQUIRED WORK:  1) Build a short multi-step form for source upload, book profile, settings, optional guidelines, review and submission.2) Reuse current validation/upload components; preserve progress, drafts, error states, keyboard operation and mobile usability.\nACCEPTANCE:  Wizard resumes safely, provides actionable validation and submits one coherent project without duplicate jobs.\nGUARDRAILS:  Keep existing PDF/XML/HTML and other Publishing services functioning. Client-specific guidelines remain optional at submission; when present, apply relevant approved rules and validate them. Never silently bypass mandatory rules or claim unsupported EPUB/reader capabilities.\nDELIVERABLE & REPORT:  Implement only scoped frontend changes and required existing-contract integration; for v0, keep output UI-only, with backend changes reserved for Codex. Document changed components, interaction states, accessibility checks and regression tests.",
       "evidence": [
-        "2026-10-29/P2-T05-wizard-status.md"
+        "2026-10-29/P2-T05-wizard-status.md",
+        "2026-10-29/P2-T05-intake-integration.md"
       ],
       "batch": 2,
-      "pendingAcceptance": "Secure server-side source intake, coherent project submission and idempotent job creation are not connected."
+      "scope": "Private coherent held-project intake; EPUB processing remains unavailable."
     },
     {
       "ordinal": 21,
