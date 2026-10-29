@@ -1,4 +1,4 @@
-import { deflateRawSync } from "node:zlib"
+import { crc32, deflateRawSync } from "node:zlib"
 
 /** In-memory PDF / OOXML fixtures for the Phase 3 Task 3 document upload tests. */
 
@@ -28,6 +28,7 @@ export function buildZip(entries: ZipFixtureEntry[]): Buffer {
     local.writeUInt16LE(20, 4)
     local.writeUInt16LE(flags, 6)
     local.writeUInt16LE(method, 8)
+    local.writeUInt32LE(crc32(raw), 14)
     local.writeUInt32LE(body.length, 18)
     local.writeUInt32LE(size, 22)
     local.writeUInt16LE(name.length, 26)
@@ -39,6 +40,7 @@ export function buildZip(entries: ZipFixtureEntry[]): Buffer {
     central.writeUInt16LE(20, 6)
     central.writeUInt16LE(flags, 8)
     central.writeUInt16LE(method, 10)
+    central.writeUInt32LE(crc32(raw), 16)
     central.writeUInt32LE(body.length, 20)
     central.writeUInt32LE(size, 24)
     central.writeUInt16LE(name.length, 28)

@@ -540,6 +540,7 @@ export type BulkOutcome = { imageId: number; result: "accepted" | "skipped" | "r
 export type BulkReviewResponse = { success: true; action: BulkReviewAction; accepted: number; skipped: number; rejected: number; outcomes: BulkOutcome[]; stats: ReviewStats }
 
 export type InsertionReadinessRow = {
+  accessibility?:import("./document-accessibility-contract").DocumentAccessibilitySnapshot
   documentId: number
   imageOccurrenceId: number
   sourceLocator: string

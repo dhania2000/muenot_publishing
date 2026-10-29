@@ -9,7 +9,7 @@
  */
 import type { AccessibleExportFormat } from "./docx-export-contract"
 
-export const OUTPUT_VALIDATION_RULE_VERSION = "task19.v1"
+export const OUTPUT_VALIDATION_RULE_VERSION = "task24.v1"
 
 export type ValidationCategory = "file_integrity" | "alt_text" | "unapproved_content" | "structure" | "accessibility" | "manual"
 export type CheckStatus = "passed" | "failed" | "warning" | "not_executed" | "not_applicable" | "not_verified" | "manual_review"

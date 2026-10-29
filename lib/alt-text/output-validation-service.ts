@@ -90,17 +90,22 @@ export async function getOutputValidationReport(documentId: number, outputRef: s
   return report ? { ok: true, report } : fail(404, "NOT_FOUND", "This output has not been validated yet.")
 }
 
-async function expectedOccurrences(ctx: Context): Promise<ExpectedOccurrence[]> {
+export async function expectedOccurrences(ctx: Context): Promise<ExpectedOccurrence[]> {
   const items = ctx.record.report?.items ?? []
   const versionIds = items.map((i) => (i as { approvedVersionId?: number | null }).approvedVersionId).filter((v): v is number => typeof v === "number")
   const [approvals, versions] = await Promise.all([loadOccurrenceApprovals(ctx.doc.id, items.map((i) => i.occurrenceId)), loadVersionTexts(versionIds)])
   return items.map((i) => {
     const approvedVersionId = (i as { approvedVersionId?: number | null }).approvedVersionId ?? null
-    const version = approvedVersionId != null ? versions.get(approvedVersionId) : undefined
+    const candidate = approvedVersionId != null ? versions.get(approvedVersionId) : undefined
+    const version=candidate&&(i.assetId==null||candidate.assetId===i.assetId)?candidate:undefined
     const current = approvals.get(i.occurrenceId)
     return {
       occurrenceId: i.occurrenceId,
-      sourceLocator: current?.sourceLocator ?? "",
+      sourceLocator: i.sourceLocator??current?.sourceLocator??"",
+      currentSourceLocator:current?.sourceLocator??null,
+      sourceLocatorSnapshotVerified:typeof i.sourceLocator==="string"&&i.assetId!=null&&version!==undefined,
+      assetId:i.assetId??null,
+      accessibility:i.accessibility,
       exportStatus: i.status,
       exportCode: i.code,
       exportMessage: i.message,
@@ -134,7 +139,7 @@ export async function runOutputValidation(
       checksums?.sourceChecksum ?? null,
       checksums?.outputChecksum ?? null,
       shortMaxChars,
-      occurrences.map((o) => [o.occurrenceId, o.approvedVersionId, o.currentApprovedVersionId]),
+      occurrences.map((o) => [o.occurrenceId, o.approvedVersionId, o.currentApprovedVersionId,o.sourceLocator,o.currentSourceLocator,o.sourceLocatorSnapshotVerified,o.accessibility?.fingerprint??null]),
     ]),
   )
 

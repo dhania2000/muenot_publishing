@@ -44,6 +44,7 @@ import { claimExport, completeExport, failExport, getExportByKey, getExportByRef
 import type { HistoryActor } from "./history"
 import { getSettings } from "./store"
 import { ALT_TEXT_UPLOAD_MAX_MB } from "./upload"
+import {captureDocumentAccessibility} from "./document-accessibility-snapshot"
 
 const isExportable = (t: string): t is AccessibleExportFormat => isAccessibleExportFormat(t)
 
@@ -73,10 +74,10 @@ function unavailableReason(doc: StoredDocument): string | null {
   return null
 }
 
-async function loadReadiness(documentId: number) {
+async function loadReadiness(documentId: number,actor:HistoryActor) {
   const { shortMaxChars } = await getSettings()
   const readiness = await listInsertionReadiness(documentId, { limit: DOCX_EXPORT_MAX_OCCURRENCES + 1, offset: 0 }, { shortMaxChars })
-  return readiness
+  return {...readiness,rows:await captureDocumentAccessibility(documentId,readiness.rows,actor)}
 }
 
 async function loadOwnedDocument(documentId: number, actor: HistoryActor): Promise<StoredDocument | null> {
@@ -86,7 +87,7 @@ async function loadOwnedDocument(documentId: number, actor: HistoryActor): Promi
 export async function getDocxExportPreflight(documentId: number, actor: HistoryActor): Promise<{ ok: true; preflight: DocxExportPreflight } | ExportFailure> {
   const doc = await loadOwnedDocument(documentId, actor)
   if (!doc) return fail(404, "NOT_FOUND", "The document could not be found.")
-  const [readiness, exports] = await Promise.all([loadReadiness(doc.id), listExports(doc.id)])
+  const [readiness, exports] = await Promise.all([loadReadiness(doc.id,actor), listExports(doc.id)])
   const plan = planDocxExport(readiness.rows.slice(0, DOCX_EXPORT_MAX_OCCURRENCES))
   let reason = unavailableReason(doc)
   if (!reason && readiness.total > DOCX_EXPORT_MAX_OCCURRENCES) reason = `This document has more than ${DOCX_EXPORT_MAX_OCCURRENCES} images, which is above the export limit.`
@@ -149,12 +150,12 @@ export async function runDocxExport(documentId: number, actor: HistoryActor, req
   const existing = await getExportByKey(doc.id, request.idempotencyKey)
   if (existing) return replay(existing)
 
-  const readiness = await loadReadiness(doc.id)
+  const readiness = await loadReadiness(doc.id,actor)
   if (readiness.total > DOCX_EXPORT_MAX_OCCURRENCES) return fail(413, "TOO_MANY_OCCURRENCES", `This document has more than ${DOCX_EXPORT_MAX_OCCURRENCES} images, which is above the export limit.`)
   if (readiness.total === 0) return fail(422, "NO_MAPPED_OCCURRENCES", "No image occurrences have been mapped for this document yet.")
   const snapshot = approvalSnapshot(readiness.rows)
   if (request.snapshot && request.snapshot !== snapshot) {
-    return fail(409, "SNAPSHOT_CHANGED", "Approvals changed since you reviewed the export summary. Review the updated summary and try again.", { snapshot })
+    return fail(409, "SNAPSHOT_CHANGED", "The approval or accessibility-evidence snapshot changed since you reviewed the export summary. Review the updated summary and try again.", { snapshot })
   }
 
   const plan = planDocxExport(readiness.rows)
@@ -198,10 +199,10 @@ export async function runDocxExport(documentId: number, actor: HistoryActor, req
     }
 
     // Approvals may have moved while the file was being rewritten; never ship a stale snapshot.
-    const after = await loadReadiness(doc.id)
+    const after = await loadReadiness(doc.id,actor)
     if (approvalSnapshot(after.rows) !== snapshot) {
       await failExport(doc.id, outputRef, "APPROVALS_CHANGED", report)
-      return fail(409, "SNAPSHOT_CHANGED", "Approvals changed while the document was being prepared. Review the updated summary and try again.")
+      return fail(409, "SNAPSHOT_CHANGED", "The approval or accessibility-evidence snapshot changed while the document was being prepared. Review the updated summary and try again.")
     }
     if (sha256(source) !== sourceChecksum) {
       await failExport(doc.id, outputRef, "SOURCE_MUTATED", report)
