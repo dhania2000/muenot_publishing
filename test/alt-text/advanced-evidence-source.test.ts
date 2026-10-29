@@ -1,3 +1,5 @@
+import "server-only"
+vi.mock("@/lib/alt-text/evidence-document-authorization",()=>({evidenceDocumentAllowed:async()=>true}))
 import {beforeEach,it,expect,vi} from "vitest"
 const d=vi.hoisted(()=>({asset:vi.fn(),occurrence:vi.fn(),analysis:vi.fn(),open:vi.fn(),ocr:vi.fn(),query:vi.fn()}))
 vi.mock("@/lib/alt-text/store",()=>({getAsset:d.asset,occurrenceBelongsToAsset:d.occurrence,getLatestRegionAnalysis:d.analysis,listOcrResults:d.ocr}))

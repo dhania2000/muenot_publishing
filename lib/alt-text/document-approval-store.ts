@@ -8,6 +8,8 @@
  *   Callers must already have resolved the document inside the actor's owner scope.
  */
 import "server-only"
+import {withinScope,type HistoryActor} from "./history"
+import {auditAccessibilityDenial} from "./security-audit"
 import type { ResultSetHeader, RowDataPacket } from "mysql2"
 import { query, withTransaction } from "@/lib/db"
 import { currentTenantId } from "@/lib/tenant-scope"
@@ -294,6 +296,7 @@ export async function appendReviewAudit(assetId: number, version: number, action
 /* ---------- Decisions ---------- */
 
 export type DecisionFailureCode =
+  | "FORBIDDEN"
   | "NOT_FOUND"
   | "NO_AI_RESULT"
   | "ASSET_BUSY"
@@ -333,7 +336,7 @@ export async function decideOccurrence(
   imageId: number,
   req: DecisionRequest,
   actorId: number,
-  policy: { shortMaxChars: number },
+  policy: { shortMaxChars: number;actor:HistoryActor },
 ): Promise<DecisionOutcome> {
   await ensureAltTextSchema()
   const tenantId = tid()
@@ -351,12 +354,14 @@ export async function decideOccurrence(
     if (occ.alt_text_asset_id == null) return { ok: false, code: "NO_AI_RESULT", message: "No description has been generated for this image yet." } as const
 
     const [assetRows] = await conn.query<RowDataPacket[]>(
-      "SELECT id, status, current_version, language FROM alt_text_assets WHERE tenant_id = ? AND id = ? FOR UPDATE",
+      "SELECT id, status, current_version, language,created_by,reviewer_id FROM alt_text_assets WHERE tenant_id = ? AND id = ? FOR UPDATE",
       [tenantId, occ.alt_text_asset_id],
     )
     const asset = assetRows[0]
     const currentVersion = Number(asset?.current_version ?? 0)
     if (!asset || currentVersion <= 0) return { ok: false, code: "NO_AI_RESULT", message: "No saved description exists for this image." } as const
+    const permissionTarget={createdBy:Number(asset.created_by),reviewerId:asset.reviewer_id==null?null:Number(asset.reviewer_id)}
+    if(policy.actor.userId!==actorId||![policy.actor.viewScope,policy.actor.updateScope,policy.actor.approveScope].every(scope=>withinScope(scope,actorId,permissionTarget))){auditAccessibilityDenial(actorId,"review",Number(asset.id));return {ok:false,code:"FORBIDDEN",message:"You cannot review or approve this image."} as const}
     if (asset.status === "processing") return { ok: false, code: "ASSET_BUSY", message: "A generation is running for this image. Try again when it finishes.", currentVersion } as const
     if (currentVersion !== req.expectedVersion) {
       return { ok: false, code: "VERSION_CONFLICT", message: `A newer version (v${currentVersion}) was saved. Reload and review it before deciding.`, currentVersion } as const

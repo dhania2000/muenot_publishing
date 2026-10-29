@@ -16,6 +16,7 @@
  * - No text is invented: an empty engine result is reported as "no text detected".
  */
 import "server-only"
+import {evidenceDocumentAllowed} from "./evidence-document-authorization"
 import { createHash, randomBytes } from "node:crypto"
 import { detectAccessibilityBackend } from "./accessibility-backend"
 import { resolveEffectiveAccessibilitySettings, type CapabilityState } from "./accessibility-settings"
@@ -158,6 +159,7 @@ type Target = { asset: NonNullable<Awaited<ReturnType<typeof getAsset>>> }
 async function resolveTarget(assetId: number, occurrenceId: number | null, actor: HistoryActor): Promise<Target | HistoryFailure> {
   const asset = await getAsset(assetId)
   if (!asset || !withinScope(actor.viewScope, actor.userId, asset)) return NOT_FOUND()
+  if(!await evidenceDocumentAllowed(assetId,occurrenceId,actor))return NOT_FOUND()
   if (occurrenceId != null && !(await occurrenceBelongsToAsset(assetId, occurrenceId))) return NOT_FOUND()
   return { asset }
 }

@@ -18,7 +18,7 @@ import type { OcrPixelBox } from "./ocr-contract"
 
 export const PAGE_OCR_SCHEMA_VERSION = 1
 /** Bump when render or preprocessing behaviour changes so older results are not reused as equivalent. */
-export const PAGE_RENDER_POLICY_VERSION = "pdfjs-source-dpi-v2"
+export const PAGE_RENDER_POLICY_VERSION = "pdfjs6-canvas1-source-dpi-v3"
 
 export const PAGE_OCR_STATUSES = [
   "not_required",

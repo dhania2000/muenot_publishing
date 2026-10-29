@@ -15,7 +15,7 @@ import { ASSET_STATUSES, COMPLEX_CLASSIFICATIONS, IMAGE_CLASSIFICATIONS, type Im
 import { editAsset, getAsset, getSettings, listAssets, listVersions, type AssetRow } from "./store"
 import { terminologyIssues,TERMINOLOGY_RULE_VERSION } from "./terminology-policy"
 
-export type HistoryActor = { userId: number; viewScope: PermissionScope; updateScope?: PermissionScope }
+export type HistoryActor = { userId: number; viewScope: PermissionScope; updateScope?: PermissionScope;exportScope?:PermissionScope;approveScope?:PermissionScope }
 export type HistoryFailure = { ok: false; status: number; code: string; error: string; details?: Record<string, unknown> }
 type Ok<T> = { ok: true; body: T }
 

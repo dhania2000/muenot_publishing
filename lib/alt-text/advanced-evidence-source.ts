@@ -1,4 +1,5 @@
 import "server-only"
+import {evidenceDocumentAllowed} from "./evidence-document-authorization"
 import {createHash} from "node:crypto"
 import {getAsset,getLatestRegionAnalysis,occurrenceBelongsToAsset,listOcrResults} from "./store"
 import {toAnalysisView} from "./region-service"
@@ -24,6 +25,8 @@ export function parseAdvancedRegionRequest(body:unknown):AdvancedRegionRequest|n
 export async function authorizeAdvancedAsset(assetId:number,occurrenceId:number|null,actor:HistoryActor,edit=false){
  const asset=await getAsset(assetId)
  if(!asset||!withinScope(actor.viewScope,actor.userId,asset)||occurrenceId!=null&&!(await occurrenceBelongsToAsset(assetId,occurrenceId)))throw new AdvancedEvidenceError(404,"NOT_FOUND","Image not found.")
+ if(!await evidenceDocumentAllowed(assetId,occurrenceId,actor))throw new AdvancedEvidenceError(404,"NOT_FOUND","Source document occurrence is unavailable.")
+ if(actor.exportScope!==undefined&&!withinScope(actor.exportScope,actor.userId,asset))throw new AdvancedEvidenceError(403,"FORBIDDEN","You cannot export this image's analysis.")
  if(edit&&!withinScope(actor.updateScope,actor.userId,asset))throw new AdvancedEvidenceError(403,"FORBIDDEN","You cannot analyze this image.")
  return asset
 }

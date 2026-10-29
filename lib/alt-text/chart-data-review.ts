@@ -8,13 +8,15 @@ import {AdvancedEvidenceError} from "./advanced-evidence-source"
 import {allowedChartMappings,chartDataCandidates,extractChartLabelData} from "./chart-data-analysis"
 import type {ChartLabelDecision,ChartLabelDecisionInput,ChartDataParent} from "./chart-data-contract"
 import type {HistoryActor} from "./history"
+import {withinScope} from "./history"
 const hash=(v:unknown)=>createHash("sha256").update(JSON.stringify(v)).digest("hex")
 const parse=(v:any)=>typeof v==="string"?JSON.parse(v):v
 function view(r:any):ChartLabelDecision{return {...parse(r.result_json),id:Number(r.id),version:Number(r.version)}}
 export async function chartDataReviewSource(assetId:number,occurrenceId:number|null,evidenceId:number,actor:HistoryActor,edit=false){
  const evidence=await getCompletedAdvancedEvidence(assetId,occurrenceId,"chart_data",evidenceId)
  if(!evidence?.result)throw new AdvancedEvidenceError(404,"DATA_NOT_FOUND","Completed chart data evidence not found.")
- const {parent}=await authorizedChartDataParent(assetId,occurrenceId,evidence.result.parentAxesEvidenceId,actor,edit)
+ const {parent,asset}=await authorizedChartDataParent(assetId,occurrenceId,evidence.result.parentAxesEvidenceId,actor,edit)
+ if(edit&&!withinScope(actor.approveScope,actor.userId,asset))throw new AdvancedEvidenceError(403,"FORBIDDEN","You cannot verify chart labels for this image.")
  if(parent.axes.version!==evidence.result.parentAxesVersion||parent.chart.id!==evidence.result.parentChartEvidenceId||parent.axes.result.sourceSha256!==evidence.result.sourceSha256)throw new AdvancedEvidenceError(409,"DATA_PARENT_CHANGED","The saved chart data does not match its source.")
  return {evidence,parent}
 }
@@ -37,6 +39,7 @@ export async function saveChartLabelDecision(assetId:number,occurrenceId:number|
   const [replay]=await conn.query<any[]>("SELECT * FROM alt_text_accessibility_evidence WHERE tenant_id=? AND kind='chart_data_review' AND request_key=?",[tenant,request])
   if(replay[0]){if(replay[0].config_key!==config)throw new AdvancedEvidenceError(409,"REQUEST_CONFLICT","This request was used for another decision.");return {record:view(replay[0]),replayed:true}}
   await assertChartDataCurrent(parent,actor)
+  await chartDataReviewSource(assetId,occurrenceId,evidenceId,actor,true)
   const [prior]=await conn.query<any[]>("SELECT version FROM alt_text_accessibility_evidence WHERE tenant_id=? AND asset_id=? AND occurrence_key=? AND region_id=? AND kind='chart_data_review' ORDER BY version DESC LIMIT 1",[tenant,assetId,occurrenceId??0,region])
   if(Number(prior[0]?.version??0)!==input.expectedVersion)throw new AdvancedEvidenceError(409,"VERSION_CONFLICT","Another reviewer saved changes. Reload before saving.")
   const version=input.expectedVersion+1,{expectedVersion:_,requestId:__,...decision}=input,result={...decision,editorId:actor.userId,createdAt:new Date().toISOString()}

@@ -107,6 +107,7 @@ afterEach(() => {
 })
 
 describe("alt text credit metering", () => {
+  it("logs only settlement error metadata rather than arbitrary exception messages",async()=>{db.settleFailures=2;const result=await run({operationId:"op-private-failure"});expect(result.credits.status).toBe("pending_settlement");expect(console.error).toHaveBeenCalled();const logs=JSON.stringify(vi.mocked(console.error).mock.calls);expect(logs).not.toContain("deadlock");expect(logs).toContain('"error":"Error"')})
   it("reserves a conservative estimate that includes image input, then settles actual usage and releases the rest", async () => {
     const est = estimateAltTextReservation({ generation, altTextSettings: DEFAULT_SETTINGS, model: A })
     expect(est.estimate.inputTokens).toBeGreaterThanOrEqual(IMAGE_INPUT_TOKEN_RESERVE)

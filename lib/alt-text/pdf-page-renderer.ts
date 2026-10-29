@@ -124,12 +124,13 @@ async function openPdfForRenderInternal(bytes: Uint8Array): Promise<PdfRenderHan
   return {
     numPages: doc.numPages,
     async destroy() {
-      await doc.destroy().catch(() => undefined)
+      // PDF.js 6 owns document teardown on the loading task, including its worker.
+      await task.destroy().catch(() => undefined)
     },
     async renderPage(pageNumber, opts = {}) {
       if (!Number.isInteger(pageNumber) || pageNumber < 1 || pageNumber > doc.numPages) throw new PageRenderError("INVALID_PAGE", "That page does not exist.")
       const started = Date.now()
-      const page = await withTimeout(doc.getPage(pageNumber), PAGE_RENDER_LIMITS.renderTimeoutMs, () => { void doc.destroy().catch(() => undefined) })
+      const page = await withTimeout(doc.getPage(pageNumber), PAGE_RENDER_LIMITS.renderTimeoutMs, () => { void task.destroy().catch(() => undefined) })
       try {
         const base = page.getViewport({ scale: 1 })
         const plan: RenderPlan = planRender(base.width, base.height, { targetDpi: opts.targetDpi })

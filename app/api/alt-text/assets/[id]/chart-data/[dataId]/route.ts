@@ -19,7 +19,7 @@ export async function GET(req:Request,ctx:Ctx){
  try{const data=await reviewedChartData(assetId,occurrenceId,dataId,gate.actor)
   if(csv)return new Response(chartDataCsv(data.result,data.analysisVersion),{headers:{"Content-Type":"text/csv; charset=utf-8","Content-Disposition":`attachment; filename="chart-data-${dataId}.csv"`,"Cache-Control":"private, no-store","X-Content-Type-Options":"nosniff"}})
   let canReview=false
-  if(gate.permissions?.canReview){const edit=await gateAltTextHistory({edit:true});if(edit.ok){try{await chartDataReviewSource(assetId,occurrenceId,dataId,edit.actor,true);canReview=true}catch(e){if(!(e instanceof AdvancedEvidenceError)||e.status!==403)throw e}}}
+  if(gate.permissions?.canReview){const edit=await gateAltTextHistory({edit:true,review:true});if(edit.ok){try{await chartDataReviewSource(assetId,occurrenceId,dataId,edit.actor,true);canReview=true}catch(e){if(!(e instanceof AdvancedEvidenceError)||e.status!==403)throw e}}}
   return jsonOk({success:true,...data,canReview})
  }catch(e){return failure(e)}
 }

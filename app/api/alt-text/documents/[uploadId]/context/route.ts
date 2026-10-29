@@ -1,3 +1,4 @@
+import {readBody} from "@/lib/alt-text/document-extraction-run"
 /**
  * @file app/api/alt-text/documents/[uploadId]/context/route.ts
  * @module Publishing · Alt Text
@@ -45,7 +46,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ uploadId: stri
   const { uploadId: id } = await ctx.params
   if (!ID.test(id)) return notFound()
   let imageId: number | undefined
-  const raw = await req.text().catch(() => "")
+  const bytes=req.body?await readBody(req.body,2048).catch(()=>null):Buffer.alloc(0)
+  if(!bytes)return jsonError({status:413,code:"PAYLOAD_TOO_LARGE",error:"Request body exceeds the byte limit."})
+  const raw=bytes.toString("utf8")
   if (raw.trim()) {
     let body: unknown
     try {
@@ -53,6 +56,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ uploadId: stri
     } catch {
       return jsonError({ status: 400, code: "INVALID_INPUT", error: "Invalid JSON body." })
     }
+    if(!body||typeof body!=="object"||Array.isArray(body)||Object.keys(body).some(k=>k!=="imageId"))return jsonError({status:400,code:"INVALID_INPUT",error:"Only a source image occurrence identity is accepted."})
     const v = (body as { imageId?: unknown } | null)?.imageId
     if (v != null) {
       if (typeof v !== "number" || !ID.test(String(v))) return jsonError({ status: 400, code: "INVALID_INPUT", error: "imageId must be a positive integer." })

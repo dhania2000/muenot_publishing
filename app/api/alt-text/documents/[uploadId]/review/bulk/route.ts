@@ -28,7 +28,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ uploadId: stri
     if (limited) return limited
     const doc = await resolveDocument((await ctx.params).uploadId, gate.actor)
     if (!doc.ok) return doc.response
-    return jsonOk(await bulkDecide(doc.id, parsed.value, gate.actor.userId))
+    return jsonOk(await bulkDecide(doc.id, parsed.value, gate.actor))
   } catch (err) {
     return unexpected("documents/review-bulk", err)
   }
