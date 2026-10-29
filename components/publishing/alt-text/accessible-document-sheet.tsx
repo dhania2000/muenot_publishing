@@ -15,6 +15,7 @@ import { AlertTriangle, Download, FileCheck2, Loader2, RefreshCw, ShieldCheck } 
 import { OutputValidationPanel } from "./output-validation-panel"
 import {DocumentExportProvenance} from "./document-export-provenance"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import {AlertDialog,AlertDialogAction,AlertDialogCancel,AlertDialogContent,AlertDialogDescription,AlertDialogFooter,AlertDialogHeader,AlertDialogTitle} from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -67,6 +68,7 @@ function ItemList({ items }: { items: DocxExportItem[] }) {
             <span className="font-medium text-foreground">
               {i.slideNumber != null ? `Slide ${i.slideNumber} · ` : i.pageNumber != null ? `Page ${i.pageNumber} · ` : ""}
               {`Image #${i.occurrenceId}`}
+              {i.grouped ? " · in group" : ""}
             </span>
             <Badge variant={i.status === "failed" ? "destructive" : "secondary"}>{STATUS_LABEL[i.status]}</Badge>
           </div>
@@ -120,6 +122,7 @@ export function AccessibleDocumentSheet({
   const pre = useSWR<DocxExportPreflight>(open && documentId ? docxExportPreflightUrl(documentId) : null, altTextFetcher, { revalidateOnFocus: false })
   const [policy, setPolicy] = useState<DocxExportPolicy>("approved_only")
   const [running, setRunning] = useState(false)
+  const [confirming,setConfirming]=useState(false)
   const [result, setResult] = useState<DocxExportResponse | null>(null)
   const [failure, setFailure] = useState<{ message: string; items: DocxExportItem[] } | null>(null)
   const [checking, setChecking] = useState<{ outputId: string; filename: string } | null>(null)
@@ -127,6 +130,7 @@ export function AccessibleDocumentSheet({
   const data = pre.data
 
   function change(next: boolean) {
+    if(!next)setConfirming(false)
     if (!next) {
       setResult(null)
       setFailure(null)
@@ -137,6 +141,7 @@ export function AccessibleDocumentSheet({
   }
 
   async function run() {
+    setConfirming(false)
     if (!documentId || !data || running) return
     setRunning(true)
     setFailure(null)
@@ -204,6 +209,7 @@ export function AccessibleDocumentSheet({
               </section>
 
               {data.pdfAssessment ? <PdfAssessment details={data.pdfAssessment} /> : null}
+              {format==="pptx"&&plan?<p className="text-xs text-muted-foreground">{`${plan.slideCount??0} slides · ${plan.pictureCount} pictures · ${plan.groupedPictureCount??0} in groups`}</p>:null}
 
               {!data.supported ? (
                 <Alert>
@@ -331,12 +337,22 @@ export function AccessibleDocumentSheet({
         </div>
 
         <SheetFooter className={checking ? "hidden" : "border-t"}>
-          <Button onClick={run} disabled={!data?.supported || running || pre.isLoading}>
+          <Button onClick={()=>setConfirming(true)} disabled={!data?.supported || running || pre.isLoading}>
             {running ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Download aria-hidden="true" />}
             {running ? "Preparing document…" : `Create accessible ${FORMAT_LABEL[format]}`}
           </Button>
         </SheetFooter>
       </SheetContent>
+      <AlertDialog open={confirming} onOpenChange={setConfirming}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{`Create accessible ${FORMAT_LABEL[format]}?`}</AlertDialogTitle>
+            <AlertDialogDescription>Approved short alt text will be written to a new copy. The original stays unchanged. Under the selected export policy, unapproved images are left unchanged or prevent creation.</AlertDialogDescription>
+          </AlertDialogHeader>
+          {plan?<p className="text-sm text-muted-foreground">{`${plan.updated} images will be updated · ${DOCX_EXPORT_POLICY_LABELS[policy]}`}</p>:null}
+          <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={run}>Create copy</AlertDialogAction></AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Sheet>
   )
 }

@@ -22,6 +22,8 @@ const PENDING_REVIEW = new Set<InsertionBlocker>(["NO_AI_RESULT", "NOT_APPROVED"
 export type DocxExportTotals = { occurrences: number; eligible: number; pendingReview: number; unmapped: number; blocked: number }
 
 export type DocxExportPlan = {
+  /** Approved detailed descriptions stay linked in ERP, outside native picture fields. */
+  detailedDescriptions?: number
   occurrenceSnapshots?:Map<number,InsertionReadinessRow>
   instructions: DocxInsertInstruction[]
   /** Occurrences that are never sent to the inserter, with the reason. */
@@ -36,10 +38,12 @@ export function planDocxExport(rows: InsertionReadinessRow[]): DocxExportPlan {
   const skipped: DocxExportItem[] = []
   const approvedVersions = new Map<number, number | null>()
   const totals: DocxExportTotals = { occurrences: rows.length, eligible: 0, pendingReview: 0, unmapped: 0, blocked: 0 }
+  let detailedDescriptions = 0
   for (const r of rows) {
     approvedVersions.set(r.imageOccurrenceId, r.approvedVersionId)
     if (r.eligible) {
       totals.eligible++
+      if (!r.decorativeApproved && r.approvedLongDescription?.trim()) detailedDescriptions++
       instructions.push({
         occurrenceId: r.imageOccurrenceId,
         sourceLocator: r.sourceLocator,
@@ -62,7 +66,7 @@ export function planDocxExport(rows: InsertionReadinessRow[]): DocxExportPlan {
       decorative: r.decorativeApproved,
     })
   }
-  return { instructions, skipped, totals, approvedVersions,occurrenceSnapshots:new Map(rows.map(r=>[r.imageOccurrenceId,r])) }
+  return { instructions, skipped, totals, approvedVersions,detailedDescriptions,occurrenceSnapshots:new Map(rows.map(r=>[r.imageOccurrenceId,r])) }
 }
 
 /**
@@ -111,6 +115,8 @@ export function mergeExportReport(report: DocxInsertReport | PptxInsertReport | 
   const pdf = report && "pdf" in report ? { pdf: report.pdf } : {}
   const items = [...inserted, ...plan.skipped].map(item=>{const row=plan.occurrenceSnapshots?.get(item.occurrenceId);return row?{...item,documentId:row.documentId,assetId:row.accessibility?.assetId??null,sourceLocator:row.sourceLocator,approvedVersionId:row.approvedVersionId,approvedVersion:row.approvedVersion,...row.accessibility?{accessibility:row.accessibility}:{}}:item}).sort((a, b) => a.occurrenceId - b.occurrenceId)
   const warnings = [...(report?.warnings ?? [])]
+  const detailed=plan.detailedDescriptions??0
+  if(report&&"slideCount" in report&&detailed>0)warnings.push({code:"DETAILED_DESCRIPTION_ERP_ONLY",message:`${detailed} approved detailed description${detailed===1?" is":"s are"} kept in the ERP only; only the short alt text is written to the presentation.`})
   if (plan.totals.unmapped > 0) {
     warnings.push({
       code: "UNMAPPED_OCCURRENCES",
@@ -159,5 +165,5 @@ const SAFE = /[^A-Za-z0-9._ -]+/g
 
 export function exportFilename(original: string, ext: "docx" | "pptx" | "pdf" = "docx"): string {
   const base = original.replace(/\.(?:docx|pptx|pdf)$/i, "").replace(SAFE, "_").replace(/\s+/g, " ").trim().slice(0, 120) || "document"
-  return ext === "pdf" ? `${base}-alt-text-updated.pdf` : `${base}-alt-text.${ext}`
+  return ext === "pdf" || ext === "pptx" ? `${base}-alt-text-updated.${ext}` : `${base}-alt-text.${ext}`
 }

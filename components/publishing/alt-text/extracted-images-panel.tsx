@@ -283,7 +283,7 @@ export function ExtractedImagesPanel({ openRequest }: { openRequest?: DocumentOp
               {exportFormat ? (
                 <Button size="sm" variant="outline" onClick={() => setExportOpen(true)} disabled={doc?.securityStatus !== "clean"}>
                   <Download aria-hidden="true" />
-                  Download Accessible Document
+                  {exportFormat === "pptx" ? "Download Accessible PPTX" : "Download Accessible Document"}
                 </Button>
               ) : (
                 <LaterButton label="Download Accessible Document" icon={Download} note="Available for Word, PowerPoint and tagged PDF documents." />
