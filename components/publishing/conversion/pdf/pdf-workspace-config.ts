@@ -163,12 +163,14 @@ export type PdfGuidelineState =
   | "conflict"
   | "unsupported"
   | "verification-pending"
+  | "failed"
+  | "verified-with-exceptions"
   | "verified"
 
 /** `tone` follows the shared status scale in pdf-status-model.ts. "not-provided" is neutral, never an error. */
 export const PDF_GUIDELINE_STATES: Record<
   PdfGuidelineState,
-  { label: string; description: string; tone: "neutral" | "info" | "success" | "warning" }
+  { label: string; description: string; tone: "neutral" | "info" | "success" | "warning" | "danger" }
 > = {
   "not-provided": { label: "Not provided", tone: "neutral", description: "Company guidelines are optional. Standard settings will be used." },
   "profile-selected": { label: "Guidelines selected", tone: "info", description: "A company guideline profile is selected for this job." },
@@ -177,6 +179,8 @@ export const PDF_GUIDELINE_STATES: Record<
   conflict: { label: "Conflict", tone: "warning", description: "Some guideline rules conflict and need review before processing." },
   unsupported: { label: "Unsupported", tone: "neutral", description: "Some requirements cannot be applied by this module. Standard settings cover the rest." },
   "verification-pending": { label: "Verification pending", tone: "info", description: "Output has not yet been verified against the guidelines." },
+  failed: { label: "Requirements failed", tone: "danger", description: "At least one mandatory requirement failed verification." },
+  "verified-with-exceptions": { label: "Verified with exceptions", tone: "info", description: "Mandatory requirements passed or are covered by approved exceptions." },
   verified: { label: "Verified", tone: "success", description: "Output was checked against each applicable guideline rule." },
 }
 
