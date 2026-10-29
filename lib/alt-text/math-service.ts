@@ -11,9 +11,20 @@ import {readImageHeader} from "./image-header"
 import {equationCrop,MATH_LIMITS,parseMathRequest,type MathCrop,type MathRequest,type MathResponse} from "./math-contract"
 import {enqueueMathEvidence,listMathEvidence} from "./math-store"
 import {currentTenantId} from "@/lib/tenant-scope"
+import {query} from "@/lib/db"
+import {getScope} from "@/lib/permission-store"
 import {readEquationValidations} from "./math-validation-store"
 
 export class MathRequestError extends Error{constructor(readonly status:number,readonly code:string,message:string){super(message);this.name="MathRequestError"}}
+export async function authorizeMathWorker(assetId:number,occurrenceId:number|null,userId:number,tenantId:number){
+ const [user]=await query<any[]>("SELECT role FROM users WHERE tenant_id=? AND id=? AND status='active' LIMIT 1",[tenantId,userId])
+ if(!user||tenantId!==currentTenantId())throw new MathRequestError(403,"ACTOR_UNAVAILABLE","The requesting user is no longer active in this tenant.")
+ const role=user.role==="admin"?"admin":"employee",[viewScope,updateScope]=await Promise.all([getScope(userId,role,"publishing.alt_text","view"),getScope(userId,role,"publishing.alt_text","update")]),actor={userId,viewScope,updateScope}
+ await authorize(assetId,occurrenceId,actor,true)
+ const document=await (await import("./document-generation")).resolveDocumentPromptContext(assetId,actor,occurrenceId)
+ if(document.kind==="ineligible")throw new MathRequestError(404,"NOT_FOUND","The source document occurrence is no longer accessible.")
+ return actor
+}
 export async function mathPolicy(){
  const [health,record]=await Promise.all([checkMathReadiness(),getSettingsRecord()])
  const settings=resolveEffectiveAccessibilitySettings({storedAccessibility:record.accessibility,revision:record.revision,tenant:record.settings,backend:{implemented:["math_analysis","math_ocr"],visionModelAvailable:null,ocrLanguagePacks:[],disabledByPolicy:process.env.ALT_TEXT_MATH_DISABLED==="1"?["math_analysis","math_ocr"]:[],mathReady:health.available,mathIssue:health.reason}})

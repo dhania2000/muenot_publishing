@@ -57,6 +57,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ErrorState } from "@/components/enterprise/data-state"
 import { AltTextAssetDrawer } from "./alt-text-asset-drawer"
 import { BatchControlActions } from "./batch-control-actions"
+import {BatchProcessingStatus} from "./batch-processing-selection"
 import { BatchExportAction } from "./batch-export-action"
 import { RetryFailedAction, RetryImageButton } from "./batch-retry-actions"
 import { AssetImage, StatusBadge, classificationLabel, formatDateTime } from "./alt-text-history"
@@ -234,6 +235,7 @@ export function BatchProgressDashboard({
 
   return (
     <div className="flex min-w-0 flex-col gap-6">
+      {batchId&&view&&<BatchProcessingStatus batchId={batchId}/>}
       <Card>
         <CardHeader className="flex flex-col gap-3 space-y-0 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex min-w-0 flex-col gap-1.5">

@@ -134,7 +134,7 @@ export function resolveOcrLanguageModes(input: { languages: readonly string[]; e
   return { modes, defaultMode }
 }
 
-async function ocrPolicy(actor: OcrActor): Promise<Policy> {
+export async function ocrPolicy(actor: OcrActor): Promise<Policy> {
   const [record, backend] = await Promise.all([getSettingsRecord(), detectAccessibilityBackend(actor.tenantId, actor.role)])
   const resolved = resolveEffectiveAccessibilitySettings({ storedAccessibility: record.accessibility, revision: record.revision, tenant: record.settings, backend })
   const capability = resolved.capabilities?.ocr ?? { status: "not_configured", label: "OCR text recognition", reason: "Capability state could not be resolved." }

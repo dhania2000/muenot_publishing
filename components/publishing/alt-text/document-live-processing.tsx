@@ -532,9 +532,9 @@ function CreditUsagePanel({ batchId }: { batchId: string }) {
           {c.attempts.needsReconciliation} settled attempt{c.attempts.needsReconciliation === 1 ? "" : "s"} await billing reconciliation.
         </p>
       ) : null}
+      {c?.truncated&&<p className="text-xs" role="status">This bounded usage summary reached its 5,000-request limit and may omit older records. Use the existing credit ledger for complete usage.</p>}
       <p className="text-xs text-muted-foreground">
-        Attributed from ledger reservations linked to this batch. Remaining tenant balance is shown in AI credit settings. Retrying failed images starts new
-        paid attempts.
+        Attributed from exact ledger reservations linked to this batch and its advanced processing. Remaining tenant balance is shown in AI credit settings. Eligible local retries add no provider charges; a new explicitly requested provider analysis uses the existing credit policy.
       </p>
     </section>
   )

@@ -60,6 +60,7 @@ import {
 const SCAN_RETRY_DELAYS_MS = [1500, 2500, 4000, 6000, 8000]
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
 import { GenerationSettingsPanel, PURPOSE_LABELS } from "./generation-settings-panel"
+import {ProcessingPipelinePanel} from "./processing-pipeline-panel"
 import {
   AltTextResultsPanel,
   GenerateActions,
@@ -128,6 +129,7 @@ export function AltTextWorkspace() {
   const [settings, setSettings] = useState<GenerationSettings>(DEFAULT_GENERATION_SETTINGS)
   const [image, setImage] = useState<SelectedImage | null>(null)
   const [savedAsset, setSavedAsset] = useState<AltTextAssetView | null>(null)
+  const [preparingAdvanced,setPreparingAdvanced]=useState(false)
   const [status, setStatus] = useState<GenerationStatus>("idle")
   const [error, setError] = useState<string | null>(null)
   const [output, setOutput] = useState<GeneratedOutput | null>(null)
@@ -243,6 +245,7 @@ export function AltTextWorkspace() {
   }
 
   const handleRegenerate = async () => {
+    if(preparingAdvanced)return
     if (!savedAsset && !image) return
     setStatus("generating")
     setError(null)
@@ -287,7 +290,7 @@ export function AltTextWorkspace() {
   const imageSelected = image !== null || savedAsset !== null
   const resultActions: ResultsPanelActions = {
     onUseCandidate: () => void handleSave(true),
-    generateBlockedReason,
+    generateBlockedReason:preparingAdvanced?"Saving the source image for advanced processing…":generateBlockedReason,
     onGenerate: () => void handleRegenerate(),
     onRegenerate: () => void handleRegenerate(),
     onSave: () => void handleSave(),
@@ -387,10 +390,11 @@ export function AltTextWorkspace() {
                     </p>
                   </section>
                 ) : (
-                  <ImageInputPanel image={image} onImageChange={handleImageChange} />
+                  <><ImageInputPanel image={image} onImageChange={handleImageChange} />{image&&<Button size="sm" variant="outline" disabled={preparingAdvanced||status==="generating"} onClick={async()=>{setPreparingAdvanced(true);setError(null);try{await uploadSelectedImage(image)}finally{setPreparingAdvanced(false)}}}>{preparingAdvanced?"Saving source…":"Save source for advanced processing"}</Button>}</>
                 )}
               </div>
               <div className="flex min-w-0 flex-col lg:min-h-0 lg:flex-1">
+                {savedAsset&&<ProcessingPipelinePanel key={savedAsset.id} assetId={savedAsset.id} settings={settings} onOpenSaved={async()=>{const result=await getAltTextAsset(savedAsset.id);if(result.ok)requestOpen(result.data.asset)}}/>}
                 <AltTextResultsPanel
                   key={`${savedAsset?.id ?? "local"}-${editorKey}`}
                   imageSelected={imageSelected}

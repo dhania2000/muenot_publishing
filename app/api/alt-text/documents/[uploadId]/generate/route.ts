@@ -26,7 +26,7 @@ const NO_STORE = { "Cache-Control": "private, no-store" }
 const RATE_LIMIT = { max: 10, windowMs: 60_000 }
 const DOCUMENT_ID = /^[1-9]\d{0,9}$/
 const MAX_BODY_BYTES = 32 * 1024
-const ALLOWED_KEYS = new Set(["settings", "idempotencyKey"])
+const ALLOWED_KEYS = new Set(["settings", "idempotencyKey", "accessibilityPipeline"])
 
 const error = (status: number, code: string, message: string, extra?: Record<string, unknown>, headers?: HeadersInit) =>
   NextResponse.json({ success: false, error: message, code, ...(extra ?? {}) }, { status, headers: { ...NO_STORE, ...(headers ?? {}) } })
@@ -81,7 +81,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ uploadId: 
 
     const result = await submitDocumentGeneration(
       { id: doc.id, filename: doc.filename, projectId: doc.projectId ?? null },
-      { settings: body.settings, idempotencyKey },
+      { settings: body.settings, idempotencyKey, ...(body.accessibilityPipeline!=null?{accessibilityPipeline:body.accessibilityPipeline}:{}) },
       { userId: session.userId, tenantId, role, updateScope },
     )
     if (!result.ok) return error(result.status, result.code, result.error, result.details)

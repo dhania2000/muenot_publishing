@@ -86,6 +86,7 @@ export const loadBatchActor: BatchActorLoader = async (tenantId, userId) => {
 }
 
 export type BatchProcessorDeps = {
+  scheduleProcessing?: typeof import("./processing-batch").scheduleBatchImageProcessing
   generate?: typeof generateAltTextForAsset
   loadActor?: BatchActorLoader
   countHaltDeferrals?: (jobId: number) => Promise<number>
@@ -158,6 +159,23 @@ export async function processAltTextBatch(plan: AltTextBatchPlan, ctx: { signal:
       continue
     }
     const document = docCtx.kind === "document" ? docCtx.document : null
+
+    if(batch.accessibilityPipeline){
+      // The opted-in pipeline owns generation. The ordinary batch path never generates a
+      // second description while its persisted per-image processing run is pending.
+      try{
+        const schedule=deps.scheduleProcessing??(await import("./processing-batch")).scheduleBatchImageProcessing
+        const processing=await schedule(plan.batchId,assetId,document?.imageOccurrenceId??null,batch.accessibilityPipeline,settings,actor)
+        if(["queued","processing"].includes(processing.summary.status))counts.busy++
+        else {await failUnclaimed(assetId,`Advanced processing needs review: ${processing.summary.status}. Open this image's processing results before retrying.` ,"ADVANCED_PROCESSING_REVIEW");counts.failed++}
+      }catch(e){
+        const error=e as {code?:string;message?:string;status?:number}
+        if(error.code==="PROCESSING_ACTIVE")counts.busy++
+        else {await failUnclaimed(assetId,error.message??"Advanced processing could not be scheduled.",error.code??"PROCESSING_SCHEDULE_FAILED");counts.failed++}
+      }
+      if(counts.busy>=10)break
+      continue
+    }
 
     const res = await generate({ assetId, settings, requestId: batchOperationKey(plan.batchId, asset.currentVersion, asset.attempts), document }, actor)
     if (res.ok) {

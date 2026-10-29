@@ -998,6 +998,7 @@ export type BatchStatus = (typeof BATCH_STATUSES)[number]
 export const BATCH_MAX_ASSETS_PER_CALL = 500
 export type BatchStats = { total: number; pending: number; processing: number; completed: number; failed: number }
 export type BatchRow = {
+  accessibilityPipeline?: import("./processing-pipeline-contract").ProcessingSelection | null
   id: string
   projectId: number | null
   projectName: string | null
@@ -1055,6 +1056,7 @@ function batchSelect(single: boolean) {
 
 function mapBatch(r: any): BatchRow {
   return {
+    accessibilityPipeline:(parseJson(r.settings) as {accessibilityPipeline?:import("./processing-pipeline-contract").ProcessingSelection}|null)?.accessibilityPipeline??null,
     id: r.id,
     projectId: r.project_id,
     projectName: r.project_name ?? null,
@@ -1121,7 +1123,7 @@ function validateBatchFields(name: string | undefined, description: string | nul
  * converge on one batch: the losing insert rolls back and the existing id is returned.
  */
 export async function createBatch(
-  input: { name: string; description?: string | null; projectId?: number | null; settings: unknown; assets?: BatchAssetInput[]; idempotencyKey?: string | null },
+  input: { name: string; description?: string | null; projectId?: number | null; settings: unknown; assets?: BatchAssetInput[]; idempotencyKey?: string | null;accessibilityPipeline?:import("./processing-pipeline-contract").ProcessingSelection },
   actorId: number,
 ): Promise<string> {
   await ensureAltTextSchema()
@@ -1138,7 +1140,7 @@ export async function createBatch(
       }
       await conn.query(
         "INSERT INTO alt_text_batches (id, tenant_id, project_id, name, description, settings, status, created_by, idempotency_key) VALUES (?, ?, ?, ?, ?, ?, 'draft', ?, ?)",
-        [id, tenantId, input.projectId ?? null, input.name.trim(), input.description?.trim() || null, JSON.stringify(settings), actorId, idempotencyKey],
+        [id, tenantId, input.projectId ?? null, input.name.trim(), input.description?.trim() || null, JSON.stringify(input.accessibilityPipeline?{...settings,accessibilityPipeline:input.accessibilityPipeline}:settings), actorId, idempotencyKey],
       )
       if (input.assets?.length) await attachAssets(conn, tenantId, id, settings, input.assets)
     })
