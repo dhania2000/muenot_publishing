@@ -1,3 +1,4 @@
+import {resolveGuidelineSnapshot} from "./guideline-profile-store"
 import "server-only"
 import {parseServiceRequest,serviceRequestAssessment} from "./service-request"
 import {createHash} from "node:crypto"
@@ -5,7 +6,7 @@ import {recordEpubSubmission} from "./submission-record"
 import {epubValidationPlan} from "./reader-requirements"
 import {selectionPolicyProblems} from "./selection-policy"
 import {epubPlanningCapabilities} from "./planning-capabilities"
-import {PROJECT_EVENTS_DDL} from "./project-events"
+import {PROJECT_EVENTS_DDL,PROJECT_ASSIGNMENTS_DDL} from "./project-events"
 import {randomUUID} from "node:crypto"
 import {query,withTransaction} from "@/lib/db"
 import {currentTenantId} from "@/lib/tenant-scope"
@@ -18,7 +19,7 @@ export const WORKBENCH_DDL=[
  PROJECT_EVENTS_DDL,
  `CREATE TABLE IF NOT EXISTS conversion_project_comments (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,tenant_id BIGINT UNSIGNED NOT NULL,project_id CHAR(36) NOT NULL,revision INT UNSIGNED NOT NULL,parent_id BIGINT UNSIGNED NULL,anchor_kind VARCHAR(16) NOT NULL,anchor_ref VARCHAR(160) NOT NULL,message TEXT NOT NULL,actor_id BIGINT UNSIGNED NOT NULL,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,KEY project_comments(tenant_id,project_id,id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
  `CREATE TABLE IF NOT EXISTS conversion_project_decisions (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,tenant_id BIGINT UNSIGNED NOT NULL,project_id CHAR(36) NOT NULL,revision INT UNSIGNED NOT NULL,output_id CHAR(36) NULL,output_sha256 CHAR(64) NULL,decision_kind VARCHAR(32) NOT NULL,note TEXT NOT NULL,actor_id BIGINT UNSIGNED NOT NULL,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,KEY project_decisions(tenant_id,project_id,id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
- `CREATE TABLE IF NOT EXISTS conversion_project_assignments (tenant_id BIGINT UNSIGNED NOT NULL,project_id CHAR(36) NOT NULL,assignee_id BIGINT UNSIGNED NOT NULL,assigned_by BIGINT UNSIGNED NOT NULL,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(tenant_id,project_id),KEY assigned_projects(tenant_id,assignee_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+ PROJECT_ASSIGNMENTS_DDL,
  `CREATE TABLE IF NOT EXISTS conversion_output_versions (tenant_id BIGINT UNSIGNED NOT NULL,project_id CHAR(36) NOT NULL,id CHAR(36) NOT NULL,project_revision INT UNSIGNED NOT NULL,file_id BIGINT UNSIGNED NOT NULL,sha256 CHAR(64) NOT NULL,created_by BIGINT UNSIGNED NOT NULL,rendition_json JSON NOT NULL,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(tenant_id,id),KEY project_outputs(tenant_id,project_id,project_revision)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
  `CREATE TABLE IF NOT EXISTS conversion_qa_runs (tenant_id BIGINT UNSIGNED NOT NULL,project_id CHAR(36) NOT NULL,id CHAR(36) NOT NULL,output_id CHAR(36) NOT NULL,output_sha256 CHAR(64) NOT NULL,tool VARCHAR(80) NOT NULL,tool_version VARCHAR(80) NOT NULL,run_order BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,UNIQUE KEY qa_run_order(run_order),status VARCHAR(20) NOT NULL,findings_json JSON NOT NULL,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(tenant_id,id),KEY project_qa(tenant_id,project_id,created_at)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
  `CREATE TABLE IF NOT EXISTS conversion_preview_snapshots (tenant_id BIGINT UNSIGNED NOT NULL,project_id CHAR(36) NOT NULL,id CHAR(36) NOT NULL,kind VARCHAR(16) NOT NULL,source_file_id BIGINT UNSIGNED NULL,output_id CHAR(36) NULL,sha256 CHAR(64) NOT NULL,resource_key VARCHAR(120) NOT NULL,body_json JSON NOT NULL,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(tenant_id,id),KEY project_preview(tenant_id,project_id,kind)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
@@ -45,7 +46,7 @@ export async function listWorkbench(f:WorkbenchFilters,actor:WorkbenchActor){
  ])
  return {items,total:Number(count[0]?.n??0),page:f.page,pageSize:20,summary:{statuses:Object.fromEntries(statuses.map(r=>[r.status,Number(r.n)])),jobs:Number(jobs[0]?.n??0),pendingApprovals:Number(approvals[0]?.n??0),attentionReports:Number(attention[0]?.n??0)},recentJobs,permissions:{canStaff:actor.role==="admin"}}
 }
-async function projectRow(id:string,actor:WorkbenchActor,conn?:any){
+export async function projectRow(id:string,actor:WorkbenchActor,conn?:any){
  if(!PROJECT_ID.test(id))return fail(404,"NOT_FOUND","Project not found.")
  const sql=`SELECT p.* FROM conversion_projects p WHERE p.tenant_id=? AND p.id=? AND p.service='epub' AND ${access} ${conn?"FOR UPDATE":"LIMIT 1"}`,params=[currentTenantId(),id,...actorParams(actor)]
  const rows=conn?(await conn.query(sql,params))[0]:await query<any[]>(sql,params)
@@ -83,18 +84,18 @@ export async function mutateWorkbench(id:string,input:WorkbenchAction,actor:Work
    const [prior]=await conn.query<any[]>("SELECT job_id AS jobId FROM conversion_preflight_requests WHERE tenant_id=? AND project_id=? AND revision=?",[tenant,id,revision]);if(prior[0])return {revision,preflightJobId:Number(prior[0].jobId),created:false}
    const [assets]=await conn.query<any[]>("SELECT a.ordinal,a.sha256,a.source_kind AS kind,f.filename AS name,f.size_bytes AS size FROM conversion_project_assets a JOIN app_files f ON f.tenant_id=a.tenant_id AND f.id=a.file_id WHERE a.tenant_id=? AND a.project_id=? ORDER BY a.ordinal",[tenant,id]);if(assets.length!==p.plan.sources.length||!assets.length)fail(409,"SOURCE_UNAVAILABLE","Saved source facts need review before preflight.")
    const sources=assets.map(a=>({name:p.plan.sources[a.ordinal].name,sha256:a.sha256,kind:a.kind,size:Number(a.size)})),manifest=sources.map((s,i)=>({ordinal:i,name:s.name,sha256:s.sha256,size:s.size,kind:s.kind,purpose:p.plan.sources[i].purpose??"main"})),manifestSha256=createHash("sha256").update(JSON.stringify(manifest)).digest("hex")
-   return {revision,...await recordEpubSubmission(conn,id,actor.userId,p.plan,sources,manifestSha256,revision,Number(p.created_by))}
+   return {revision,...await recordEpubSubmission(conn,id,actor.userId,p.plan,sources,manifestSha256,revision,Number(p.created_by),{existingGuidelines:true})}
   }
   if(input.action==="settings"){
    const policy=selectionPolicyProblems(input.plan,epubPlanningCapabilities().candidatePlanning);if(policy.length)fail(422,"COMPATIBILITY_REVIEW_REQUIRED",policy.join(" "))
    if(p.status!=="held")fail(409,"PROJECT_BUSY","Only a held project can change configuration.")
    if(JSON.stringify(p.plan.sources)!==JSON.stringify(input.plan.sources)||p.plan.selection.source!==input.plan.selection.source)fail(422,"SOURCE_IMMUTABLE","Settings edits cannot replace submitted sources.")
    if(revision>=1_000_000)fail(409,"REVISION_LIMIT","The project revision limit was reached.")
+   if(JSON.stringify(p.plan.guidelineFiles??[])!==JSON.stringify(input.plan.guidelineFiles??[]))fail(422,"GUIDELINE_FILES_IMMUTABLE","Use the guideline attachment action to add source files.")
+   await resolveGuidelineSnapshot(conn,input.plan,actor.userId,id,JSON.stringify(p.plan.guidelineSelection??{})===JSON.stringify(input.plan.guidelineSelection??{}))
    const nextPlan={...input.plan,title:input.plan.title.trim()}
    await conn.query("INSERT IGNORE INTO conversion_project_revisions (tenant_id,project_id,revision,plan_json,actor_id) VALUES (?,?,?,?,?)",[tenant,id,revision,JSON.stringify(p.plan),p.created_by])
-   await conn.query("INSERT INTO conversion_project_revisions (tenant_id,project_id,revision,plan_json,actor_id) VALUES (?,?,?,?,?)",[tenant,id,revision+1,JSON.stringify(nextPlan),actor.userId])
-   await conn.query("UPDATE conversion_projects SET title=?,plan_json=?,revision=revision+1 WHERE tenant_id=? AND id=? AND revision=?",[nextPlan.title,JSON.stringify(nextPlan),tenant,id,revision])
-   await event(conn,id,revision+1,"configuration_saved",actor.userId,{previousRevision:revision});return {revision:revision+1}
+   return commitEpubProjectRevision(conn,p,nextPlan,actor.userId,"configuration_saved")
   }
   if(input.action==="comment"){
    if(input.parentId!==null){const [parents]=await conn.query<any[]>("SELECT id FROM conversion_project_comments WHERE tenant_id=? AND project_id=? AND id=? AND revision=?",[tenant,id,input.parentId,revision]);if(!parents[0])fail(422,"INVALID_THREAD","Reply to a message in this project revision.")}
@@ -129,3 +130,13 @@ export async function mutateWorkbench(id:string,input:WorkbenchAction,actor:Work
 export async function listOperators(actor:WorkbenchActor){if(actor.role!=="admin")fail(403,"FORBIDDEN","Administrator permission required.");await ensureWorkbench();return query<any[]>("SELECT id,name,role FROM users WHERE tenant_id=? AND status='active' ORDER BY name,id LIMIT 200",[currentTenantId()])}
 export async function listPresets(){await ensureWorkbench();const rows=await query<any[]>("SELECT s.id,s.version,s.name,s.snapshot_json FROM conversion_setting_presets s WHERE s.tenant_id=? AND s.version=(SELECT MAX(v.version) FROM conversion_setting_presets v WHERE v.tenant_id=s.tenant_id AND v.id=s.id) ORDER BY s.name,s.id LIMIT 100",[currentTenantId()]);return rows.map(({snapshot_json,...r})=>{const snapshot=parseSettingPreset({name:r.name,...parsed(snapshot_json,16384)});if(!snapshot)fail(409,"INVALID_PRESET","A stored template needs review.");return {...r,snapshot:{selection:snapshot!.selection,configuration:snapshot!.configuration}}})}
 export async function savePreset(preset:SettingPreset,actor:WorkbenchActor){const safe=parseSettingPreset(preset);if(!safe)fail(422,"INVALID_PRESET","Choose compatible bounded template settings.");preset=safe!;if(preset.selection.version==="3.4-experimental"&&!epubPlanningCapabilities().candidatePlanning)fail(422,"PROFILE_UNAVAILABLE","Experimental planning is not enabled.");if(actor.role!=="admin")fail(403,"FORBIDDEN","Only administrators publish shared setting templates.");await ensureWorkbench();return withTransaction(async conn=>{const tenant=currentTenantId();await conn.query("SELECT id FROM users WHERE tenant_id=? ORDER BY id LIMIT 1 FOR UPDATE",[tenant]);const [count]=await conn.query<any[]>("SELECT COUNT(DISTINCT id) AS n FROM conversion_setting_presets WHERE tenant_id=?",[tenant]);if(Number(count[0]?.n??0)>=100)fail(409,"PRESET_LIMIT","The organization has reached its 100-template limit.");const [sameName]=await conn.query<any[]>("SELECT id FROM conversion_setting_presets WHERE tenant_id=? AND name=? LIMIT 1",[tenant,preset.name]);if(sameName[0])fail(409,"PRESET_NAME_EXISTS","A shared template with this name already exists. Choose another name.");const id=randomUUID();await conn.query("INSERT INTO conversion_setting_presets (tenant_id,id,version,name,snapshot_json,created_by) VALUES (?,?,1,?,?,?)",[tenant,id,preset.name,JSON.stringify({selection:preset.selection,configuration:preset.configuration}),actor.userId]);return {id,version:1}})}
+
+/** Reuses the same revision/audit writer for held settings and authorized later guideline attachments. */
+export async function commitEpubProjectRevision(conn:any,p:any,plan:import("./intake-plan").EpubDraft,actorId:number,type:string){
+ if(p.status!=="held")fail(409,"PROJECT_BUSY","Only a held project can change its planning revision.")
+ if(JSON.stringify(p.plan.sources)!==JSON.stringify(plan.sources)||p.plan.selection.source!==plan.selection.source)fail(422,"SOURCE_IMMUTABLE","Revision updates cannot replace original publication sources.")
+ const revision=Number(p.revision)+1,tenant=currentTenantId()
+ await conn.query("INSERT INTO conversion_project_revisions (tenant_id,project_id,revision,plan_json,actor_id) VALUES (?,?,?,?,?)",[tenant,p.id,revision,JSON.stringify(plan),actorId])
+ const [saved]=await conn.query("UPDATE conversion_projects SET title=?,plan_json=?,revision=revision+1 WHERE tenant_id=? AND id=? AND revision=?",[plan.title,JSON.stringify(plan),tenant,p.id,p.revision]);if(!saved.affectedRows)fail(409,"REVISION_CONFLICT","This project changed. Reload before saving.")
+ await event(conn,p.id,revision,type,actorId,{previousRevision:Number(p.revision)});return {revision}
+}

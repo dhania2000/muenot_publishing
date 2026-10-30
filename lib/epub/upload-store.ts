@@ -1,3 +1,5 @@
+import type {GuidelineInput} from "./guideline-ingestion"
+import {canonicalGuidelinePlan} from "./intake"
 import "server-only"
 import {createHash,randomBytes,randomUUID} from "node:crypto"
 import type {PoolConnection} from "mysql2/promise"
@@ -40,17 +42,18 @@ export async function changeUpload(id:string,token:string,actorId:number,action:
  })
 }
 const canonical=(v:any):any=>Array.isArray(v)?v.map(canonical):v&&typeof v==="object"?Object.fromEntries(Object.keys(v).sort().map(k=>[k,canonical(v[k])])):v
-export async function submitUploads(raw:unknown,actorId:number){
+export async function submitUploads(raw:unknown,actorId:number,options:{guidelines?:GuidelineInput[]}={}){
  if(!raw||typeof raw!=="object"||Array.isArray(raw))return fail(400,"INVALID_REQUEST","Send a project and completed uploads.")
- const r=raw as any,plan=parseEpubDraft(r.plan)
+ const r=raw as any;let plan=parseEpubDraft(r.plan)
  if(Object.keys(r).sort().join()!=="plan,requestId,rightsConfirmed,uploads"||!plan||!plan.title.trim()||r.rightsConfirmed!==true||typeof r.requestId!=="string"||!/^[A-Za-z0-9_-]{8,64}$/.test(r.requestId)||!Array.isArray(r.uploads)||!r.uploads.length||r.uploads.length>10||r.uploads.some((u:any)=>!u||Object.keys(u).sort().join()!=="id,token"||typeof u.id!=="string"||typeof u.token!=="string")||new Set(r.uploads.map((u:any)=>u.id)).size!==r.uploads.length)return fail(422,"INVALID_REQUEST","Confirm rights and choose 1–10 completed sources with a valid plan.")
+ plan=canonicalGuidelinePlan(plan,options.guidelines??[])
  await ensureEpubIntake();return withTransaction(async conn=>{await lockTenant(conn);const sessions:any[]=[];for(const u of r.uploads)sessions.push(await session(conn,u.id,u.token,actorId));if(sessions.some(s=>s.request_key!==r.requestId))return fail(409,"REQUEST_CONFLICT","Uploads belong to a different submission reference.");const total=sessions.reduce((n,s)=>n+Number(s.total_size),0);if(total>100*1024*1024)return fail(413,"FILE_LIMIT","Project sources exceed 100 MiB.")
  const normalized=parseEpubDraft({...plan,title:plan.title.trim(),step:4,sources:sessions.map((s,i)=>({name:s.filename,kind:detectEpubSource(s.filename),size:Number(s.total_size),purpose:plan.sources[i]?.purpose??"main"}))});if(!normalized)return fail(422,"INVALID_PLAN","Sources do not match a valid publication plan.")
- const planHash=hash(JSON.stringify(canonical(normalized))),used=sessions.filter(s=>s.status==="consumed")
+ const planHash=hash(JSON.stringify(canonical(normalized))+((options.guidelines?.length)?":"+JSON.stringify(options.guidelines.map(g=>g.sha256)):"")),used=sessions.filter(s=>s.status==="consumed")
  if(used.length){if(used.length!==sessions.length||used.some(s=>s.project_id!==used[0].project_id||s.plan_hash!==planHash))return fail(409,"REQUEST_CONFLICT","Completed submission differs from this plan.");const [projects]=await conn.query<any[]>("SELECT id,status,hold_reason AS holdReason,revision FROM conversion_projects WHERE tenant_id=? AND id=? AND created_by=? AND service='epub'",[currentTenantId(),used[0].project_id,actorId]);if(!projects[0])return fail(404,"NOT_FOUND","Project not found.");return {...projects[0],created:false,message:"Existing private project receipt restored.",files:sessions.map((s,i)=>({ordinal:i,name:s.filename,status:"received_security_pending",purpose:normalized.sources[i]?.purpose??"main",...(sessions.findIndex(x=>x.expected_sha256===s.expected_sha256)<i?{duplicateOfOrdinal:sessions.findIndex(x=>x.expected_sha256===s.expected_sha256)}:{})}))}}
  if(sessions.some(s=>s.status!=="sealed"))return fail(409,"UPLOAD_INCOMPLETE","Finish every source before submitting the project.")
  const sources=[];for(const s of sessions){const bytes=assemble(s,await chunks(conn,s.id,true)),inspection=await classifyEpubSource(inspectEpubSource(s.filename,bytes),bytes);sources.push({name:s.filename,bytes,kind:inspection.kind,sha256:inspection.sha256,inspection})}
- const project=await createEpubIntake({plan:normalized,requestId:r.requestId,sources},actorId,{connection:conn,reservedCredit:total})
+ const project=await createEpubIntake({plan:normalized,requestId:r.requestId,sources,...(options.guidelines?.length?{guidelines:options.guidelines}:{})},actorId,{connection:conn,reservedCredit:total})
  for(const s of sessions){await conn.query("UPDATE conversion_upload_sessions SET status='consumed',project_id=?,plan_hash=? WHERE tenant_id=? AND id=?",[project.id,planHash,currentTenantId(),s.id]);await conn.query("DELETE FROM conversion_upload_chunks WHERE tenant_id=? AND session_id=?",[currentTenantId(),s.id])}
  return project
  })
