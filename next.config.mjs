@@ -6,9 +6,9 @@ const nextConfig = {
   // Self-hosted OCR (Phase 3 Task 5): Tesseract.js spawns a worker thread from its own files and loads
   // a WASM core, so it must stay a runtime require, and the worker/core/language files must be traced
   // into the standalone output.
-  serverExternalPackages: ['tesseract.js', 'tesseract.js-core', 'pdfjs-dist', '@napi-rs/canvas'],
+  serverExternalPackages: ['tesseract.js', 'tesseract.js-core', 'pdfjs-dist', '@napi-rs/canvas', 'libxml2-wasm'],
   outputFileTracingIncludes: {
-    '/api/**': ['./scripts/math-ocr-worker.py', './models/math/model-lock.json'],
+    '/api/**': ['./scripts/math-ocr-worker.py', './models/math/model-lock.json', './scripts/epub-xsd-worker.mjs', './node_modules/libxml2-wasm/lib/**', './node_modules/libxml2-wasm/package.json'],
     '/api/alt-text/**': [
       './scripts/math-ocr-worker.py',
       './models/math/model-lock.json',

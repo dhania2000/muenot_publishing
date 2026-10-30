@@ -4,7 +4,7 @@ import {parseReaderRequirements,type EpubReaderRequirements} from "./reader-requ
 import {COMPATIBILITY_ACKS} from "./selection-policy"
 import {DEFAULT_EPUB_CONFIGURATION,parseEpubConfiguration,configurationProblems,type EpubConfiguration} from "./configuration"
 /** Bounded intake configuration, not an execution or availability claim. */
-export const EPUB_SOURCES = ["docx", "pdf", "images", "html", "xml", "latex", "idml", "epub", "package"] as const
+export const EPUB_SOURCES = ["docx", "pdf", "images", "html", "xml", "latex", "idml", "epub", "package", "office", "presentation", "tables", "text", "styles", "media", "dtp"] as const
 export const EPUB_VERSIONS = ["3.3", "3.4-experimental", "2.0.1-legacy"] as const
 export const EPUB_LAYOUTS = ["reflowable", "fixed", "mixed", "roll"] as const
 export type EpubSelection = { source: typeof EPUB_SOURCES[number]; version: typeof EPUB_VERSIONS[number]; layout: typeof EPUB_LAYOUTS[number]; rendition: "single" | "multiple"; profile: "standard" | "accessible" | "enhanced" | "stem" }
@@ -29,7 +29,15 @@ export function selectionProblems(s:EpubSelection):string[]{
 export function detectEpubSource(name:string):EpubSelection["source"]|null {
   const ext=name.toLowerCase().split(".").at(-1)
   if(ext==="zip")return "package"
-  if(["png","jpg","jpeg","tif","tiff","webp"].includes(ext??""))return "images"
+  if(["doc","rtf","odt"].includes(ext??""))return "office"
+  if(["pptx","ppt"].includes(ext??""))return "presentation"
+  if(["xlsx","xls","csv"].includes(ext??""))return "tables"
+  if(["txt","md","markdown"].includes(ext??""))return "text"
+  if(ext==="css")return "styles"
+  if(["mp3","wav","mp4","m4a","aac","ogg","webm","srt","vtt","smil"].includes(ext??""))return "media"
+  if(["qxp","qxd","indd"].includes(ext??""))return "dtp"
+  if(["jats","bits","nlm","dbk","tei","dita","ditamap","xsd"].includes(ext??""))return "xml"
+  if(["png","jpg","jpeg","tif","tiff","webp","svg"].includes(ext??""))return "images"
   if(["html","xhtml","htm"].includes(ext??""))return "html"
   if(ext==="tex")return "latex"
   return ["docx","pdf","xml","idml","epub"].includes(ext??"")?ext as EpubSelection["source"]:null

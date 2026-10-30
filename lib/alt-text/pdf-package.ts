@@ -160,6 +160,10 @@ export type PdfExtractionReport = {
  */
 export type PdfTextRun = {
   text: string
+  /** Observed source font/glyph facts; not embedded-font rights or exact glyph metrics. */
+  fontResource?: string | null
+  fontName?: string | null
+  glyphCount?: number
   box: { x0: number; y0: number; x1: number; y1: number }
   size: number
   /** Page-level MCID (structure-tree key), null outside marked content. */
@@ -842,6 +846,9 @@ function collectPageOccurrences(
               const withMcid = show.marked.slice(0, pageDepth).reverse().find((m) => m.mcid != null)
               text.runs.push({
                 text: str.slice(0, PDF_TEXT_LIMITS.maxRunChars),
+                fontResource: show.font,
+                fontName: show.font ? nameOf(ctx,dictOf(ctx,dictOf(ctx,resources?.get(n("Font")))?.get(n(show.font)))?.get(n("BaseFont"))) : null,
+                glyphCount: glyphs,
                 box: { x0: x - page.box[0], y0: page.box[3] - (y + 0.8 * show.size), x1: x + width - page.box[0], y1: page.box[3] - (y - 0.2 * show.size) },
                 size: Math.round(show.size * 100) / 100,
                 mcid: withMcid?.mcid ?? null,

@@ -10,7 +10,7 @@ import { query, withTransaction } from "@/lib/db"
 import { classifyJobFailure, JobCancelledError, JobDeferredError, retryDisposition } from "@/lib/job-retry-policy"
 import { assertEnqueueAllowed, jobLimitsFromEnv, payloadBytes,globalRunningCapFor } from "@/lib/observability/job-limits"
 
-export const BACKGROUND_JOB_TYPES = ["alt_text.batch_processing", "alt_text.document_preparation", "alt_text.pdf_page_ocr", "alt_text.math_recognition", "alt_text.advanced_analysis", "alt_text.accessibility_processing", "epub.preflight", "epub.receipt_notice", "epub.guideline_extraction"] as const
+export const BACKGROUND_JOB_TYPES = ["alt_text.batch_processing", "alt_text.document_preparation", "alt_text.pdf_page_ocr", "alt_text.math_recognition", "alt_text.advanced_analysis", "alt_text.accessibility_processing", "epub.preflight", "epub.receipt_notice", "epub.guideline_extraction", "epub.input_normalization"] as const
 export type BackgroundJobType = (typeof BACKGROUND_JOB_TYPES)[number]
 export const BACKGROUND_JOB_STATUSES = ["queued", "running", "completed", "failed", "dead_letter", "cancelled"] as const
 export type BackgroundJobStatus = (typeof BACKGROUND_JOB_STATUSES)[number]
@@ -21,7 +21,7 @@ export type DocumentPreparationJobPayload = { documentId: number }
 export type PdfPageOcrJobPayload = { documentId: number; request: import("./alt-text/pdf-page-ocr-types").PageOcrRequest }
 export type MathRecognitionJobPayload = { evidenceId: number }
 export type AdvancedAnalysisJobPayload = {evidenceId:number}
-export type BackgroundJobPayload = import("./epub/guideline-documents").GuidelineExtractionPayload | import("./epub/receipt-notification").EpubReceiptPayload | import("./epub/submission-contract").EpubPreflightPayload | AltTextBatchJobPayload | DocumentPreparationJobPayload | PdfPageOcrJobPayload | MathRecognitionJobPayload | {pipelineId:number}
+export type BackgroundJobPayload = import("./epub/input-store").InputNormalizationPayload | import("./epub/guideline-documents").GuidelineExtractionPayload | import("./epub/receipt-notification").EpubReceiptPayload | import("./epub/submission-contract").EpubPreflightPayload | AltTextBatchJobPayload | DocumentPreparationJobPayload | PdfPageOcrJobPayload | MathRecognitionJobPayload | {pipelineId:number}
 
 /** Cluster-wide running cap for document preparation (memory-heavy parsing). Phase 2 types keep their own policy. */
 export const documentPreparationGlobalCap = () => bounded(process.env.ALT_TEXT_DOCUMENT_JOBS_GLOBAL_MAX, 2, 1, 20)
@@ -94,6 +94,7 @@ function mapJob(row: any): BackgroundJob {
 }
 
 function validatePayload(type: BackgroundJobType, payload: unknown): BackgroundJobPayload {
+  if(type==="epub.input_normalization"){const p=payload as any;if(p&&typeof p==="object"&&!Array.isArray(p)&&Object.keys(p).join()==="requestId"&&typeof p.requestId==="string"&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(p.requestId))return {requestId:p.requestId};throw Error("Invalid EPUB input normalization payload")}
   if(type==="epub.guideline_extraction"){const p=payload as any;if(p&&typeof p==="object"&&!Array.isArray(p)&&Object.keys(p).sort().join()==="documentId,languageMode,mode"&&typeof p.documentId==="string"&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(p.documentId)&&["native","ocr"].includes(p.mode)&&isOcrLanguageMode(p.languageMode))return {documentId:p.documentId,mode:p.mode,languageMode:p.languageMode};throw Error("Invalid EPUB guideline extraction payload")}
   if(type==="epub.receipt_notice"){const p=payload as any;if(p&&typeof p==="object"&&!Array.isArray(p)&&Object.keys(p).sort().join()==="deliveryAttempt,noticeId"&&typeof p.noticeId==="string"&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(p.noticeId)&&Number.isSafeInteger(p.deliveryAttempt)&&p.deliveryAttempt>=1&&p.deliveryAttempt<=10)return {noticeId:p.noticeId,deliveryAttempt:p.deliveryAttempt};throw Error("Invalid EPUB receipt payload")}
   if(type==="epub.preflight"){const p=payload as any;if(p&&typeof p==="object"&&!Array.isArray(p)&&Object.keys(p).sort().join()==="projectId,revision,stage"&&typeof p.projectId==="string"&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(p.projectId)&&Number.isSafeInteger(p.revision)&&p.revision>0&&p.revision<=1000000&&p.stage==="preflight")return {projectId:p.projectId,revision:p.revision,stage:"preflight"};throw Error("Invalid EPUB preflight payload")}
@@ -234,6 +235,7 @@ type JobHandler = (payload: BackgroundJobPayload, context: JobHandlerContext) =>
 
 const JOB_HANDLERS: Record<BackgroundJobType, JobHandler> = {
   async "epub.receipt_notice"(payload,context){const {runEpubReceiptJob}=await import("@/lib/epub/receipt-notification");return runEpubReceiptJob(payload as import("./epub/receipt-notification").EpubReceiptPayload,context)},
+  async "epub.input_normalization"(payload,context){const {runInputNormalizationJob}=await import("@/lib/epub/input-store");return runInputNormalizationJob(payload as import("./epub/input-store").InputNormalizationPayload,context)},
   async "epub.guideline_extraction"(payload,context){const {runGuidelineExtractionJob}=await import("@/lib/epub/guideline-documents");return runGuidelineExtractionJob(payload as import("./epub/guideline-documents").GuidelineExtractionPayload,context)},
   async "epub.preflight"(payload,context){const {runEpubPreflightJob}=await import("@/lib/epub/preflight-job");return runEpubPreflightJob(payload as import("./epub/submission-contract").EpubPreflightPayload,context)},
   async "alt_text.accessibility_processing"(payload,context){

@@ -2,6 +2,7 @@ import {DEFAULT_PUBLISHER_PROFILE_VERSION} from "./guideline-selection"
 import {parseGuidelineAttachments,inspectGuidelineInput,GuidelineIngestionError,type GuidelineInput} from "./guideline-ingestion"
 import {persistGuidelineInputs} from "./guideline-documents"
 import {EPUB_GUIDELINE_DDL} from "./guideline-ddl"
+import {EPUB_INPUT_DDL} from "./input-ddl"
 import "server-only"
 import {ensureBackgroundJobSchema} from "@/lib/background-jobs"
 import {EPUB_SUBMISSION_DDL} from "./submission-contract"
@@ -27,6 +28,7 @@ export class EpubIntakeError extends Error{constructor(readonly status:number,re
 export const SOURCE_INSPECTIONS_DDL=`CREATE TABLE IF NOT EXISTS conversion_source_inspections (tenant_id BIGINT UNSIGNED NOT NULL,project_id CHAR(36) NOT NULL,ordinal INT UNSIGNED NOT NULL,inspection_json JSON NOT NULL,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(tenant_id,project_id,ordinal)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
 export const UPLOAD_REJECTIONS_DDL=`CREATE TABLE IF NOT EXISTS conversion_upload_rejections (tenant_id BIGINT UNSIGNED NOT NULL,id CHAR(36) NOT NULL,actor_id BIGINT UNSIGNED NULL,sha256 CHAR(64) NOT NULL,code VARCHAR(48) NOT NULL,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(tenant_id,id),KEY upload_rejections(tenant_id,created_at)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
 export const EPUB_INTAKE_DDL=[
+ EPUB_INPUT_DDL,
  ...EPUB_GUIDELINE_DDL,
  ...EPUB_SUBMISSION_DDL,
  ...EPUB_UPLOAD_DDL,
