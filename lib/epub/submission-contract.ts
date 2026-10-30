@@ -1,0 +1,7 @@
+export const EPUB_SUBMISSION_DDL=[
+ `CREATE TABLE IF NOT EXISTS conversion_preflight_requests (tenant_id BIGINT UNSIGNED NOT NULL,project_id CHAR(36) NOT NULL,revision INT UNSIGNED NOT NULL,job_id BIGINT UNSIGNED NULL,snapshot_sha256 CHAR(64) NOT NULL,snapshot_json JSON NOT NULL,status VARCHAR(24) NOT NULL DEFAULT 'queued',result_json JSON NULL,created_at DATETIME NOT NULL,completed_at DATETIME NULL,PRIMARY KEY(tenant_id,project_id,revision),KEY preflight_job(tenant_id,job_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+ `CREATE TABLE IF NOT EXISTS conversion_receipt_notices (tenant_id BIGINT UNSIGNED NOT NULL,id CHAR(36) NOT NULL,project_id CHAR(36) NOT NULL,revision INT UNSIGNED NOT NULL,recipient_id BIGINT UNSIGNED NOT NULL,body_json JSON NOT NULL,status VARCHAR(16) NOT NULL DEFAULT 'unread',delivery_attempts INT UNSIGNED NOT NULL DEFAULT 1,mail_status VARCHAR(24) NOT NULL DEFAULT 'disabled',mail_job_id BIGINT UNSIGNED NULL,mail_payload_json JSON NULL,created_at DATETIME NOT NULL,updated_at DATETIME NOT NULL,PRIMARY KEY(tenant_id,id),UNIQUE KEY project_receipt(tenant_id,project_id,revision,recipient_id),KEY receipt_inbox(tenant_id,recipient_id,status)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+] as const
+export type EpubPreflightPayload={projectId:string;revision:number;stage:"preflight"}
+
+export function canonicalSubmissionJson(value:unknown):string{const normalize=(v:any):any=>Array.isArray(v)?v.map(normalize):v&&typeof v==="object"?Object.fromEntries(Object.keys(v).sort().map(k=>[k,normalize(v[k])])):v;return JSON.stringify(normalize(value))}

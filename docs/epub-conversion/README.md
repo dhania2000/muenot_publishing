@@ -4,9 +4,9 @@ This directory tracks the 300 sequential tasks supplied in `Muenot_EPUB_300_Task
 
 The initial audit baseline is commit `0cf661d69040185aeb5ffd73d23700a80d9f4f76`, inspected 29 October 2026. Later task reports record subsequent implementation changes. The documents under [2026-10-29](2026-10-29/) supersede conflicting findings in the older P1-T01–T03 reports at this directory's root. Those older reports remain historical evidence. Their missing-roadmap blocker B1 is resolved by the supplied DOCX and the imported catalogue; their provisional workstreams are not the task numbering authority.
 
-## Delivery batches
+## Phase delivery and historical batches
 
-Each batch contains ten consecutive global task numbers, even across a phase boundary. Batch 1 is P1-T01–P1-T10; batch 2 is P1-T11–P2-T05. Record evidence and commit/push each batch checkpoint; if a prerequisite prevents acceptance, record that task as partial rather than reporting a completed batch. Never mark a task complete because a route exists or because a later task is planned.
+The latest user instruction supersedes ten-task batches: finish the remaining tasks of the current phase, verify and push that phase, then start the next phase automatically. Preserve original task order and all 300 prompts. Historical batches 1–4 below remain evidence of earlier delivery. Record unresolved acceptance honestly; a pending native/integration check does not become complete merely because implementation exists.
 
 | Batch | Global numbers | Task range | Evidence |
 | --- | --- | --- | --- |
@@ -14,9 +14,10 @@ Each batch contains ten consecutive global task numbers, even across a phase bou
 | 2 | 11–20 | P1-T11–P2-T05 | [Checkpoint report](2026-10-29/batch-02-report.md) and [intake closure](2026-10-29/P2-T05-intake-integration.md): complete |
 | 3 | 21–30 | P2-T06–P2-T15 | [Batch 3 checkpoint](2026-10-30/batch-03-report.md): 9 complete, Task 30 verification partial |
 | 4 | 31–40 | P3-T01–P3-T10 | [Batch 4 report](2026-10-30/batch-04-report.md) |
-| 5–30 | 41–300 | Exact task order in roadmap.json | Pending |
+| Phase 3 closure | 41–45 | P3-T11–P3-T15 | [Phase 3 completion](2026-10-30/phase-03-completion.md) |
+| Phases 4–20 | 46–300 | Original phase/task order in roadmap.json | Pending |
 
-Phase 1 is documentation only, as the supplied prompts require. No runtime, database, dependency or production setting is changed by that phase. Phase 2 provides the EPUB overview, requirements pages, selectors, saved wizard and private held-project submission. Sources remain pending security review; no conversion job or charge is created. The workbench now includes scoped dashboards, configuration revisions, safe stored preview/report views, feedback/decisions and administrator assignment/templates. Private resumable intake, safe ZIP manifests, scoped enquiry capture and expanded metadata are also implemented. Overall: 39 complete, 1 verification partial, 260 not started. Task 30 needs native screen-reader and remaining state verification. Live database/hosting verification and the actual EPUB engine remain future gates.
+Phase 1 is documentation only, as the supplied prompts require. No runtime, database, dependency or production setting is changed by that phase. Phase 2 provides the EPUB overview, requirements pages, selectors, saved wizard and private held-project submission. Sources remain pending security review; no conversion job or charge is created. The workbench now includes scoped dashboards, configuration revisions, safe stored preview/report views, feedback/decisions and administrator assignment/templates. Private resumable intake, safe ZIP manifests, scoped enquiry capture and expanded metadata are also implemented. Compatibility review, reader/AT plans, timezone-aware service requests, immutable metadata preflight and private receipt notices are implemented. Optional receipt email reuses the existing mail transport and queue; it is disabled unless configured. Metadata preflight is distinct from conversion execution. Overall: 44 complete, 1 verification partial, 255 not started. Task 30 needs native screen-reader and remaining state verification. Live database/hosting verification and the actual EPUB engine remain future gates.
 
 ## Shared rules
 

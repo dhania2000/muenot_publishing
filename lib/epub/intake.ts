@@ -1,4 +1,7 @@
 import "server-only"
+import {ensureBackgroundJobSchema} from "@/lib/background-jobs"
+import {EPUB_SUBMISSION_DDL} from "./submission-contract"
+import {recordEpubSubmission} from "./submission-record"
 import type {PoolConnection} from "mysql2/promise"
 import {EPUB_UPLOAD_DDL} from "./upload-contract"
 import {PackageInspectionError} from "./package-inspection"
@@ -9,6 +12,8 @@ import {ensurePlatformSchema} from "@/lib/platform-schema"
 import {currentTenantId} from "@/lib/tenant-scope"
 import {storePendingFileInTransaction} from "@/lib/storage"
 import {detectEpubSource,parseEpubDraft,type EpubDraft} from "./intake-plan"
+import {selectionPolicyProblems} from "./selection-policy"
+import {epubPlanningCapabilities} from "./planning-capabilities"
 import {classifyEpubSource} from "./source-classification"
 import {inspectEpubSource,SourceInspectionError,type SourceInspection} from "./source-inspection"
 import {DEFAULT_EPUB_CONFIGURATION} from "./configuration"
@@ -18,6 +23,7 @@ export class EpubIntakeError extends Error{constructor(readonly status:number,re
 export const SOURCE_INSPECTIONS_DDL=`CREATE TABLE IF NOT EXISTS conversion_source_inspections (tenant_id BIGINT UNSIGNED NOT NULL,project_id CHAR(36) NOT NULL,ordinal INT UNSIGNED NOT NULL,inspection_json JSON NOT NULL,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(tenant_id,project_id,ordinal)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
 export const UPLOAD_REJECTIONS_DDL=`CREATE TABLE IF NOT EXISTS conversion_upload_rejections (tenant_id BIGINT UNSIGNED NOT NULL,id CHAR(36) NOT NULL,actor_id BIGINT UNSIGNED NULL,sha256 CHAR(64) NOT NULL,code VARCHAR(48) NOT NULL,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(tenant_id,id),KEY upload_rejections(tenant_id,created_at)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
 export const EPUB_INTAKE_DDL=[
+ ...EPUB_SUBMISSION_DDL,
  ...EPUB_UPLOAD_DDL,
  UPLOAD_REJECTIONS_DDL,
  SOURCE_INSPECTIONS_DDL,
@@ -26,7 +32,7 @@ export const EPUB_INTAKE_DDL=[
  `CREATE TABLE IF NOT EXISTS conversion_project_assets (tenant_id BIGINT UNSIGNED NOT NULL,project_id CHAR(36) NOT NULL,ordinal INT UNSIGNED NOT NULL,file_id BIGINT UNSIGNED NOT NULL,sha256 CHAR(64) NOT NULL,source_kind VARCHAR(32) NOT NULL,PRIMARY KEY(tenant_id,project_id,ordinal),KEY conversion_asset_file(tenant_id,file_id),CONSTRAINT conversion_asset_project_fk FOREIGN KEY(tenant_id,project_id) REFERENCES conversion_projects(tenant_id,id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 ] as const
 let schema:Promise<void>|null=null
-export async function ensureEpubIntake(){schema??=(async()=>{await ensurePlatformSchema();for(const ddl of EPUB_INTAKE_DDL)await query(ddl)})().catch(e=>{schema=null;throw e});return schema}
+export async function ensureEpubIntake(){schema??=(async()=>{await ensurePlatformSchema();await ensureBackgroundJobSchema();for(const ddl of EPUB_INTAKE_DDL)await query(ddl)})().catch(e=>{schema=null;throw e});return schema}
 export type IntakeSource={name:string;bytes:Buffer;kind:NonNullable<ReturnType<typeof detectEpubSource>>;sha256:string;inspection?:SourceInspection}
 export async function parseEpubIntake(form:FormData,actorId?:number):Promise<{plan:EpubDraft;requestId:string;sources:IntakeSource[]}>{
  if([...form.keys()].some(k=>!["plan","requestId","rightsConfirmed","sources"].includes(k))||form.getAll("plan").length!==1||form.getAll("requestId").length!==1||form.getAll("rightsConfirmed").length!==1)throw new EpubIntakeError(400,"INVALID_REQUEST","Send one project plan and request reference.")
@@ -52,9 +58,13 @@ export async function parseEpubIntake(form:FormData,actorId?:number):Promise<{pl
  return {plan,requestId,sources}
 }
 export async function createEpubIntake(input:Awaited<ReturnType<typeof parseEpubIntake>>,actorId:number,options:{connection?:PoolConnection;reservedCredit?:number}={}){
+ const policy=selectionPolicyProblems(input.plan,epubPlanningCapabilities().candidatePlanning);if(policy.length)throw new EpubIntakeError(422,"COMPATIBILITY_REVIEW_REQUIRED",policy.join(" "))
  await ensureEpubIntake();const tenant=currentTenantId(),id=randomUUID(),s=input.plan.selection,parts:unknown[]=[input.plan.title,input.plan.author,input.plan.guidelineNotes,[s.source,s.version,s.layout,s.rendition,s.profile],input.sources.map(f=>[f.name,f.kind,f.bytes.length,f.sha256])]
  if(input.plan.configuration&&JSON.stringify(input.plan.configuration)!==JSON.stringify(DEFAULT_EPUB_CONFIGURATION))parts.push(input.plan.configuration)
  if(input.plan.sources.some(f=>f.purpose&&f.purpose!=="main"))parts.push(input.plan.sources.map(f=>f.purpose??"main"))
+ if(input.plan.serviceRequest)parts.push(input.plan.serviceRequest)
+ if(input.plan.requirements)parts.push(input.plan.requirements)
+ if(input.plan.compatibilityAcknowledgements?.length)parts.push([...input.plan.compatibilityAcknowledgements].sort())
  const manifestSha256=createHash("sha256").update(JSON.stringify(input.sources.map((f,i)=>({ordinal:i,name:f.name,sha256:f.sha256,size:f.bytes.length,kind:f.kind,purpose:input.plan.sources[i]?.purpose??"main"})))).digest("hex")
  const fileReceipts=input.sources.map((f,ordinal)=>{const first=input.sources.findIndex(s=>s.sha256===f.sha256);return {ordinal,name:f.name,status:"received_security_pending",purpose:input.plan.sources[ordinal]?.purpose??"main",...(first<ordinal?{duplicateOfOrdinal:first}:{})}})
  const fingerprint=createHash("sha256").update(JSON.stringify(parts)).digest("hex")
@@ -77,9 +87,10 @@ export async function createEpubIntake(input:Awaited<ReturnType<typeof parseEpub
    await conn.query("INSERT INTO conversion_source_inspections (tenant_id,project_id,ordinal,inspection_json) VALUES (?,?,?,?)",[tenant,id,ordinal,JSON.stringify(inspection)])
   }
   await conn.query("INSERT INTO conversion_project_events (tenant_id,project_id,revision,event_type,actor_id,detail_json) VALUES (?,?,1,'project_received',?,?)",[tenant,id,actorId,JSON.stringify({sourceCount:input.sources.length,status:"held",manifestSha256})])
-  return {...receipt({id,status:"held",hold_reason:"SECURITY_AND_ENGINE_PENDING",revision:1},true),manifestSha256,files:fileReceipts}
+  const submission=await recordEpubSubmission(conn,id,actorId,input.plan,input.sources.map(s=>({name:s.name,sha256:s.sha256,kind:s.kind,size:s.bytes.length})),manifestSha256)
+  return {...receipt({id,status:"held",hold_reason:"SECURITY_AND_ENGINE_PENDING",revision:1},true),manifestSha256,files:fileReceipts,...submission}
  }
  return options.connection?persist(options.connection):withTransaction(persist)
 }
-function receipt(row:any,created:boolean){return {id:row.id,status:row.status,holdReason:row.hold_reason,revision:Number(row.revision),created,message:"Project received. Sources are private and pending security review. EPUB conversion is not available; no processing job or charge was created."}}
+function receipt(row:any,created:boolean){return {id:row.id,status:row.status,holdReason:row.hold_reason,revision:Number(row.revision),created,message:"Project received. Sources are private and pending security review. Metadata preflight is requested. EPUB conversion is not available; no conversion job or charge was created."}}
 export async function listEpubIntakes(actorId:number){await ensureEpubIntake();return query<any[]>("SELECT id,title,status,hold_reason AS holdReason,revision,created_at AS createdAt FROM conversion_projects WHERE tenant_id=? AND created_by=? AND service='epub' ORDER BY created_at DESC,id DESC LIMIT 20",[currentTenantId(),actorId])}
