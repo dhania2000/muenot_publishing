@@ -1,0 +1,65 @@
+import 'server-only'
+import {withTransaction} from '@/lib/db'
+import {currentTenantId} from '@/lib/tenant-scope'
+import {ensureWorkbench,projectRow} from './workbench-store'
+import {EpubIntakeError} from './intake'
+import {PROJECT_ID,type WorkbenchActor} from './workbench-contract'
+import {inputHash} from './input-common'
+import {canonicalSubmissionJson} from './submission-contract'
+import {analyzeContentPreflight} from './content-preflight'
+import {inputNodes} from './content-preflight'
+import {suggestContentStructure} from './content-ai'
+import {applyContentReview,parseContentReviewAction,type ReviewedContent} from './content-review'
+import {sourceManifest,savedInputEvidence} from './input-store'
+import type {PoolConnection} from 'mysql2/promise'
+const fail=(status:number,code:string,message:string):never=>{throw new EpubIntakeError(status,code,message)}
+const json=canonicalSubmissionJson
+async function state(conn:PoolConnection,projectId:string,requestId:string,actor:WorkbenchActor){
+ if(!PROJECT_ID.test(requestId))fail(404,'NOT_FOUND','Source analysis not found.')
+ const p=await projectRow(projectId,actor,conn),tenant=currentTenantId(),[rows]=await conn.query<any[]>('SELECT id,project_revision,result_json,result_sha256,manifest_json,manifest_sha256,options_json,options_sha256 FROM conversion_input_requests WHERE tenant_id=? AND project_id=? AND id=? FOR UPDATE',[tenant,projectId,requestId]),r=rows[0]
+ if(!r?.result_json)fail(409,'INPUT_ANALYSIS_PENDING','Wait for a completed source inspection.')
+ const [actors]=await conn.query<any[]>("SELECT id,role FROM users WHERE tenant_id=? AND id=? AND status='active'",[tenant,actor.userId]),[owners]=await conn.query<any[]>("SELECT id FROM users WHERE tenant_id=? AND id=? AND status='active'",[tenant,p.created_by]);if(!actors[0]||actors[0].role!==actor.role||!owners.length)fail(403,'INPUT_REVIEW_AUTHORITY_CHANGED','Reviewer or project-owner authority changed.');
+ const result=savedInputEvidence(r.result_json,r.result_sha256),options=savedInputEvidence(r.options_json,r.options_sha256,16384)
+ if(result.status==='superseded'||Number(r.project_revision)!==Number(p.revision))fail(409,'REVISION_CONFLICT','Inspect the current saved project revision before correcting its content.')
+ const manifest=await sourceManifest(conn,p),identity=manifest.map(({scanStatus,...s}:any)=>s)
+ if(manifest.some(s=>s.scanStatus!=='clean')||inputHash(json(identity))!==r.manifest_sha256)fail(409,'INPUT_SOURCE_CHANGED','Current source identity/security changed; saved analysis is historical only.')
+ const [versions]=await conn.query<any[]>('SELECT version,request_sha256,parent_sha256,model_sha256,action_json,action_sha256,actor_id,created_at FROM conversion_input_reviews WHERE tenant_id=? AND project_id=? AND request_id=? ORDER BY version DESC LIMIT 201',[tenant,projectId,requestId])
+ let parent=r.result_sha256,chainVersion=0
+ for(const v of [...versions].reverse()){if(Number(v.version)!==++chainVersion||v.request_sha256!==r.result_sha256||v.parent_sha256!==parent)fail(409,'INPUT_REVIEW_CHANGED','The saved correction chain needs administrator review.');savedInputEvidence(v.action_json,v.action_sha256,98304);parent=v.model_sha256}
+ const latest=versions[0];const [bodies]=latest?await conn.query<any[]>('SELECT model_json FROM conversion_input_reviews WHERE tenant_id=? AND project_id=? AND request_id=? AND version=?',[tenant,projectId,requestId,latest.version]):[[]];const review:ReviewedContent=latest?savedInputEvidence(bodies[0]?.model_json,latest.model_sha256):{documents:result.documents,analysis:analyzeContentPreflight(result.documents,options.preflight,p.plan),decisions:[]}
+ // Recommendations always reflect the current plan, not an obsolete cached route.
+ const analysis=analyzeContentPreflight(review.documents,options.preflight,p.plan);review.analysis={...analysis,status:analysis.issues.some(i=>i.blocking&&!review.decisions.some(d=>d.issueId===i.id))?'blocked':'extracted_for_review'}
+ return {p,r,options,versions,review,version:Number(latest?.version??0),sha256:latest?.model_sha256??r.result_sha256}
+}
+export async function inputContentState(projectId:string,requestId:string,actor:WorkbenchActor,download=false){await ensureWorkbench();return withTransaction(async conn=>{const s=await state(conn,projectId,requestId,actor);const [assignment]=await conn.query<any[]>('SELECT a.assignee_id AS id,u.name FROM conversion_project_assignments a JOIN users u ON u.tenant_id=a.tenant_id AND u.id=a.assignee_id WHERE a.tenant_id=? AND a.project_id=?',[currentTenantId(),projectId]);return {projectId,requestId,revision:Number(s.p.revision),version:s.version,sha256:s.sha256,...(download?{reviewedModel:s.review}:{}),aiHints:s.review.aiHints??[],analysis:s.review.analysis,decisions:s.review.decisions,assignment:assignment[0]??null,history:s.versions.map(v=>({version:Number(v.version),sha256:v.model_sha256,actorId:Number(v.actor_id),createdAt:v.created_at,action:(()=>{const a=JSON.parse(typeof v.action_json==='string'?v.action_json:JSON.stringify(v.action_json));return {action:a.action,evidence:a.evidence,correction:a.correction?{kind:a.correction.kind,nodeId:a.correction.nodeId,sourceName:a.correction.sourceName}:undefined,consent:a.consent,promptVersion:a.promptVersion,model:a.model}})()})),canCorrect:['admin','employee'].includes(actor.role)&&s.p.status==='held',nodes:s.review.documents.flatMap(d=>{const visit=(nodes:typeof d.nodes):any[]=>nodes.filter(n=>!n.attributes.editorialOnly).flatMap(n=>[{id:n.id,sourceName:d.sourceName,kind:n.kind,textTruncated:n.text.length>16000,text:n.children.length?'':n.text.slice(0,16000),source:n.source,children:n.children.filter(c=>!c.attributes.editorialOnly).map(c=>c.id),label:n.text.slice(0,120)||n.source.locator},...visit(n.children)]);return visit(d.nodes)}),releaseAuthorized:false,productionReady:false}})}
+export async function correctInputContent(projectId:string,raw:any,actor:WorkbenchActor){
+ if(!raw||typeof raw!=='object'||Array.isArray(raw)||Object.keys(raw).sort().join()!=='change,expectedRevision,expectedSha256,expectedVersion,requestId'||!PROJECT_ID.test(raw.requestId)||!Number.isInteger(raw.expectedRevision)||raw.expectedRevision<1||!Number.isInteger(raw.expectedVersion)||raw.expectedVersion<0||!/^[a-f0-9]{64}$/.test(raw.expectedSha256)||!parseContentReviewAction(raw.change))fail(422,'INVALID_CONTENT_CORRECTION','Choose a saved inspection, current correction version and source-grounded evidence.')
+ if(!['admin','employee'].includes(actor.role))fail(403,'FORBIDDEN','An assigned production reviewer must record source corrections.')
+ await ensureWorkbench();return withTransaction(async conn=>{
+  const s=await state(conn,projectId,raw.requestId,actor)
+  if(Number(s.p.revision)!==raw.expectedRevision||s.version!==raw.expectedVersion||s.sha256!==raw.expectedSha256)fail(409,'CONTENT_REVISION_CONFLICT','Another reviewer changed this content. Refresh and compare before saving your draft.')
+  if(s.p.status!=='held')fail(409,'PROJECT_BUSY','Hold this project for source review before correcting content.')
+  if(s.version>=200)fail(409,'CONTENT_VERSION_LIMIT','Review history reached its bounded limit. Submit the corrected source as a new inspection.')
+  let review:ReviewedContent;try{review=applyContentReview(s.review,raw.change,actor.userId,s.options.preflight,s.p.plan)}catch{fail(422,'INVALID_CONTENT_CORRECTION','Choose an existing source node and permitted correction. Missing/unsafe bytes and automated failures cannot be waived.')}
+  const model=json(review!);if(Buffer.byteLength(model)>8*1024*1024)fail(422,'CONTENT_REVIEW_LIMIT','The correction model exceeds its storage budget. Split this publication.')
+  const sha256=inputHash(model),version=s.version+1
+  await conn.query('INSERT INTO conversion_input_reviews (tenant_id,project_id,request_id,version,request_sha256,parent_sha256,model_sha256,model_json,action_json,action_sha256,actor_id) VALUES (?,?,?,?,?,?,?,?,?,?,?)',[currentTenantId(),projectId,raw.requestId,version,s.r.result_sha256,s.sha256,sha256,model,json(raw.change),inputHash(json(raw.change)),actor.userId])
+  await conn.query('INSERT INTO conversion_project_events (tenant_id,project_id,revision,event_type,actor_id,detail_json) VALUES (?,?,?,?,?,?)',[currentTenantId(),projectId,s.p.revision,'source_content_corrected',actor.userId,JSON.stringify({requestId:raw.requestId,version,parentSha256:s.sha256,modelSha256:sha256,kind:raw.change.action==='correct'?raw.change.correction.kind:'human_assessment'})])
+  return {version,sha256,releaseAuthorized:false,productionReady:false}
+ })
+}
+let hintInFlight=false
+export async function requestContentHints(projectId:string,raw:any,actor:WorkbenchActor,signal:AbortSignal){
+ if(!raw||Object.keys(raw).sort().join()!=='action,consent,expectedRevision,expectedSha256,expectedVersion,requestId,requestKey,scope'||raw.action!=='hints'||raw.consent!==true||!PROJECT_ID.test(raw.requestId)||!PROJECT_ID.test(raw.requestKey)||!Number.isInteger(raw.expectedRevision)||!Number.isInteger(raw.expectedVersion)||!/^[a-f0-9]{64}$/.test(raw.expectedSha256)||!Array.isArray(raw.scope)||!raw.scope.length||raw.scope.length>5||raw.scope.some((s:any)=>!s||typeof s!=='object'||Object.keys(s).sort().join()!=='nodeId,sourceName'||typeof s.sourceName!=='string'||!/^n_[a-f0-9]{24}$|^review_n_[a-f0-9]{24}$/.test(s.nodeId)))fail(422,'INVALID_AI_SCOPE','Select up to five source blocks, their saved version and explicit source-data consent.')
+ if(!['admin','employee'].includes(actor.role))fail(403,'FORBIDDEN','Only a production reviewer can request scoped structural hints.')
+ if(signal.aborted)fail(409,'AI_HINT_CANCELLED','The hint request ended before source transmission.');
+ if(hintInFlight)fail(429,'AI_HINT_BUSY','Another bounded source hint is running. Your draft is kept.')
+ hintInFlight=true
+ const current=(s:Awaited<ReturnType<typeof state>>)=>{if(s.version!==raw.expectedVersion||s.sha256!==raw.expectedSha256||Number(s.p.revision)!==raw.expectedRevision||s.p.status!=='held'||s.version>=200)fail(409,'CONTENT_REVISION_CONFLICT','Source-review context changed. Compare the current saved version before requesting hints.')}
+ try{
+  await ensureWorkbench();const prepared=await withTransaction(async conn=>{const s=await state(conn,projectId,raw.requestId,actor);current(s);const visible=(nodes:ReturnType<typeof inputNodes>):ReturnType<typeof inputNodes>=>nodes.filter(n=>!n.attributes.editorialOnly).flatMap(n=>[n,...visible(n.children)]);const sources=raw.scope.map((ref:any)=>{const d=s.review.documents.find(d=>d.sourceName===ref.sourceName),node=d?visible(d.nodes).find(n=>n.id===ref.nodeId):null;if(!node||node.children.length||!node.text.trim())fail(422,'INVALID_AI_SCOPE','Choose existing non-editorial leaf text blocks only.');return {sourceName:ref.sourceName,nodeId:ref.nodeId,text:node!.text.slice(0,800)}});return {sources}})
+  let proposal:Awaited<ReturnType<typeof suggestContentStructure>>
+  try{proposal=await suggestContentStructure({tenantId:currentTenantId(),userId:actor.userId,role:actor.role as 'admin'|'employee',requestKey:raw.requestKey,sources:prepared.sources,consent:raw.consent,signal})}catch{fail(409,'AI_HINT_UNAVAILABLE','Optional hints require deployment privacy approval, organisation source-data consent, credits and an available allowed model. No fallback or automatic source change runs.')}
+  return await withTransaction(async conn=>{const s=await state(conn,projectId,raw.requestId,actor);current(s);if(signal.aborted)fail(409,'AI_HINT_CANCELLED','Hint request ended; no source proposal was published.');const review={...s.review,aiHints:[{baseSha256:s.sha256,...proposal!}]},model=json(review);if(Buffer.byteLength(model)>8*1024*1024)fail(422,'CONTENT_REVIEW_LIMIT','The review model exceeds its storage budget.');const version=s.version+1,sha256=inputHash(model),action={action:'ai_hints',evidence:'Explicit reviewer consent for selected file names and excerpts; optional unverified structural proposals only.',requestKey:raw.requestKey,consent:true,model:proposal!.model,provider:proposal!.provider,promptVersion:proposal!.promptVersion,promptSha256:proposal!.promptSha256,scope:raw.scope};await conn.query('INSERT INTO conversion_input_reviews (tenant_id,project_id,request_id,version,request_sha256,parent_sha256,model_sha256,model_json,action_json,action_sha256,actor_id) VALUES (?,?,?,?,?,?,?,?,?,?,?)',[currentTenantId(),projectId,raw.requestId,version,s.r.result_sha256,s.sha256,sha256,model,json(action),inputHash(json(action)),actor.userId]);await conn.query('INSERT INTO conversion_project_events (tenant_id,project_id,revision,event_type,actor_id,detail_json) VALUES (?,?,?,?,?,?)',[currentTenantId(),projectId,s.p.revision,'source_structure_hints_recorded',actor.userId,JSON.stringify({requestId:raw.requestId,version,modelSha256:sha256,model:proposal!.model,promptVersion:proposal!.promptVersion,authoritative:false})]);return {version,sha256,authoritative:false,sourceOverwritten:false,releaseAuthorized:false}})
+ }finally{hintInFlight=false}
+}

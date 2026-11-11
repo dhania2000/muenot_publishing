@@ -12,6 +12,7 @@ export async function getTenantAiSettings(): Promise<TenantAiSettings> {
   return {
     ...base,
     enabled: process.env.AI_DISABLED !== "true",
+    allowSensitiveData: process.env.AI_ALLOW_SENSITIVE_DATA === "true",
     allowedModels: allowed?.length ? allowed : base.allowedModels,
   }
 }

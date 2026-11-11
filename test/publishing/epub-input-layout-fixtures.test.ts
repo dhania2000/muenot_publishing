@@ -2,7 +2,7 @@ import {afterAll,it,expect} from 'vitest'
 import {createHash} from 'node:crypto'
 import {readFileSync} from 'node:fs'
 import {createCanvas} from '@napi-rs/canvas'
-import {PDFDocument} from 'pdf-lib'
+import {PDFDocument,StandardFonts} from 'pdf-lib'
 import {buildZip,ooxmlEntries} from '../alt-text/fixtures/documents'
 import {fixtureZip} from './fixtures/epub-archive'
 import {normalizeEpubInput,inputDependencyReport} from '@/lib/epub/input-normalization'
@@ -26,3 +26,7 @@ it('runs real local OCR on an actual scanned PDF and retains unreviewed text, la
  expect(lines.length,JSON.stringify(r.findings)).toBeGreaterThan(0);expect(lines.map(n=>n.text).join(' ')).toContain('quick brown fox');expect(lines[0].attributes).toMatchObject({languageMode:'eng',coordinateSystem:'page_norm',correctionStatus:'unreviewed'});expect(lines[0].source.page).toBe(1);expect(lines[0].source.box!.x0).toBeGreaterThanOrEqual(0);expect(lines[0].source.box!.x1).toBeLessThanOrEqual(1);expect(r.status).toBe('blocked');expect(r.findings.some(f=>f.code==='OCR_CORRECTION_REQUIRED')).toBe(true)
 },60000)
 it('resolves another inspected private source as a dependency without retaining a false missing-file gate',async()=>{const canvas=createCanvas(2,2),image=await run('picture.png',await canvas.encode('png')),html=await run('chapter.html',Buffer.from('<html><body><p>Chapter</p><img src="picture.png"/></body></html>'));expect(html.status).toBe('blocked');const report=inputDependencyReport([html,image]);expect(report.missing).toEqual([]);expect(html.assets[0]).toMatchObject({availability:'available',sha256:image.sourceSha256});expect(html.findings.some(f=>f.code==='RESOURCE_MISSING'&&f.blocking)).toBe(false);expect(html.status).toBe('review_required')})
+
+it('OCRs only image-only pages in a real mixed native/scanned PDF, retaining route evidence and no duplicated native extraction',async()=>{
+ const pdf=await PDFDocument.create(),font=await pdf.embedFont(StandardFonts.Helvetica),native=pdf.addPage([500,300]);native.drawText('Native chapter already has selectable text.',{font,x:20,y:240,size:14});const image=await pdf.embedPng(readFileSync('test/fixtures/ocr/ocr-sentence.png')),scan=pdf.addPage([image.width*.5,image.height*.5]);scan.drawImage(image,{x:0,y:0,width:scan.getWidth(),height:scan.getHeight()});const r=await run('mixed.pdf',Buffer.from(await pdf.save({useObjectStreams:false})),{ocr:'eng'}),routes=JSON.parse(String(r.metadata.pageRouting)),nativeNodes=flat([r.nodes[0]]),scanNodes=flat([r.nodes[1]]);expect(routes.map((p:any)=>[p.page,p.classification,p.route])).toEqual([[1,'text_based','native'],[2,'image_only','ocr']]);expect(nativeNodes.filter(n=>n.attributes.method==='local_ocr')).toHaveLength(0);expect(scanNodes.filter(n=>n.attributes.method==='local_ocr').map(n=>n.text).join(' ')).toContain('quick brown fox');expect(scanNodes.find(n=>n.attributes.method==='local_ocr')?.attributes).toMatchObject({engine:'tesseract.js',profile:'eng',handwritingVerified:false});expect(r.metadata.documentClassification).toBe('hybrid_document')
+},60000)

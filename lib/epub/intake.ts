@@ -1,3 +1,4 @@
+import {EPUB_INPUT_REVIEW_DDL} from './input-review-ddl'
 import {DEFAULT_PUBLISHER_PROFILE_VERSION} from "./guideline-selection"
 import {parseGuidelineAttachments,inspectGuidelineInput,GuidelineIngestionError,type GuidelineInput} from "./guideline-ingestion"
 import {persistGuidelineInputs} from "./guideline-documents"
@@ -29,6 +30,7 @@ export const SOURCE_INSPECTIONS_DDL=`CREATE TABLE IF NOT EXISTS conversion_sourc
 export const UPLOAD_REJECTIONS_DDL=`CREATE TABLE IF NOT EXISTS conversion_upload_rejections (tenant_id BIGINT UNSIGNED NOT NULL,id CHAR(36) NOT NULL,actor_id BIGINT UNSIGNED NULL,sha256 CHAR(64) NOT NULL,code VARCHAR(48) NOT NULL,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(tenant_id,id),KEY upload_rejections(tenant_id,created_at)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
 export const EPUB_INTAKE_DDL=[
  EPUB_INPUT_DDL,
+ EPUB_INPUT_REVIEW_DDL,
  ...EPUB_GUIDELINE_DDL,
  ...EPUB_SUBMISSION_DDL,
  ...EPUB_UPLOAD_DDL,
